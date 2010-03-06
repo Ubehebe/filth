@@ -154,8 +154,8 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
   sa.sin6_family = AF_INET6;
   sa.sin6_port = htons(atoi(portno));
   memcpy(
-	 (void *) &sa.sin6_addr.s6_addr,
-	 (void *) (((struct sockaddr_in6*) (tmp->ifa_addr))->sin6_addr.s6_addr),
+	 (void *) &sa.sin6_addr,
+	 (void *) (((struct sockaddr_in6*) (tmp->ifa_addr))->sin6_addr),
 	 16);
 
   freeifaddrs(ifap);
