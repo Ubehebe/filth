@@ -1,0 +1,10 @@
+/* See RFC 2616, section 5.1.1. */
+/* The second argument means "is implemented". */
+DEFINE_ME(CONNECT, 0)
+DEFINE_ME(DELETE, 0)
+DEFINE_ME(GET, 1)
+DEFINE_ME(HEAD, 1)
+DEFINE_ME(OPTIONS, 0)
+DEFINE_ME(POST, 0)
+DEFINE_ME(PUT, 0)
+DEFINE_ME(TRACE, 0)

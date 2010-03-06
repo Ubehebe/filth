@@ -1,0 +1,10 @@
+/* List of environment variables to check for during server startup.
+ * argv[0] is used as a prefix for the others, e.g. if argv[0] is "./foo" then
+ * the server will look for "foo_default_resource", etc.
+ * DEFINE_ME_CONSTANT and DEFINE_ME_PATH are the same, except
+ * DEFINE_ME_PATH tells the server to make sure the value of the variable
+ * is a valid path. */
+DEFINE_ME_CONSTANT(default_resource)
+DEFINE_ME_CONSTANT(port)
+DEFINE_ME_CONSTANT(ifnam)
+DEFINE_ME_PATH(mount)
