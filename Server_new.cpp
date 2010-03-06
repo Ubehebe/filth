@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <iostream>
 #include <list>
 #include <net/if.h>
@@ -10,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -79,22 +81,32 @@ void Server::serve()
 
 void Server::setup_AF_INET(char const *portno, char const *ifnam)
 {
-  struct ifreq req;
-  memset((void *)&req, 0, sizeof(req));
-  strncpy(req.ifr_name, ifnam, IFNAMSIZ);
+  struct ifaddrs *ifap;
 
-  if (ioctl(listenfd, SIOCGIFADDR, (void *) &req)==-1) {
-    perror("ioctl (SIOCGIFADDDR)");
-    abort();
+  if (getifaddrs(&ifap)==-1) {
+    perror("getifaddrs");
+    exit(1);
   }
 
-  struct sockaddr_in *tmp = (struct sockaddr_in *) &req.ifr_ifru;
+  struct ifaddrs *tmp;
+  for (tmp = ifap; tmp != NULL; tmp = tmp->ifa_next) {
+    if (strncmp(tmp->ifa_name, ifnam, strlen(tmp->ifa_name))==0
+	&& tmp->ifa_addr->sa_family == AF_INET)
+      break;
+  }
+  if (tmp == NULL) {
+    printf("interface %s not found for family AF_INET\n", ifnam);
+    exit(1);
+  }
 
   struct sockaddr_in sa;
   memset((void *)&sa, 0, sizeof(sa));
   sa.sin_family = AF_INET;
   sa.sin_port = htons(atoi(portno));
-  sa.sin_addr.s_addr = tmp->sin_addr.s_addr;
+  sa.sin_addr.s_addr
+    = ((struct sockaddr_in *) (tmp->ifa_addr))->sin_addr.s_addr;
+
+  freeifaddrs(ifap);
 
   // This should catch the case when portno is bad.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
@@ -106,6 +118,7 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
     perror("getsockname");
     abort();
   }
+
   char ipnam[INET_ADDRSTRLEN];
   if (inet_ntop(AF_INET, (void *) &sa.sin_addr, ipnam, INET_ADDRSTRLEN)
       ==NULL) {
@@ -118,22 +131,34 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
 
 void Server::setup_AF_INET6(char const *portno, char const *ifnam)
 {
-  struct ifreq req;
-  memset((void *)&req, 0, sizeof(req));
-  strncpy(req.ifr_name, ifnam, IFNAMSIZ);
+  struct ifaddrs *ifap;
 
-  if (ioctl(listenfd, SIOCGIFADDR, (void *) &req)==-1) {
-    perror("ioctl (SIOCGIFADDDR)");
-    abort();
+  if (getifaddrs(&ifap)==-1) {
+    perror("getifaddrs");
+    exit(1);
   }
 
-  struct sockaddr_in6 *tmp = (struct sockaddr_in6 *) &req.ifr_ifru;
+  struct ifaddrs *tmp;
+  for (tmp = ifap; tmp != NULL; tmp = tmp->ifa_next) {
+    if (strncmp(tmp->ifa_name, ifnam, strlen(tmp->ifa_name))==0
+	&& tmp->ifa_addr->sa_family == AF_INET6)
+      break;
+  }
+  if (tmp == NULL) {
+    printf("interface %s not found for family AF_INET6\n", ifnam);
+    exit(1);
+  }
 
   struct sockaddr_in6 sa;
   memset((void *)&sa, 0, sizeof(sa));
   sa.sin6_family = AF_INET6;
   sa.sin6_port = htons(atoi(portno));
-  memcpy((void *) &sa.sin6_addr.s6_addr, (void *)&tmp->sin6_addr.s6_addr, 16);
+  memcpy(
+	 (void *) &sa.sin6_addr.s6_addr,
+	 (void *) (((struct sockaddr_in6*) (tmp->ifa_addr))->sin6_addr.s6_addr),
+	 16);
+
+  freeifaddrs(ifap);
 
   // This should catch the case when portno is bad.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
