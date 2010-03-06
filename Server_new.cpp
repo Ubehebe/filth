@@ -23,7 +23,7 @@ Server::Server(int domain, mkWork &makework, char const *bindto,
 {
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     perror("socket");
-    abort();
+    exit(1);
   }
 
   // So the workers know where to get work.
@@ -35,7 +35,7 @@ Server::Server(int domain, mkWork &makework, char const *bindto,
   case AF_LOCAL: setup_AF_LOCAL(bindto); break;
   default: std::cerr << "Server::Server: unsupported domain "
 		     << domain << ", aborting\n";
-    abort();
+    exit(1);
   }
 
   // Everything below should be domain-independent.
@@ -44,15 +44,15 @@ Server::Server(int domain, mkWork &makework, char const *bindto,
   int flags;
   if ((flags = fcntl(listenfd, F_GETFL))==-1) {
     perror("fcntl (F_GETFL)");
-    abort();
+    exit(1);
   }
   if (fcntl(listenfd, F_SETFL, flags|O_NONBLOCK)==-1) {
     perror("fcntl (F_SETFL)");
-    abort();
+    exit(1);
   }
   if (listen(listenfd, listenq)==-1) {
     perror("listen");
-    abort();
+    exit(1);
   }
 
   // listenfd was meaningless until we bound it.
@@ -111,19 +111,19 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
   // This should catch the case when portno is bad.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
     perror("bind");
-    abort();
+    exit(1);
   }
   socklen_t salen = sizeof(sa);
   if (getsockname(listenfd, (struct sockaddr *) &sa, &salen)==-1) {
     perror("getsockname");
-    abort();
+    exit(1);
   }
 
   char ipnam[INET_ADDRSTRLEN];
   if (inet_ntop(AF_INET, (void *) &sa.sin_addr, ipnam, INET_ADDRSTRLEN)
       ==NULL) {
     perror("inet_ntop");
-    abort();
+    exit(1);
   }
   std::cout << "listening on " << ipnam << ":"
 	    << ntohs(sa.sin_port) << std::endl;
@@ -153,33 +153,34 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
   memset((void *)&sa, 0, sizeof(sa));
   sa.sin6_family = AF_INET6;
   sa.sin6_port = htons(atoi(portno));
-  memcpy(
-	 (void *) &sa.sin6_addr,
+  memcpy((void *) &sa.sin6_addr,
 	 (void *) (&((struct sockaddr_in6*) (tmp->ifa_addr))->sin6_addr),
-	 16);
+	 sizeof(struct in6_addr));
 
   freeifaddrs(ifap);
 
- char ipnam[INET6_ADDRSTRLEN];
-  if (inet_ntop(AF_INET6, (void *) &sa.sin6_addr, ipnam, INET6_ADDRSTRLEN)
-      ==NULL) {
-    perror("inet_ntop");
-    abort();
-  }
-  std::cout << "listening on " << ipnam << ":"
-	    << ntohs(sa.sin6_port) << std::endl;
 
   // This should catch the case when portno is bad.
+  /* TODO: why does bind succeed for ipv6 on loopback interface
+   * but not e.g. eth0? */
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
     perror("bind");
-    abort();
+    exit(1);
   }
   socklen_t salen = sizeof(sa);
   if (getsockname(listenfd, (struct sockaddr *) &sa, &salen)==-1) {
     perror("getsockname");
-    abort();
+    exit(1);
   }
- 
+
+  char ipnam[INET6_ADDRSTRLEN];
+  if (inet_ntop(AF_INET6, (void *) &sa.sin6_addr, ipnam, INET6_ADDRSTRLEN)
+      ==NULL) {
+    perror("inet_ntop");
+    exit(1);
+  }
+  std::cout << "listening on " << ipnam << ":"
+	    << ntohs(sa.sin6_port) << std::endl;
 }
 
 void Server::setup_AF_LOCAL(char const *bindto)
@@ -198,7 +199,7 @@ void Server::setup_AF_LOCAL(char const *bindto)
   // This will fail if the path exists, which is what we want.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
     perror("bind");
-    abort();
+    exit(1);
   }
   std::cout << "listening on " << sa.sun_path << std::endl;
 }
@@ -208,10 +209,10 @@ void Server::block_all_signals()
   sigset_t sigs;
   if (sigfillset(&sigs)==-1) {
     perror("sigfillset");
-    abort();
+    exit(1);
   }
   if ((errno = pthread_sigmask(SIG_SETMASK, &sigs, NULL)) != 0) {
     perror("pthread_sigmask");
-    abort();
+    exit(1);
   }
 }
