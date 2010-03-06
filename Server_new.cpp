@@ -160,6 +160,15 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
 
   freeifaddrs(ifap);
 
+ char ipnam[INET6_ADDRSTRLEN];
+  if (inet_ntop(AF_INET6, (void *) &sa.sin6_addr, ipnam, INET6_ADDRSTRLEN)
+      ==NULL) {
+    perror("inet_ntop");
+    abort();
+  }
+  std::cout << "listening on " << ipnam << ":"
+	    << ntohs(sa.sin6_port) << std::endl;
+
   // This should catch the case when portno is bad.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
     perror("bind");
@@ -170,14 +179,7 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
     perror("getsockname");
     abort();
   }
-  char ipnam[INET6_ADDRSTRLEN];
-  if (inet_ntop(AF_INET6, (void *) &sa.sin6_addr, ipnam, INET6_ADDRSTRLEN)
-      ==NULL) {
-    perror("inet_ntop");
-    abort();
-  }
-  std::cout << "listening on " << ipnam << ":"
-	    << ntohs(sa.sin6_port) << std::endl;
+ 
 }
 
 void Server::setup_AF_LOCAL(char const *bindto)
