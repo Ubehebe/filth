@@ -1,5 +1,5 @@
-#ifndef WORK_H
-#define WORK_H
+#ifndef WORK_HPP
+#define WORK_HPP
 
 class Work
 {
@@ -21,4 +21,4 @@ public:
   virtual Work *operator()(int fd, Work::mode m) = 0;
 };
 
-#endif // WORK_H
+#endif // WORK_HPP

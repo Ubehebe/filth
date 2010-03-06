@@ -1,5 +1,5 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef SERVER_HPP
+#define SERVER_HPP
 
 #include "LockedQueue.h"
 #include "Scheduler_new.h"
@@ -33,4 +33,4 @@ public:
   void serve();
 };
 
-#endif // SERVER_H
+#endif // SERVER_HPP

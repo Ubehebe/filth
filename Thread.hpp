@@ -1,5 +1,5 @@
-#ifndef THREAD_H
-#define THREAD_H
+#ifndef THREAD_HPP
+#define THREAD_HPP
 
 #include <pthread.h>
 #include <signal.h>
@@ -56,4 +56,4 @@ private:
 // Ugh! This is a crappy pattern to avoid template errors in the linker.
 #include "Thread.cpp"
 
-#endif // THREAD_H
+#endif // THREAD_HPP

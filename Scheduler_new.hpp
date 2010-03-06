@@ -1,5 +1,5 @@
-#ifndef SCHEDULER_H
-#define SCHEDULER_H
+#ifndef SCHEDULER_HPP
+#define SCHEDULER_HPP
 
 #include <map>
 #include <signal.h>
@@ -38,4 +38,4 @@ public:
   void poll();
 };
 
-#endif // SCHEDULER_H
+#endif // SCHEDULER_HPP

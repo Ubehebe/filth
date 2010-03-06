@@ -4,7 +4,7 @@ CGI_PROGNAME ?= ollitoco
 BASE_SRCS = Scheduler_new.cpp Server_new.cpp Worker_new.cpp Locks.cpp
 BASE_OBJS = $(BASE_SRCS:.cpp=.o)
 
-HTTP_SRCS = HTTP_constants.cpp HTTP_env.cpp HTTP_main.cpp HTTP_Work.cpp
+HTTP_SRCS = HTTP_constants.cpp HTTP_cmdline.cpp HTTP_main.cpp HTTP_Work.cpp
 HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 
 CGI_SRCS = CGI_main.cpp
@@ -28,8 +28,8 @@ Worker_new.o: Worker_new.h LockedQueue.h Locks.h Work.h
 Locks.o: Locks.h
 HTTP_constants.o: HTTP_constants.h HTTP_status.def HTTP_methods.def
 HTTP_constants.o: HTTP_headers.def HTTP_Parse_Err.h ServerErrs.h
-HTTP_env.o: HTTP_env.h HTTP_env.def
-HTTP_main.o: HTTP_Server.h HTTP_env.h HTTP_env.def HTTP_Work.h LockedQueue.h
-HTTP_main.o: Locks.h Scheduler_new.h Work.h Server_new.h Thread.h Thread.cpp
-HTTP_main.o: Worker_new.h ServerErrs.h
+HTTP_cmdline.o: HTTP_cmdline.h HTTP_cmdline.def
+HTTP_main.o: HTTP_Server.h HTTP_cmdline.h HTTP_cmdline.def HTTP_Work.h
+HTTP_main.o: LockedQueue.h Locks.h Scheduler_new.h Work.h Server_new.h
+HTTP_main.o: Thread.h Thread.cpp Worker_new.h ServerErrs.h
 HTTP_Work.o: HTTP_Work.h LockedQueue.h Locks.h Scheduler_new.h Work.h

@@ -1,5 +1,5 @@
-#ifndef LOCKED_QUEUE_H
-#define LOCKED_QUEUE_H
+#ifndef LOCKED_QUEUE_HPP
+#define LOCKED_QUEUE_HPP
 
 #include <errno.h>
 #include <stdio.h>
@@ -42,5 +42,4 @@ template<class T> T LockedQueue<T>::wait_deq()
   return ans;
 }
 
-
-#endif // LOCKED_QUEUE_H
+#endif // LOCKED_QUEUE_HPP

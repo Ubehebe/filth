@@ -1,5 +1,5 @@
-#ifndef WORKER_H
-#define WORKER_H
+#ifndef WORKER_HPP
+#define WORKER_HPP
 
 #include "LockedQueue.h"
 #include "Work.h"
@@ -17,4 +17,4 @@ public:
   void work();
 };
 
-#endif // WORKER_H
+#endif // WORKER_HPP

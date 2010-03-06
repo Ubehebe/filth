@@ -1,5 +1,5 @@
-#ifndef HTTP_WORK_H
-#define HTTP_WORK_H
+#ifndef HTTP_WORK_HPP
+#define HTTP_WORK_HPP
 
 #include <map>
 #include <sys/types.h>
@@ -44,9 +44,4 @@ public:
   void init(LockedQueue<Work *> *_q, Scheduler *sch);
 };
 
-
-
-
-
-
-#endif // HTTP_WORK_H
+#endif // HTTP_WORK_HPP

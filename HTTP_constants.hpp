@@ -1,5 +1,5 @@
-#ifndef HTTP_CONSTANTS_H
-#define HTTP_CONSTANTS_H
+#ifndef HTTP_CONSTANTS_HPP
+#define HTTP_CONSTANTS_HPP
 
 #include <iostream>
 #include <stdint.h>
@@ -52,4 +52,4 @@ namespace HTTP_constants
 
 };
 
-#endif // HTTP_CONSTANTS_H
+#endif // HTTP_CONSTANTS_HPP

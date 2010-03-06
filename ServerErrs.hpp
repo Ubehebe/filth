@@ -1,5 +1,5 @@
-#ifndef SERVER_ERR_H
-#define SERVER_ERR_H
+#ifndef SERVER_ERR_HPP
+#define SERVER_ERR_HPP
 
 struct ServerErr
 {
@@ -21,4 +21,4 @@ struct SocketErr : ServerErr
   SocketErr(char const *msg, int err) : ServerErr(msg), err(err) {}
 };
 
-#endif // SERVER_ERR_H
+#endif // SERVER_ERR_HPP

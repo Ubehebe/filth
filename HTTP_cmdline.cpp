@@ -3,44 +3,44 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "HTTP_env.h"
+#include "HTTP_cmdline.h"
 
-namespace HTTP_env
+namespace HTTP_cmdline
 {
 
   size_t const num_flag = 
 #define DEFINE_ME(_name, _short, _long, _default, _desc) +1
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
     ;
 
   char const *flag_names[] = {
 #define DEFINE_ME(_name, _short, _long, _default, _desc) #_name,
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
   };
 
   char const *flag_shorts[] = {
 #define DEFINE_ME(_name, _short, _long, _default, _desc) #_short,
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
   };
 
   char const *flag_longs[] = {
 #define DEFINE_ME(_name, _short, _long, _default, _desc) #_long,
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
   };
 
   char const *flag_vals[] = {
 #define DEFINE_ME(_name, _short, _long, _default, _desc) #_default,
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
   };
 
   char const *flag_descs[] = {
 #define DEFINE_ME(_name, _short, _long, _default, _desc) #_desc,
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
   };
 

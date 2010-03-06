@@ -2,7 +2,7 @@
 #include <string.h>
 #include "HTTP_Server.h"
 
-using namespace HTTP_env;
+using namespace HTTP_cmdline;
 
 int main(int argc, char **argv)
 {

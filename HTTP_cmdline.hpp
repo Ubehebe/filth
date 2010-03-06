@@ -1,18 +1,18 @@
-#ifndef HTTP_ENV_H
-#define HTTP_ENV_H
+#ifndef HTTP_CMDLINE_HPP
+#define HTTP_CMDLINE_HPP
 
 #include <sys/types.h>
 
-namespace HTTP_env
+namespace HTTP_cmdline
 {
   enum flag
     {
 #define DEFINE_ME(_name, _short, _long, _default, _desc) _name,
-#include "HTTP_env.def"
+#include "HTTP_cmdline.def"
 #undef DEFINE_ME
     };
 
-  // These are all defined in HTTP_env.cpp
+  // These are all defined in HTTP_cmdline.cpp
   extern size_t const num_flag;
   extern char const *flag_names[];
   extern char const *flag_shorts[];
@@ -26,4 +26,4 @@ namespace HTTP_env
 };
 
 
-#endif // HTTP_ENV_H
+#endif // HTTP_CMDLINE_HPP

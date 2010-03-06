@@ -1,5 +1,5 @@
-#ifndef LOCKS_H
-#define LOCKS_H
+#ifndef LOCKS_HPP
+#define LOCKS_HPP
 
 #include <pthread.h>
 
@@ -43,4 +43,4 @@ public:
 
 
 
-#endif // LOCKS_H
+#endif // LOCKS_HPP
