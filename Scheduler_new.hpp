@@ -3,8 +3,8 @@
 
 #include <map>
 #include <signal.h>
-#include "LockedQueue.h"
-#include "Work.h"
+#include "LockedQueue.hpp"
+#include "Work.hpp"
 
 class Scheduler
 {

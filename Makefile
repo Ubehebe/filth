@@ -21,15 +21,18 @@ clean:
 	rm -f *.o *~ *\# $(HTTP_PROGNAME)
 # DO NOT DELETE
 
-Scheduler_new.o: Scheduler_new.h LockedQueue.h Locks.h Work.h ServerErrs.h
-Server_new.o: Server_new.h LockedQueue.h Locks.h Scheduler_new.h Work.h
-Server_new.o: Thread.h Thread.cpp Worker_new.h
-Worker_new.o: Worker_new.h LockedQueue.h Locks.h Work.h
-Locks.o: Locks.h
-HTTP_constants.o: HTTP_constants.h HTTP_status.def HTTP_methods.def
-HTTP_constants.o: HTTP_headers.def HTTP_Parse_Err.h ServerErrs.h
-HTTP_cmdline.o: HTTP_cmdline.h HTTP_cmdline.def
-HTTP_main.o: HTTP_Server.h HTTP_cmdline.h HTTP_cmdline.def HTTP_Work.h
-HTTP_main.o: LockedQueue.h Locks.h Scheduler_new.h Work.h Server_new.h
-HTTP_main.o: Thread.h Thread.cpp Worker_new.h ServerErrs.h
-HTTP_Work.o: HTTP_Work.h LockedQueue.h Locks.h Scheduler_new.h Work.h
+Scheduler_new.o: Scheduler_new.hpp LockedQueue.hpp Locks.hpp Work.hpp
+Scheduler_new.o: ServerErrs.hpp
+Server_new.o: Server_new.hpp LockedQueue.hpp Locks.hpp Scheduler_new.hpp
+Server_new.o: Work.hpp Thread.hpp Thread.cpp Worker_new.hpp
+Worker_new.o: Worker_new.hpp LockedQueue.hpp Locks.hpp Work.hpp
+Locks.o: Locks.hpp
+HTTP_constants.o: HTTP_constants.hpp HTTP_status.def HTTP_methods.def
+HTTP_constants.o: HTTP_headers.def HTTP_Parse_Err.hpp ServerErrs.hpp
+HTTP_cmdline.o: HTTP_cmdline.hpp HTTP_cmdline.def
+HTTP_main.o: HTTP_Server.hpp HTTP_cmdline.hpp HTTP_cmdline.def HTTP_Work.hpp
+HTTP_main.o: LockedQueue.hpp Locks.hpp Scheduler_new.hpp Work.hpp
+HTTP_main.o: Server_new.hpp Thread.hpp Thread.cpp Worker_new.hpp
+HTTP_main.o: ServerErrs.hpp
+HTTP_Work.o: HTTP_Work.hpp LockedQueue.hpp Locks.hpp Scheduler_new.hpp
+HTTP_Work.o: Work.hpp

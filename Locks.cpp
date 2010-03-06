@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "Locks.h"
+#include "Locks.hpp"
 
 Mutex::Mutex()
 {

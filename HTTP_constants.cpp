@@ -1,5 +1,6 @@
-#include "HTTP_constants.h"
-#include "HTTP_Parse_Err.h"
+#include "HTTP_constants.hpp"
+#include "HTTP_Parse_Err.hpp"
+
 /* TODO: All the operator>>'s, and certainly all
  * the operator<<'s, work the same way, with some
  * minor details. Is there a way to templatize them

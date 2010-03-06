@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "Locks.h"
+#include "Locks.hpp"
 
 template<class T> class LockedQueue
 {

@@ -1,5 +1,5 @@
 #include <iostream>
-#include "HTTP_Work.h"
+#include "HTTP_Work.hpp"
 
 LockedQueue<Work *> *HTTP_Work::q = NULL;
 Scheduler *HTTP_Work::sch = NULL;

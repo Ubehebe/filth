@@ -1,8 +1,8 @@
 #ifndef WORKER_HPP
 #define WORKER_HPP
 
-#include "LockedQueue.h"
-#include "Work.h"
+#include "LockedQueue.hpp"
+#include "Work.hpp"
 
 class Worker
 {

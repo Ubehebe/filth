@@ -12,7 +12,8 @@
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include "Server_new.h"
+
+#include "Server_new.hpp"
 
 Server::Server(int domain, mkWork &makework, char const *bindto,
 	       char const *ifnam, int nworkers, int listenq)

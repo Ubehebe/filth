@@ -1,15 +1,15 @@
-#ifndef HTTP_SERVER_H
-#define HTTP_SERVER_H
+#ifndef HTTP_SERVER_HPP
+#define HTTP_SERVER_HPP
 
 #include <iostream>
 #include <map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include "HTTP_cmdline.h"
-#include "HTTP_Work.h"
-#include "Server_new.h"
-#include "ServerErrs.h"
+#include "HTTP_cmdline.hpp"
+#include "HTTP_Work.hpp"
+#include "Server_new.hpp"
+#include "ServerErrs.hpp"
 
 class HTTP_Server : public Server
 {
@@ -23,4 +23,4 @@ public:
   }
 };
 
-#endif // HTTP_SERVER_H
+#endif // HTTP_SERVER_HPP

@@ -8,8 +8,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "Scheduler_new.h"
-#include "ServerErrs.h"
+#include "Scheduler_new.hpp"
+#include "ServerErrs.hpp"
 
 using namespace std;
 

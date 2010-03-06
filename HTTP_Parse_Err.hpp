@@ -1,8 +1,8 @@
 #ifndef HTTP_PARSE_ERR_HPP
 #define HTTP_PARSE_ERR_HPP
 
-#include "HTTP_constants.h"
-#include "ServerErrs.h"
+#include "HTTP_constants.hpp"
+#include "ServerErrs.hpp"
 
 struct HTTP_Parse_Err : ServerErr
 {

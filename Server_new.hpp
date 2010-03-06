@@ -1,10 +1,10 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include "LockedQueue.h"
-#include "Scheduler_new.h"
-#include "Thread.h"
-#include "Worker_new.h"
+#include "LockedQueue.hpp"
+#include "Scheduler_new.hpp"
+#include "Thread.hpp"
+#include "Worker_new.hpp"
 
 class Server
 {

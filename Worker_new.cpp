@@ -1,7 +1,8 @@
 #include <errno.h>
 #include <iostream>
 #include <unistd.h>
-#include "Worker_new.h"
+
+#include "Worker_new.hpp"
 
 LockedQueue<Work *> *Worker::q = NULL;
 
