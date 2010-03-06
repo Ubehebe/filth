@@ -1,8 +1,7 @@
 #include <errno.h>
-#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
+#include <string.h>
 
 #include "HTTP_env.h"
 
@@ -10,81 +9,92 @@ namespace HTTP_env
 {
 
 
-  size_t const num_env = 
-#define DEFINE_ME_CONSTANT(ignore) +1
-#define DEFINE_ME_PATH(ignore) +1
+  size_t const num_flag = 
+#define DEFINE_ME(_name, _short, _long, _default, _desc) +1
 #include "HTTP_env.def"
-#undef DEFINE_ME_PATH
-#undef DEFINE_ME_CONSTANT
-			      ;
+#undef DEFINE_ME
+    ;
 
-  char const *env_names[] = {
-#define DEFINE_ME_CONSTANT(name) #name,
-#define DEFINE_ME_PATH(name) #name,
+  char const *flag_names[] = {
+#define DEFINE_ME(_name, _short, _long, _default, _desc) #_name,
 #include "HTTP_env.def"
-#undef DEFINE_ME_PATH
-#undef DEFINE_ME_CONSTANT
+#undef DEFINE_ME
   };
 
-  /* Will all be filled in from environment vars at startup.
-   * Note that some may need to be converted from strings to
-   * numbers. */
-  char const *env_vals[] = {
-#define DEFINE_ME_CONSTANT(name) "",
-#define DEFINE_ME_PATH(name) "",
+  char const *flag_shorts[] = {
+#define DEFINE_ME(_name, _short, _long, _default, _desc) #_short
 #include "HTTP_env.def"
-#undef DEFINE_ME_PATH
-#undef DEFINE_ME_CONSTANT
+#undef DEFINE_ME
   };
 
-  // Will be filled in from argv[0] at startup
-  char const *progname = "";
-
-  bool const env_ispath[] = {
-#define DEFINE_ME_CONSTANT(ignore) false,
-#define DEFINE_ME_PATH(ignore) true,
+  char const *flag_longs[] = {
+#define DEFINE_ME(_name, _short, _long, _default, _desc) #_long
 #include "HTTP_env.def"
-#undef DEFINE_ME_PATH
-#undef DEFINE_ME_CONSTANT
+#undef DEFINE_ME
   };
 
-  /* Collect environment variables.
-   * Every environment variable is of the form progname_xyzzy,
-   * where progname is argv[0] (without the leading ./) and xyzzy
-   * is a name defined in HTTP_env.def. */
-  void collectenvs(char const *argv0)
+  char const *flag_vals[] = {
+#define DEFINE_ME(name, short, long, _default, _desc) #_default
+#include "HTTP_env.def"
+#undef DEFINE_ME
+  };
+
+  char const *flag_descs[] = {
+#define DEFINE_ME(name, short, long, _default, _desc) #_desc
+#include "HTTP_env.def"
+#undef DEFINE_ME
+  };
+
+  void parseflags(int argc, char **argv)
   {
-    progname = &argv0[2];
-    std::string tmp;
-    bool doabort = false;
-  
-    for (int i=0; i < num_env; ++i) {
-      tmp = std::string(progname) + "_" + env_names[i];
-      if ((env_vals[i] = getenv(tmp.c_str())) == NULL) {
-	std::cout << "fatal error: environment variable "
-		  << tmp << " undefined\n";
-	doabort = true;
+    char *tmp, *eq;
+    int i,j;
+    for (i=1; i<argc; ++i) {
+      tmp = argv[i];
+      if (tmp[0] != '-' || strlen(tmp) == 1) {
+	printf("%s: extra operand `%s'\n"
+	       "Try `%s --help' for more information.\n",
+	       argv[0], tmp, argv[0]);
+	exit(1);
       }
-      /* Some of the environment variables are filepaths. Make sure we can
-       * visit these. */
-      else if (env_ispath[i]) {
-	if (tmp.find("..") != std::string::npos) {
-	  std::cout << "fatal error: bad environment variable "
-		    << tmp << "=" << env_vals[i] << ": has a \"..\"\n";
-	  doabort = true;
+      // Long form of flag.
+      else if (tmp[1] == '-') {
+	for (j=0; j<num_flag; ++j) {
+	  if (strncmp(&tmp[2], flag_longs[j],
+		      strlen(flag_longs[j]))==0) {
+	    // Right now, all the options require args.
+	    if ((eq = strchr(tmp, '='))==NULL) {
+	      printf(
+	      exit(1);
+	    }
+	    flag_vals[j] = eq+1;
+	    break;
+	  }
 	}
-	/* Currently there is only one environment variable that is a filepath,
-	 * namely the mount point, so this will chdir the server into the mount
-	 * point. If we add more filepath environment variables, we should
-	 * make this less subtle. */
-	if (chdir(env_vals[i]) == -1) {
-	  std::cout << "fatal error: couldn't visit "
-		    << tmp << "=" << env_vals[i] << std::endl;
-	  doabort = true;
+	if (j == num_flag) {
+	  printf("%s: unrecognized option '%s'\n"
+		 "Try `%s --help' for more information.",
+		 argv[0], tmp, argv[0]);
+	  exit(1);
+	}
+      }
+      // Short form of flag.
+      else {
+	for (j=0; j<num_flag; ++j) {
+	  if (tmp[1] == flag_shorts[j][0]) {
+	    flag_vals[j] = tmp+2;
+	    break;
+	  }
+	}
+	if (j == num_flag) {
+	  printf("%s: invalid option -- '%c'\n"
+		 "Try `%s --help' for more information.",
+		 argv[0], tmp[1], argv[0]);
+	  exit(1);
 	}
       }
     }
-    if (doabort) abort();
   }
 
+  void
 };

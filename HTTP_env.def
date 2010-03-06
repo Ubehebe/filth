@@ -1,10 +1,11 @@
-/* List of environment variables to check for during server startup.
- * argv[0] is used as a prefix for the others, e.g. if argv[0] is "./foo" then
- * the server will look for "foo_default_resource", etc.
- * DEFINE_ME_CONSTANT and DEFINE_ME_PATH are the same, except
- * DEFINE_ME_PATH tells the server to make sure the value of the variable
- * is a valid path. */
-DEFINE_ME_CONSTANT(default_resource)
-DEFINE_ME_CONSTANT(port)
-DEFINE_ME_CONSTANT(ifnam)
-DEFINE_ME_PATH(mount)
+/* Supported command-line options. Argument 1 is the server's
+ * internal name for the option. Arguments 2 and 3 are the
+ * short and long forms of the flag, respectively; e.g.
+ * -d means the same as --default-resource. Argument 4 is
+ * the value the server will use if none is specified on the
+ * command line. Argument 5 is a short human-readable description
+ * of the option. */
+DEFINE_ME(default_resource, d, default-resource, index.html, "resource to serve when \"/\" is requested")
+DEFINE_ME(port, p, port, 80, "port to listen on")
+DEFINE_ME(ifnam, i, interface, eth0, "interface to use")
+DEFINE_ME(mount, m, mount, /, "where in the filesystem to mount")
