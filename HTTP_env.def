@@ -4,8 +4,13 @@
  * -d means the same as --default-resource. Argument 4 is
  * the value the server will use if none is specified on the
  * command line. Argument 5 is a short human-readable description
- * of the option. */
-DEFINE_ME(default_resource, d, default-resource, index.html, "resource to serve when \"/\" is requested")
-DEFINE_ME(port, p, port, 80, "port to listen on")
-DEFINE_ME(ifnam, i, interface, eth0, "interface to use")
-DEFINE_ME(mount, m, mount, /, "where in the filesystem to mount")
+ * of the option.
+ *
+ * Should be in alphabetical order by argument 2 in order to look nice
+ * for --help. */
+DEFINE_ME(default_resource, d, default-resource, index.html, resource to serve when "/" is requested)
+DEFINE_ME(ifnam, i, interface, lo, network interface to use)
+DEFINE_ME(mount, m, mount, /, where in the filesystem to mount)
+DEFINE_ME(port, p, port, 80, port to listen on)
+DEFINE_ME(ipv, v, ip-version, 4, Internet Protocol version to use)
+DEFINE_ME(nworkers, w, nworkers, 10, number of worker threads)

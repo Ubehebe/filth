@@ -16,8 +16,8 @@ class HTTP_Server : public Server
   std::map<std::string, std::pair<time_t, std::string *> > cache;
   HTTP_mkWork makework;
 public:
-  HTTP_Server(char const *portno, char const *ifnam)
-    : Server(AF_INET, makework, portno, ifnam)
+  HTTP_Server(int domain, char const *portno, char const *ifnam, int nworkers)
+    : Server(domain, makework, portno, ifnam, nworkers)
   {
     makework.init(&q, &sch);
   }

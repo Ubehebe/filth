@@ -29,7 +29,7 @@ protected:
 
 public:
   Server(int domain, mkWork &makework, char const *bindto,
-	 char const *ifnam="eth0", int nworkers=10, int listenq=10);
+	 char const *ifnam, int nworkers, int listenq=10);
   void serve();
 };
 

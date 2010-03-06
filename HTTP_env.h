@@ -7,7 +7,7 @@ namespace HTTP_env
 {
   enum flag
     {
-#define DEFINE_ME(_name, _short, _long, _default, _desc) name,
+#define DEFINE_ME(_name, _short, _long, _default, _desc) _name,
 #include "HTTP_env.def"
 #undef DEFINE_ME
     };
@@ -20,7 +20,9 @@ namespace HTTP_env
   extern char const *flag_vals[];
   extern char const *flag_descs[];
 
-  void parseflags(int argc, char **argv);
+  void parsecmdline(int argc, char **argv);
+  inline void unrecognized_option(char *argv0, char *option);
+  inline void print_help(char *argv0);
 };
 
 
