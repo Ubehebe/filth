@@ -66,7 +66,11 @@ void Server::serve()
   block_all_signals();
   /* ...what I really mean is they go to the signal fd IN the scheduler.
    * This guy has to be named in order not to go out of scope immediately. */
-  Thread<Scheduler> _blah(&sch, &Scheduler::poll, sigmasks::BLOCK_ALL);
+  /* TODO: we need BLOCK_NONE for the signalfd mechanism and BLOCK_NONE minus
+   * SIGINT (or whatever signals we have handlers for) for the non-signalfd
+   * mechanism. So maybe a better design for the Thread class would be
+   * to let the contained object decide its signal mask. */
+  Thread<Scheduler> _blah(&sch, &Scheduler::poll, sigmasks::BLOCK_NONE);
 
   Thread<Worker>::set_default_sigmask(sigmasks::BLOCK_ALL);
   std::list<Thread<Worker> *> workers;

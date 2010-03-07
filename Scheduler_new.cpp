@@ -116,8 +116,17 @@ void Scheduler::poll()
 
   while (dowork) {
     if ((nchanged = epoll_wait(pollfd, fds, maxevents, -1))<0) {
-      throw ResourceErr("epoll_wait", errno);
+      /* If we are using dumb signal handlers instead of the cool signalfd
+       * mechanism, there is a good chance the signal handler will interrupt
+       * the epoll_wait. In this case we don't want to do anything;
+       * the signal handler should have changed dowork to false,
+       * so we'll fall through the loop. */
+      if (errno == EINTR)
+	continue;
+      else
+	throw ResourceErr("epoll_wait", errno);
     }
+
     /* This is sequential, but should not be a bottleneck because no
      * blocking is involved. I suppose we could put the fd's of interest
      * into a queue and have workers inspect them...probably overkill. */
@@ -231,7 +240,9 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
   }
 
   else {
+    cerr << "pushing non-signalfd handler\n";
     struct sigaction act;
+    memset((void *)&act, 0, sizeof(act));
     if (sigemptyset(&act.sa_mask)!=0) {
       perror("sigemptyset");
       exit(1);

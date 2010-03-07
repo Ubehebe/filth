@@ -16,13 +16,13 @@ template<class C> void Thread<C>::set_default_sigmask(sigmasks::builtin d)
   case sigmasks::BLOCK_NONE:
   if (sigemptyset(&default_sigmask)==-1) {
     perror("sigemptyset");
-    abort();
+    exit(1);
   }
   break;
   case sigmasks::BLOCK_ALL:
     if (sigfillset(&default_sigmask)==-1) {
       perror("sigfillset");
-      abort();
+      exit(1);
     }
     break;
   }
@@ -33,13 +33,13 @@ template<class C> void Thread<C>::set_default_sigmask(std::vector<int> sigmask)
 {
   if (sigemptyset(&default_sigmask)==-1) {
     perror("sigemptyset");
-    abort();
+    exit(1);
   }
 
   for (std::vector<int>::iterator it = sigmask.begin(); it != sigmask.end(); ++it) {
     if (sigaddset(&default_sigmask, *it)==-1) {
       perror("sigaddset");
-      abort();
+      exit(1);
     }
   }
   default_sigmask_set = true;
@@ -93,12 +93,12 @@ template<class C> void Thread<C>::set_sigmask(std::vector<int> mask)
 {
   if (sigemptyset(&_sigmask)==-1) {
     perror("sigemptyset");
-    abort();
+    exit(1);
   }
   for (std::vector<int>::iterator it = mask.begin(); it != mask.end(); ++it) {
     if (sigaddset(&_sigmask, *it)==-1) {
       perror("sigaddset");
-      abort();
+      exit(1);
     }
   }
 }
@@ -109,13 +109,13 @@ template<class C> void Thread<C>::set_sigmask(sigmasks::builtin d)
   case sigmasks::BLOCK_NONE:
     if (sigemptyset(&_sigmask)==-1) {
       perror("sigemptyset");
-      abort();
+      exit(1);
     }
     break;
   case sigmasks::BLOCK_ALL:
     if (sigfillset(&_sigmask)==-1) {
       perror("sigfillset");
-      abort();
+      exit(1);
     }
     break;
   }
@@ -127,7 +127,7 @@ template<class C> void Thread<C>::_init()
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
     perror("pthread_create");
-    abort();
+    exit(1);
   }
 }
 
@@ -136,9 +136,11 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 {
   _Thread *tmp = reinterpret_cast<_Thread *>(_Th);
 
+  /* SUBTLE BUG: the thread gets a signal before it sets its
+   * signal mask. Yikes. */
   if (pthread_sigmask(SIG_SETMASK, tmp->_sigmask, NULL) != 0) {
     perror("pthread_sigmask");
-    abort();
+    exit(1);
   }
 
   (std::mem_fun(tmp->_p))(tmp->_c);
@@ -149,7 +151,7 @@ template<class C> void Thread<C>::join()
 {
   if (pthread_join(th, NULL)!=0) {
     perror("pthread_join");
-    abort();
+    exit(1);
   }
 }
 
