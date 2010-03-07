@@ -1,7 +1,7 @@
 HTTP_PROGNAME ?= ocotillo
 CGI_PROGNAME ?= ollitoco
 
-BASE_SRCS = Scheduler_new.cpp Server_new.cpp Worker_new.cpp Locks.cpp
+BASE_SRCS = Scheduler.cpp Server.cpp Worker.cpp Locks.cpp
 BASE_OBJS = $(BASE_SRCS:.cpp=.o)
 
 HTTP_SRCS = HTTP_constants.cpp HTTP_cmdline.cpp HTTP_main.cpp HTTP_Work.cpp

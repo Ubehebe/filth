@@ -2,9 +2,9 @@
 #define SERVER_HPP
 
 #include "LockedQueue.hpp"
-#include "Scheduler_new.hpp"
+#include "Scheduler.hpp"
 #include "Thread.hpp"
-#include "Worker_new.hpp"
+#include "Worker.hpp"
 
 class Server
 {

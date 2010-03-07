@@ -1,156 +1,222 @@
 #include <algorithm>
 #include <arpa/inet.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <functional>
+#include <ifaddrs.h>
 #include <iostream>
-#include <netdb.h>
+#include <list>
+#include <net/if.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "ServerErrs.h"
-#include "Server.h"
+#include "Server.hpp"
 
-// No exception handling in here; every error is fatal.
-Server::Server(int domain, char const *bindto, void (*handle_SIGINT)(int), void (*at_exit)(),
-	       Parsing &pars, int nworkers, time_t to_sec, int listenq)
-  : domain(domain), listenq(listenq), nworkers(nworkers), to_sec(to_sec), workers(nworkers),
-    pars(pars), sch(q)
+Server::Server(int domain, mkWork &makework, char const *bindto,
+	       char const *ifnam, int nworkers, int listenq)
+  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, makework)
 {
-  // Set SIGINT handler.
-  struct sigaction act;
-  memset((void *) &act, 0, sizeof(act));
-  act.sa_handler = handle_SIGINT;
-  /* If the user is really impatient, the second SIGINT
-   * should just terminate the program. */
-  act.sa_flags = SA_RESETHAND;
-  if (sigaction(SIGINT, &act, NULL)==-1) {
-    perror("sigaction");
-    _exit(1);
-  }
-
-  // Set atexit handler.
-  if ((errno = atexit(at_exit))!=0) {
-    perror("atexit");
-    _exit(1);
-  }
-
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     perror("socket");
-    _exit(1);
+    exit(1);
   }
 
-  // TCP socket. TODO: support IPv6.
-  if (domain == AF_INET) {
-    struct sockaddr_in sa;
-    struct addrinfo *res;
+  // So the workers know where to get work.
+  Worker::q = &q;
 
-    if ((errno = getaddrinfo(NULL, bindto, NULL, &res)) != 0) {
-      perror("getaddrinfo");
-      _exit(1);
-    }
-
-    memcpy((void *)&sa, (struct sockaddr_in *) res->ai_addr, sizeof(sa));
-    freeaddrinfo(res);
-
-    if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
-      perror("bind");
-      _exit(1);
-    }
-  }
-  // Unix domain socket (for CGI)
-  else if (domain == AF_LOCAL) {
-    
-    struct sockaddr_un sa;
-    memset((void *)&sa, 0, sizeof(sa));
-    sa.sun_family = AF_LOCAL;
-    
-    strncpy(sa.sun_path, bindto, sizeof(sa.sun_path)-1);
-
-    if (strlen(bindto) > sizeof(sa.sun_path)-1) {
-      std::cerr << "warning: domain socket name "
-		<< bindto << "is too long, truncating to " << sa.sun_path;
-    }
-
-    // This will fail if the path exists, which is what we want.
-    if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
-      perror("bind");
-      _exit(1);
-    }
-  }
-  else {
-    errno = EINVAL; // domain isn't AF_INET or AF_LOCAL
-    perror("unknown domain");
-    _exit(1);
+  switch (domain) {
+  case AF_INET: setup_AF_INET(bindto, ifnam); break;
+  case AF_INET6: setup_AF_INET6(bindto, ifnam); break;
+  case AF_LOCAL: setup_AF_LOCAL(bindto); break;
+  default: std::cerr << "Server::Server: unsupported domain "
+		     << domain << ", aborting\n";
+    exit(1);
   }
 
+  // Everything below should be domain-independent.
 
   // Make listening socket nonblocking.
   int flags;
   if ((flags = fcntl(listenfd, F_GETFL))==-1) {
     perror("fcntl (F_GETFL)");
-    _exit(1);
+    exit(1);
   }
   if (fcntl(listenfd, F_SETFL, flags|O_NONBLOCK)==-1) {
     perror("fcntl (F_SETFL)");
-    _exit(1);
+    exit(1);
   }
   if (listen(listenfd, listenq)==-1) {
     perror("listen");
-    _exit(1);
+    exit(1);
   }
 
-  /* Set up workers. It's cumbersome to use generate_n because
-   * we can't pass a static function. */
-  for (std::vector<Worker *>::iterator it = workers.begin();
+  // listenfd was meaningless until we bound it.
+  sch.set_listenfd(listenfd);
+}
+
+void Server::serve()
+{
+
+  // All signals go to the scheduler...
+  block_all_signals();
+  /* ...what I really mean is they go to the signal fd IN the scheduler.
+   * This guy has to be named in order not to go out of scope immediately. */
+  /* TODO: we need BLOCK_NONE for the signalfd mechanism and BLOCK_NONE minus
+   * SIGINT (or whatever signals we have handlers for) for the non-signalfd
+   * mechanism. So maybe a better design for the Thread class would be
+   * to let the contained object decide its signal mask. */
+  Thread<Scheduler> _blah(&sch, &Scheduler::poll, sigmasks::BLOCK_NONE);
+
+  Thread<Worker>::set_default_sigmask(sigmasks::BLOCK_ALL);
+  std::list<Thread<Worker> *> workers;
+  /* The Thread destructor calls pthread_join, so this should block until
+   * all the workers and the scheduler are done. */
+  for (int i=0; i<nworkers; ++i)
+    workers.push_back(new Thread<Worker>(&Worker::work));
+  for (std::list<Thread<Worker> *>::iterator it = workers.begin();
        it != workers.end(); ++it)
-    *it = new Worker(&q, &sch, &state, &pars, to_sec);
+    delete *it;
 }
 
-Server::~Server()
+void Server::setup_AF_INET(char const *portno, char const *ifnam)
 {
-  // If a local socket, attempt to unlink from the filesystem.
-  if (domain == AF_LOCAL) {
-    struct sockaddr_un sa;
-    socklen_t salen = static_cast<socklen_t>(sizeof(sa));
-    // We currently don't print an error if getsockname fails. Should we?
-    if (getsockname(listenfd, (struct sockaddr *)&sa, &salen)==0) {
-      if (unlink(sa.sun_path)==-1) {
-	perror("unlink");
-	std::cerr << "warning: failed to unlink " << sa.sun_path
-		  << "You may want to remove it manually.\n";
-      }
-      else {
-	std::cerr << sa.sun_path << " unlinked\n";
-      }
-    }
+  struct ifaddrs *ifap;
+
+  if (getifaddrs(&ifap)==-1) {
+    perror("getifaddrs");
+    exit(1);
   }
 
-  std::cerr << "retiring " << nworkers << " workers:\n";
+  struct ifaddrs *tmp;
+  for (tmp = ifap; tmp != NULL; tmp = tmp->ifa_next) {
+    if (strncmp(tmp->ifa_name, ifnam, strlen(tmp->ifa_name))==0
+	&& tmp->ifa_addr->sa_family == AF_INET)
+      break;
+  }
+  if (tmp == NULL) {
+    printf("interface %s not found for family AF_INET\n", ifnam);
+    exit(1);
+  }
 
-  for_each(workers.begin(), workers.end(), Server::deleteWorker);
-  for_each(state.begin(), state.end(), Server::deleteState);
-     
-  /* This will cause Server::operator() to unblock, so we want
-   * to do this last. */
-  sch.shutdown();
+  struct sockaddr_in sa;
+  memset((void *)&sa, 0, sizeof(sa));
+  sa.sin_family = AF_INET;
+  sa.sin_port = htons(atoi(portno));
+  sa.sin_addr.s_addr
+    = ((struct sockaddr_in *) (tmp->ifa_addr))->sin_addr.s_addr;
+
+  freeifaddrs(ifap);
+
+  // This should catch the case when portno is bad.
+  if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
+    perror("bind");
+    exit(1);
+  }
+  socklen_t salen = sizeof(sa);
+  if (getsockname(listenfd, (struct sockaddr *) &sa, &salen)==-1) {
+    perror("getsockname");
+    exit(1);
+  }
+
+  char ipnam[INET_ADDRSTRLEN];
+  if (inet_ntop(AF_INET, (void *) &sa.sin_addr, ipnam, INET_ADDRSTRLEN)
+      ==NULL) {
+    perror("inet_ntop");
+    exit(1);
+  }
+  std::cout << "listening on " << ipnam << ":"
+	    << ntohs(sa.sin_port) << std::endl;
 }
 
-void Server::deleteWorker(Worker *w)
+void Server::setup_AF_INET6(char const *portno, char const *ifnam)
 {
-  // This will block until the worker thread is done.
-  w->shutdown();
-  delete w;
+  struct ifaddrs *ifap;
+
+  if (getifaddrs(&ifap)==-1) {
+    perror("getifaddrs");
+    exit(1);
+  }
+
+  struct ifaddrs *tmp;
+  for (tmp = ifap; tmp != NULL; tmp = tmp->ifa_next) {
+    if (strncmp(tmp->ifa_name, ifnam, strlen(tmp->ifa_name))==0
+	&& tmp->ifa_addr->sa_family == AF_INET6)
+      break;
+  }
+  if (tmp == NULL) {
+    printf("interface %s not found for family AF_INET6\n", ifnam);
+    exit(1);
+  }
+
+  struct sockaddr_in6 sa;
+  memset((void *)&sa, 0, sizeof(sa));
+  sa.sin6_family = AF_INET6;
+  sa.sin6_port = htons(atoi(portno));
+  memcpy((void *) &sa.sin6_addr,
+	 (void *) (&((struct sockaddr_in6*) (tmp->ifa_addr))->sin6_addr),
+	 sizeof(struct in6_addr));
+
+  freeifaddrs(ifap);
+
+
+  // This should catch the case when portno is bad.
+  /* TODO: why does bind succeed for ipv6 on loopback interface
+   * but not e.g. eth0? */
+  if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
+    perror("bind");
+    exit(1);
+  }
+  socklen_t salen = sizeof(sa);
+  if (getsockname(listenfd, (struct sockaddr *) &sa, &salen)==-1) {
+    perror("getsockname");
+    exit(1);
+  }
+
+  char ipnam[INET6_ADDRSTRLEN];
+  if (inet_ntop(AF_INET6, (void *) &sa.sin6_addr, ipnam, INET6_ADDRSTRLEN)
+      ==NULL) {
+    perror("inet_ntop");
+    exit(1);
+  }
+  std::cout << "listening on " << ipnam << ":"
+	    << ntohs(sa.sin6_port) << std::endl;
 }
 
-void Server::deleteState(std::pair<int,
-			 std::pair<std::stringstream *, Parsing *> > p)
+void Server::setup_AF_LOCAL(char const *bindto)
 {
-  delete p.second.first;
-  delete p.second.second;
+  struct sockaddr_un sa;
+  memset((void *)&sa, 0, sizeof(sa));
+  sa.sun_family = AF_LOCAL;
+    
+  strncpy(sa.sun_path, bindto, sizeof(sa.sun_path)-1);
+
+  if (strlen(bindto) > sizeof(sa.sun_path)-1) {
+    std::cerr << "warning: domain socket name "
+	      << bindto << "is too long, truncating to " << sa.sun_path;
+  }
+
+  // This will fail if the path exists, which is what we want.
+  if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
+    perror("bind");
+    exit(1);
+  }
+  std::cout << "listening on " << sa.sun_path << std::endl;
+}
+
+void Server::block_all_signals()
+{
+  sigset_t sigs;
+  if (sigfillset(&sigs)==-1) {
+    perror("sigfillset");
+    exit(1);
+  }
+  if ((errno = pthread_sigmask(SIG_SETMASK, &sigs, NULL)) != 0) {
+    perror("pthread_sigmask");
+    exit(1);
+  }
 }

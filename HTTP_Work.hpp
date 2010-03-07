@@ -4,7 +4,7 @@
 #include <map>
 #include <sys/types.h>
 #include "LockedQueue.hpp"
-#include "Scheduler_new.hpp"
+#include "Scheduler.hpp"
 #include "Work.hpp"
 
 // Forward declaration for befriending HTTP_Work.
