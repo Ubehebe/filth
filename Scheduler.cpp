@@ -245,7 +245,6 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
   }
 
   else {
-    cerr << "pushing non-signalfd handler\n";
     struct sigaction act;
     memset((void *)&act, 0, sizeof(act));
     if (sigemptyset(&act.sa_mask)!=0) {

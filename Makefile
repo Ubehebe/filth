@@ -22,6 +22,7 @@ clean:
 # DO NOT DELETE
 
 Scheduler.o: Scheduler.hpp LockedQueue.hpp Locks.hpp Work.hpp ServerErrs.hpp
+Scheduler.o: sigmasks.hpp
 Server.o: Server.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp
 Server.o: Thread.hpp sigmasks.hpp Thread.cpp Worker.hpp
 Worker.o: Worker.hpp LockedQueue.hpp Locks.hpp Work.hpp
