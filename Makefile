@@ -1,7 +1,7 @@
 HTTP_PROGNAME ?= ocotillo
 CGI_PROGNAME ?= ollitoco
 
-BASE_SRCS = Scheduler.cpp Server.cpp Worker.cpp Locks.cpp
+BASE_SRCS = Scheduler.cpp Server.cpp Worker.cpp Locks.cpp sigmasks.cpp
 BASE_OBJS = $(BASE_SRCS:.cpp=.o)
 
 HTTP_SRCS = HTTP_constants.cpp HTTP_cmdline.cpp HTTP_main.cpp HTTP_Work.cpp
@@ -23,13 +23,14 @@ clean:
 
 Scheduler.o: Scheduler.hpp LockedQueue.hpp Locks.hpp Work.hpp ServerErrs.hpp
 Server.o: Server.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp
-Server.o: Thread.hpp Thread.cpp Worker.hpp
+Server.o: Thread.hpp sigmasks.hpp Thread.cpp Worker.hpp
 Worker.o: Worker.hpp LockedQueue.hpp Locks.hpp Work.hpp
 Locks.o: Locks.hpp
+sigmasks.o: sigmasks.hpp
 HTTP_constants.o: HTTP_constants.hpp HTTP_status.def HTTP_methods.def
 HTTP_constants.o: HTTP_headers.def HTTP_Parse_Err.hpp ServerErrs.hpp
 HTTP_cmdline.o: HTTP_cmdline.hpp HTTP_cmdline.def
 HTTP_main.o: HTTP_Server.hpp HTTP_cmdline.hpp HTTP_cmdline.def HTTP_Work.hpp
 HTTP_main.o: LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp Server.hpp
-HTTP_main.o: Thread.hpp Thread.cpp Worker.hpp ServerErrs.hpp
+HTTP_main.o: Thread.hpp sigmasks.hpp Thread.cpp Worker.hpp ServerErrs.hpp
 HTTP_Work.o: HTTP_Work.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp

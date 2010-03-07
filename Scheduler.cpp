@@ -14,6 +14,7 @@
 
 #include "Scheduler.hpp"
 #include "ServerErrs.hpp"
+#include "sigmasks.hpp"
 
 
 namespace handler_sch {
@@ -98,12 +99,16 @@ void Scheduler::reschedule(Work *w, bool oneshot)
 void Scheduler::poll()
 {
   if (use_signalfd) {
+    sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
     if ((sigfd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
       perror("signalfd");
       exit(1);
-    } else {
-      schedule(makework(sigfd, Work::read), false);
     }
+    schedule(makework(sigfd, Work::read), false);
+  }
+
+  else {
+    sigmasks::sigmask_caller(sigmasks::BLOCK_NONE);
   }
 
   schedule(makework(listenfd, Work::read), false);

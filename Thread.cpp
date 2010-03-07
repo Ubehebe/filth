@@ -6,124 +6,33 @@
 #include <stdio.h>
 #include <unistd.h>
 
-template<class C> sigset_t Thread<C>::default_sigmask;
-template<class C> bool Thread<C>::default_sigmask_set = false;
-
-template<class C> void Thread<C>::set_default_sigmask(sigmasks::builtin d)
-{
-
-  switch (d) {
-  case sigmasks::BLOCK_NONE:
-  if (sigemptyset(&default_sigmask)==-1) {
-    perror("sigemptyset");
-    exit(1);
-  }
-  break;
-  case sigmasks::BLOCK_ALL:
-    if (sigfillset(&default_sigmask)==-1) {
-      perror("sigfillset");
-      exit(1);
-    }
-    break;
-  }
-  default_sigmask_set = true;
-}
-
-template<class C> void Thread<C>::set_default_sigmask(std::vector<int> sigmask)
-{
-  if (sigemptyset(&default_sigmask)==-1) {
-    perror("sigemptyset");
-    exit(1);
-  }
-
-  for (std::vector<int>::iterator it = sigmask.begin(); it != sigmask.end(); ++it) {
-    if (sigaddset(&default_sigmask, *it)==-1) {
-      perror("sigaddset");
-      exit(1);
-    }
-  }
-  default_sigmask_set = true;
-}
-
 template<class C> Thread<C>::Thread(void (C::*p)())
-  : _c(new C()), _p(p), dodelete(true), _sigmask(default_sigmask)
+  : _c(new C()), _p(p), dodelete(true)
 {
-  if (!default_sigmask_set)
-    set_default_sigmask(sigmasks::BLOCK_NONE);
-  _init();
+  _init(NULL);
 }
 
 template<class C> Thread<C>::Thread(C *c, void (C::*p)())
-  : _c(c), _p(p), dodelete(false), _sigmask(default_sigmask)
-{
-  if (!default_sigmask_set)
-    set_default_sigmask(sigmasks::BLOCK_NONE);
-  _init();
-}
-
-template<class C> Thread<C>::Thread(void (C::*p)(), std::vector<int> sigmask)
-  : _c(new C()), _p(p), dodelete(true)
-{
-  set_sigmask(sigmask);
-  _init();
-}
-
-template<class C> Thread<C>::Thread(void (C::*p)(), sigmasks::builtin d)
-  : _c(new C()), _p(p), dodelete(true)
-{
-  set_sigmask(d);
-  _init();
-}
-
-template<class C> Thread<C>::Thread(C *c, void (C::*p)(), std::vector<int> sigmask)
   : _c(c), _p(p), dodelete(false)
 {
-  set_sigmask(sigmask);
-  _init();
+  _init(NULL);
 }
 
-template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin d)
+template<class C> Thread<C>::Thread(void (C::*p)(), sigmasks::builtin b)
+  : _c(new C()), _p(p), dodelete(true)
+{
+  _init(&b);
+}
+
+template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin b)
   : _c(c), _p(p), dodelete(false)
 {
-  set_sigmask(d);
-  _init();
+  _init(&b);
 }
 
-template<class C> void Thread<C>::set_sigmask(std::vector<int> mask)
+template<class C> void Thread<C>::_init(sigmasks::builtin *b)
 {
-  if (sigemptyset(&_sigmask)==-1) {
-    perror("sigemptyset");
-    exit(1);
-  }
-  for (std::vector<int>::iterator it = mask.begin(); it != mask.end(); ++it) {
-    if (sigaddset(&_sigmask, *it)==-1) {
-      perror("sigaddset");
-      exit(1);
-    }
-  }
-}
-
-template<class C> void Thread<C>::set_sigmask(sigmasks::builtin d)
-{
-  switch (d) {
-  case sigmasks::BLOCK_NONE:
-    if (sigemptyset(&_sigmask)==-1) {
-      perror("sigemptyset");
-      exit(1);
-    }
-    break;
-  case sigmasks::BLOCK_ALL:
-    if (sigfillset(&_sigmask)==-1) {
-      perror("sigfillset");
-      exit(1);
-    }
-    break;
-  }
-}
-
-template<class C> void Thread<C>::_init()
-{
-  _Thread *tmp = new _Thread(_c, _p, &_sigmask);
+  _Thread *tmp = new _Thread(_c, _p, b);
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
     perror("pthread_create");
@@ -136,28 +45,19 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 {
   _Thread *tmp = reinterpret_cast<_Thread *>(_Th);
 
-  /* SUBTLE BUG: the thread gets a signal before it sets its
-   * signal mask. Yikes. */
-  if (pthread_sigmask(SIG_SETMASK, tmp->_sigmask, NULL) != 0) {
-    perror("pthread_sigmask");
-    exit(1);
-  }
-
+  if (tmp->_b != NULL)
+    sigmasks::sigmask_caller(*(tmp->_b));
+  
   (std::mem_fun(tmp->_p))(tmp->_c);
   delete tmp;
 }
 
-template<class C> void Thread<C>::join()
+template<class C> Thread<C>::~Thread() 
 {
   if (pthread_join(th, NULL)!=0) {
     perror("pthread_join");
     exit(1);
   }
-}
-
-template<class C> Thread<C>::~Thread() 
-{
-  join(); 
   if (dodelete) 
     delete _c;
 }
