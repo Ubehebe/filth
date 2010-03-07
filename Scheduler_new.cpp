@@ -1,15 +1,24 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <iostream>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "Scheduler_new.hpp"
 #include "ServerErrs.hpp"
+
+
+namespace handler_sch {
+  Scheduler *s = NULL;
+}
 
 using namespace std;
 
@@ -18,11 +27,25 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
   : q(q), makework(makework), maxevents(maxevents)
 {
 
+  /* I didn't design the scheduler class to have more than one instantiation
+   * at a time, but it could support that, with the caveat that signal handlers
+   * only know about one instance. If we really need support for this,
+   * I guess it wouldn't be too hard to make handler_sch a vector or array. */
+  if (handler_sch::s == NULL)
+    handler_sch::s = this;
+
   // Set up the signal file descriptor.
   if (sigemptyset(&tohandle)==-1) {
     perror("sigemptyset");
-    abort();
+    exit(1);
   }
+  
+  /* We use a couple of recent syscalls, so test whether we have them.
+   * TODO: could become a new class if other modules need it. */
+  use_signalfd = !(syscall(SYS_signalfd)==-1 && errno == ENOSYS);
+  cerr << "scheduler: "
+       << ((use_signalfd) ? "" : "not ")
+       << "using signalfd\n";
 
   // Set up the polling file descriptor.
   if ((pollfd = epoll_create(pollsz))==-1) {
@@ -74,17 +97,16 @@ void Scheduler::reschedule(Work *w, bool oneshot)
 
 void Scheduler::poll()
 {
-  /* We don't do this in the constructor because the user might call
-   * push_sighandler (several times) between the constructor and
-   * starting the poll loop. */
-  if ((sigfd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
-    perror("signalfd");
-    abort();
+  if (use_signalfd) {
+    if ((sigfd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
+      perror("signalfd");
+      exit(1);
+    } else {
+      schedule(makework(sigfd, Work::read), false);
+    }
   }
 
-  // Don't try putting these in the constructor =)
   schedule(makework(listenfd, Work::read), false);
-  schedule(makework(sigfd, Work::read), false);
 
   struct epoll_event fds[maxevents];
   int fd, nchanged, connfd, flags, so_err;
@@ -130,7 +152,7 @@ void Scheduler::poll()
       // epoll_wait always collects these. Do we know what to do with them?
       if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
 	cerr << "Scheduler::poll: hangup or error, descriptor " << fd << endl;
-      else if (fd == sigfd && (fds[i].events & EPOLLIN))
+      else if (use_signalfd && fd == sigfd && (fds[i].events & EPOLLIN))
 	handle_sigs();
       else if (fd == listenfd && (fds[i].events & EPOLLIN))
 	handle_listen();
@@ -150,30 +172,36 @@ void Scheduler::poll()
 
 void Scheduler::handle_listen()
 {
+  // accept4 saves the use of the fcntls, but it's not widely available. Darn.
   int acceptfd;
-  if ((acceptfd = accept4(listenfd, NULL, NULL, SOCK_NONBLOCK))==-1) {
+  if ((acceptfd = accept(listenfd, NULL, NULL))==-1) {
     // See "Unix Network Programming", 2nd ed., sec. 16.6 for rationale.
     if (errno == EWOULDBLOCK
 	|| errno == ECONNABORTED
 	|| errno == EPROTO
 	|| errno == EINTR)
       return;
-    else throw SocketErr("accept4", errno);
+    else throw SocketErr("accept", errno);
   }
+  int flags;
+  if ((flags = fcntl(acceptfd, F_GETFL))==-1)
+    throw SocketErr("fcntl (F_GETFL)", errno);
+  if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
+    throw SocketErr("fcntl (F_SETFL)", errno);
   schedule(makework(acceptfd, Work::read), true);
 }
 
 void Scheduler::handle_sigs()
 {
   struct signalfd_siginfo siginfo[sighandlers.size()];
-  map<int, void (*)(Scheduler *)>::iterator iter;
+  map<int, void (*)(int)>::iterator iter;
   ssize_t nread = read(sigfd, (void *)&siginfo, sizeof(siginfo));
   
   // There might be more than one pending signal.
   int i=0;
   while (nread > 0) {
     if ((iter = sighandlers.find(siginfo[i].ssi_signo)) != sighandlers.end()) {
-      ((*iter).second)(this);
+      ((*iter).second)(0);
       cerr << "got signal " << siginfo[i].ssi_signo << endl;
     } else {
       cerr << "Scheduler::handle_sigs: warning:\n"
@@ -188,33 +216,48 @@ void Scheduler::handle_sigs()
   }
 }
 
-void Scheduler::push_sighandler(int signo, void (*handler)(Scheduler *))
+void Scheduler::push_sighandler(int signo, void (*handler)(int))
 {
-  if (sighandlers.find(signo) != sighandlers.end()) {
-    cerr << "Scheduler::push_sighandler: warning:\n"
-	 << "redefining signal handler for signal " << signo << endl;
+  if (use_signalfd) {
+    if (sighandlers.find(signo) != sighandlers.end()) {
+      cerr << "Scheduler::push_sighandler: warning:\n"
+	   << "redefining signal handler for signal " << signo << endl;
+    }
+    else if (sigaddset(&tohandle, signo)==-1) {
+      perror("sigaddset");
+      exit(1);
+    }    
+    sighandlers[signo] = handler; 
   }
-  else if (sigaddset(&tohandle, signo)==-1) {
-    perror("sigaddset");
-    abort();
-  }    
-  sighandlers[signo] = handler; 
+
+  else {
+    struct sigaction act;
+    if (sigemptyset(&act.sa_mask)!=0) {
+      perror("sigemptyset");
+      exit(1);
+    }
+    act.sa_handler = handler;
+    if (sigaction(signo, &act, NULL)==-1) {
+      perror("sigaction");
+      exit(1);
+    }    
+  }
 }
 
-void Scheduler::halt(Scheduler *s)
+void Scheduler::halt(int ignore)
 {
   cerr << "scheduler halting\n";
-  s->dowork = false;
+  handler_sch::s->dowork = false;
 }
 
-void Scheduler::flush(Scheduler *s)
+void Scheduler::flush(int ignore)
 {
-
+  // TODO
 }
 
 void Scheduler::handle_sock_err(int fd)
 {
-
+  // What's this for?
 }
 
 void Scheduler::set_listenfd(int _listenfd)
