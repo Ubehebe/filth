@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "Server.hpp"
+#include "sigmasks.hpp"
 
 Server::Server(int domain, mkWork &makework, char const *bindto,
 	       char const *ifnam, int nworkers, int listenq)
@@ -63,7 +64,7 @@ void Server::serve()
 {
 
   // All signals go to the scheduler...
-  block_all_signals();
+  sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
   /* ...what I really mean is they go to the signal fd IN the scheduler.
    * This guy has to be named in order not to go out of scope immediately. */
   Thread<Scheduler> _blah(&sch, &Scheduler::poll);
@@ -72,7 +73,7 @@ void Server::serve()
   /* The Thread destructor calls pthread_join, so this should block until
    * all the workers and the scheduler are done. */
   for (int i=0; i<nworkers; ++i)
-    workers.push_back(new Thread<Worker>(&Worker::work, sigmasks::BLOCK_ALL));
+    workers.push_back(new Thread<Worker>(&Worker::work));
   for (std::list<Thread<Worker> *>::iterator it = workers.begin();
        it != workers.end(); ++it)
     delete *it;
@@ -201,17 +202,4 @@ void Server::setup_AF_LOCAL(char const *bindto)
     exit(1);
   }
   std::cout << "listening on " << sa.sun_path << std::endl;
-}
-
-void Server::block_all_signals()
-{
-  sigset_t sigs;
-  if (sigfillset(&sigs)==-1) {
-    perror("sigfillset");
-    exit(1);
-  }
-  if ((errno = pthread_sigmask(SIG_SETMASK, &sigs, NULL)) != 0) {
-    perror("pthread_sigmask");
-    exit(1);
-  }
 }

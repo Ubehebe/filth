@@ -18,9 +18,6 @@ private:
   void setup_AF_INET6(char const *bindto, char const *ifnam);
   void setup_AF_LOCAL(char const *bindto);
 
-  // Because they go to the scheduler.
-  void block_all_signals();
-
   int domain, listenfd, listenq, nworkers;
 
 protected:

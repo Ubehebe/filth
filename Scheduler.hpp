@@ -7,6 +7,11 @@
 #include "LockedQueue.hpp"
 #include "Work.hpp"
 
+/* N.B. Keep in mind that if the scheduler uses old-fashioned signal
+ * handlers, as opposed to signalfd, then any slow system call in the
+ * scheduler thread could be interrupted. Presently the only slow
+ * system calls used by the scheduler are accept and epoll_wait, but
+ * if you add more, remember to check for errno==EINTRs. */
 class Scheduler
 {
   // No copying, no assigning.

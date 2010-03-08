@@ -16,7 +16,6 @@
 #include "ServerErrs.hpp"
 #include "sigmasks.hpp"
 
-
 namespace handler_sch {
   Scheduler *s = NULL;
 }
@@ -31,7 +30,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
    * only know about one instance. If we really need support for this,
-   * I guess it wouldn't be too hard to make handler_sch a vector or array. */
+   * I guess it wouldn't be too hard to make handler_sch::s a vector/array. */
   if (handler_sch::s == NULL)
     handler_sch::s = this;
 
@@ -41,7 +40,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
     exit(1);
   }
   
-  /* We use a couple of recent syscalls, so test whether we have them.
+  /* Test whether we have the signalfd system call.
    * TODO: could become a new class if other modules need it. */
   use_signalfd = !(syscall(SYS_signalfd)==-1 && errno == ENOSYS);
   cerr << "scheduler: "
@@ -51,7 +50,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
   // Set up the polling file descriptor.
   if ((pollfd = epoll_create(pollsz))==-1) {
     perror("epoll_create");
-    abort();
+    exit(1);
   }
 
   // The default behavior of SIGINTs should be halting.
@@ -120,17 +119,16 @@ void Scheduler::poll()
   dowork = true;
 
   while (dowork) {
-    if ((nchanged = epoll_wait(pollfd, fds, maxevents, -1))<0) {
-      /* If we are using dumb signal handlers instead of the cool signalfd
-       * mechanism, there is a good chance the signal handler will interrupt
-       * the epoll_wait. In this case we don't want to do anything;
-       * the signal handler should have changed dowork to false,
-       * so we'll fall through the loop. */
-      if (errno == EINTR)
-	continue;
-      else
+    /* epoll_wait is a slow system call, meaning that it can be interrupted
+     * by a signal. With the signalfd mechanism this cannot happen, since
+     * signals are delivered to sigfd. But it can happen when the fallback
+     * mechanism of old-fashioned signal handlers. In this case
+     * we just continue; a signal attached to the "halt" handler will
+     * set dowork to false, so we'll just fall through the loop.
+     * TODO: what about other signal behavior, e.g. flush? */
+    if ((nchanged = epoll_wait(pollfd, fds, maxevents, -1))<0
+	&& errno != EINTR)
 	throw ResourceErr("epoll_wait", errno);
-    }
 
     /* This is sequential, but should not be a bottleneck because no
      * blocking is involved. I suppose we could put the fd's of interest
