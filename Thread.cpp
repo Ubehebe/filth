@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <functional>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 template<class C> Thread<C>::Thread(void (C::*p)())
@@ -45,6 +46,13 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 {
   _Thread *tmp = reinterpret_cast<_Thread *>(_Th);
 
+  /* This thread inherits the signal mask of the process
+   * that called pthread_create. Thus, there could be a race
+   * condition if the caller doesn't block signal X, this thread
+   * does block signal X, but this thread receives signal X
+   * before setting its sigmask. Equally, if the caller blocks signal X,
+   * this thread doesn't, but signal X is generated before setting its
+   * sigmask, the signal could be lost. */
   if (tmp->_b != NULL)
     sigmasks::sigmask_caller(*(tmp->_b));
   

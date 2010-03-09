@@ -29,6 +29,9 @@ class Scheduler
 
   LockedQueue<Work *> &q;
   mkWork &makework;
+  /* This doesn't really need to be an ordered map, but since
+   * the amount of signal handling we currently do is tiny, I'm not
+   * motivated to make it better. */
   std::map<int, void (*)(int)> sighandlers;
 
   /* Some ready-made signal handlers. The argument and return types

@@ -10,6 +10,8 @@ HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 CGI_SRCS = CGI_main.cpp
 CGI_OBJS = $(CGI_SRCS:.cpp=.o)
 
+CXXFLAGS = -std=c++0x
+
 all: http cgi
 http: $(BASE_OBJS) $(HTTP_OBJS)
 	$(CXX) -lpthread $(BASE_OBJS) $(HTTP_OBJS) -o $(HTTP_PROGNAME)

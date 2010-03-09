@@ -19,6 +19,7 @@ template<class T> class LockedQueue
   LockedQueue() : nonempty(front) {}
   void enq(T t);
   T wait_deq();
+  bool nowait_deq(T t);
 };
 
 template<class T> void LockedQueue<T>::enq(T t)
@@ -40,6 +41,20 @@ template<class T> T LockedQueue<T>::wait_deq()
   q.pop();
   front.unlock();
   return ans;
+}
+
+template<class T> bool LockedQueue<T>::nowait_deq(T ans)
+{
+  front.lock();
+  if (q.empty()) {
+    front.unlock();
+    return false;
+  } else {
+    ans = q.front();
+    q.pop();
+    front.unlock();
+    return true;
+  }
 }
 
 #endif // LOCKED_QUEUE_HPP

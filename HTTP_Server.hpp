@@ -2,7 +2,7 @@
 #define HTTP_SERVER_HPP
 
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -14,7 +14,7 @@
 
 class HTTP_Server : public Server
 {
-  std::map<std::string, std::pair<time_t, std::string *> > cache;
+  std::unordered_map<std::string, std::pair<time_t, std::string *> > cache;
   HTTP_mkWork makework;
 public:
   HTTP_Server(int domain, char const *portno, char const *ifnam, int nworkers)
