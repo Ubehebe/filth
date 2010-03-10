@@ -3,6 +3,9 @@
 
 #include <list>
 #include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <unordered_map>
 
 #include "LockedQueue.hpp"
@@ -37,8 +40,15 @@ public:
   /* This function should search the cache and return the file if it's there.
    * If it's not, it should read it in from disk, then return it.
    * If it's unable to get it from disk (e.g. it doesn't exist, or allocation
-   * error), it should return NULL. */
-  char *reserve(std::string &filename);
+   * error), it should return NULL.
+   *
+   * Since reserve may perform a stat system call, we allow the result
+   * to optionally be returned in the second argument. This could be useful
+   * when e.g. we don't know whether a file is static (=regular file) or
+   * dynamic (=domain socket). We check the cache--if it's there, it's static.
+   * If it's not there, it might be dynamic, or it might not exist. We can
+   * use statbuf to tell the difference. */
+  char *reserve(std::string &filename, struct stat *statbuf=NULL);
   void release(std::string &filename);
 };
 

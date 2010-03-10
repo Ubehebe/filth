@@ -1,8 +1,5 @@
 #include <fcntl.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "FileCache.hpp"
 
@@ -45,10 +42,11 @@ bool FileCache::evict()
 /* N.B. this function passes path directly to the kernel.
  * The caller should already have done any needed validity checking
  * (e.g. making sure there are no ".."). */
-char *FileCache::reserve(std::string &path)
+char *FileCache::reserve(std::string &path, struct stat *statbuf)
 {
   unordered_map<std::string, cinfo *>::iterator it;
-  struct stat statbuf;
+  struct stat statbuf_backup;
+  struct stat *sbp = (statbuf == NULL) ? &statbuf_backup : statbuf;
 
   lock.rdlock();
   it = c.find(path);
@@ -71,15 +69,21 @@ char *FileCache::reserve(std::string &path)
   int fd;
 
   // Try to stat and open file.
-  if (stat(path.c_str(), &statbuf)==-1
-      || (fd = open(path.c_str(), O_RDONLY))==-1)
+  if (stat(path.c_str(), sbp)==-1) {
+    memset((void *)sbp, 0, sizeof(struct stat));
+    return NULL;
+  }
+  // The cache should only deal with regular files
+  if (!S_ISREG(sbp->st_mode))
+    return NULL;
+  if ((fd = open(path.c_str(), O_RDONLY))==-1)
     return NULL;
 
  reserve_tryagain:
   
   // Not enough room in the cache?
-  if (__sync_add_and_fetch(&cur, statbuf.st_size) > max) {
-    __sync_sub_and_fetch(&cur, statbuf.st_size);
+  if (__sync_add_and_fetch(&cur, sbp->st_size) > max) {
+    __sync_sub_and_fetch(&cur, sbp->st_size);
     // If we were able to evict something try again.
     if (evict()) {
       goto reserve_tryagain;
@@ -93,17 +97,17 @@ char *FileCache::reserve(std::string &path)
 
   cinfo *tmp;
   try {
-  tmp = new cinfo(statbuf.st_size);
+  tmp = new cinfo(sbp->st_size);
   }
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
-    __sync_sub_and_fetch(&cur, statbuf.st_size);
+    __sync_sub_and_fetch(&cur, sbp->st_size);
     close(fd);
     return NULL;
   }
 
   char *ctmp = tmp->buf;
-  size_t toread = statbuf.st_size;
+  size_t toread = sbp->st_size;
   ssize_t nread;
 
   /* Get the file into memory with an old-fashioned blocking read.
@@ -127,7 +131,7 @@ char *FileCache::reserve(std::string &path)
   if (nread == -1) {
     perror("read");
     delete tmp;
-    __sync_sub_and_fetch(&cur, statbuf.st_size);
+    __sync_sub_and_fetch(&cur, sbp->st_size);
     goto reserve_tryagain;
   }
   close(fd);
@@ -143,7 +147,7 @@ char *FileCache::reserve(std::string &path)
    * but simple. */
   else {
     delete tmp;
-    __sync_sub_and_fetch(&cur, statbuf.st_size);
+    __sync_sub_and_fetch(&cur, sbp->st_size);
     char *ans = (*it).second->buf;
     (*it).second->refcnt++;
     lock.unlock();

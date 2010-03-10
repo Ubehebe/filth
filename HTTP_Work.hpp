@@ -9,6 +9,7 @@
 #include <sys/types.h>
 
 #include "FileCache.hpp"
+#include "HTTP_constants.hpp"
 #include "LockedQueue.hpp"
 #include "Scheduler.hpp"
 #include "Work.hpp"
@@ -22,15 +23,20 @@ class HTTP_Work : public Work
   friend class HTTP_mkWork;
 
   // Stuff that should be the same for all.
-  static uint32_t const cbufsz = 1<<12;
+  static uint32_t const rdbufsz = 1<<12;
   static LockedQueue<Work *> *q;
   static Scheduler *sch;
   static FileCache *cache;
 
   // Internal state.
-  char cbuf[cbufsz];
-  std::stringstream buf;
-  bool endoflife;
+  char rdbuf[rdbufsz]; // Buffer to use to read from client
+  std::string path; // Path to resource
+  std::string query; // The stuff after the "?" in a URI; to pass to resource
+  char *resource; // Raw pointer to resource contents
+  std::stringstream pbuf; // Buffer to use in parsing
+  HTTP_constants::status stat; // Status code we'll return to client
+  HTTP_constants::method meth; // Method (GET, POST, etc.)
+  bool req_line_done;
 
   // No copying, no assigning.
   HTTP_Work(HTTP_Work const &);
