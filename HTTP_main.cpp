@@ -7,14 +7,14 @@ using namespace HTTP_cmdline;
 int main(int argc, char **argv)
 {
   parsecmdline(argc, argv);
-  int domain = (strncmp(flag_vals[ipv], "6", 1)==0) ? AF_INET6 : AF_INET;
-    try {
-      HTTP_Server(domain,
-		  flag_vals[port],
-		  flag_vals[ifnam],
-		  atoi(flag_vals[nworkers])).serve();
-    }
-    catch (ResourceErr e) {
+  try {
+    HTTP_Server(
+		HTTP_cmdline::svals[HTTP_cmdline::port],
+		HTTP_cmdline::svals[HTTP_cmdline::ifnam],
+		HTTP_cmdline::ivals[HTTP_cmdline::nworkers],
+		HTTP_cmdline::bvals[HTTP_cmdline::ipv6]).serve();
+  }
+catch (ResourceErr e) {
       errno = e.err;
       perror(e.msg);
       exit(1);

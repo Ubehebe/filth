@@ -1,5 +1,9 @@
+#include <iostream>
+#include <sstream>
+
+#include "HTTP_cmdline.cpp"
+
 int main()
 {
-  char *buf = new char[55];
-  delete[] buf;
+
 }

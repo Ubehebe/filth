@@ -25,6 +25,8 @@ protected:
   Scheduler sch;
 
 public:
+  /* For network sockets, bindto should be a string of a port number,
+   * like "80". For local sockets, bindto should be a filesystem path. */
   Server(int domain, mkWork &makework, char const *bindto,
 	 char const *ifnam, int nworkers, int listenq=10);
   void serve();

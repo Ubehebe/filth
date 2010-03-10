@@ -8,40 +8,84 @@
 namespace HTTP_cmdline
 {
 
-  size_t const num_flag = 
-#define DEFINE_ME(_name, _short, _long, _default, _desc) +1
+  size_t const nopt = 
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) +1
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) +1
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) +1
 #include "HTTP_cmdline.def"
-#undef DEFINE_ME
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
     ;
 
-  char const *flag_names[] = {
-#define DEFINE_ME(_name, _short, _long, _default, _desc) #_name,
+  char const *names[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_name,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_name,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_name,
 #include "HTTP_cmdline.def"
-#undef DEFINE_ME
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
   };
 
-  char const *flag_shorts[] = {
-#define DEFINE_ME(_name, _short, _long, _default, _desc) #_short,
+  char const *shorts[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_short,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_short,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_short,
 #include "HTTP_cmdline.def"
-#undef DEFINE_ME
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
   };
 
-  char const *flag_longs[] = {
-#define DEFINE_ME(_name, _short, _long, _default, _desc) #_long,
+  char const *longs[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_long,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_long,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_long,
 #include "HTTP_cmdline.def"
-#undef DEFINE_ME
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
   };
 
-  char const *flag_vals[] = {
-#define DEFINE_ME(_name, _short, _long, _default, _desc) #_default,
+  char const *svals[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_default,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_default,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_default,
 #include "HTTP_cmdline.def"
-#undef DEFINE_ME
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
   };
 
-  char const *flag_descs[] = {
-#define DEFINE_ME(_name, _short, _long, _default, _desc) #_desc,
+  char const *descs[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_desc,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_desc,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_desc,
 #include "HTTP_cmdline.def"
-#undef DEFINE_ME
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
+  };
+
+  int ivals[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) 0,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) 1,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) 0,
+#include "HTTP_cmdline.def"
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
+  };
+
+  bool bvals[] = {
+#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) true,
+#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) false,
+#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) false,
+#include "HTTP_cmdline.def"
+#undef DEFINE_ME_STR
+#undef DEFINE_ME_INT
+#undef DEFINE_ME_BOOL
   };
 
   void parsecmdline(int argc, char **argv)
@@ -57,43 +101,56 @@ namespace HTTP_cmdline
       }
       // Malformed option.
       if (tmp[0] != '-' || strlen(tmp) == 1) {
-	unrecognized_option(argv[0], tmp);
+	unrecognized_opt(argv[0], tmp);
       }
       // Long form of flag.
       else if (tmp[1] == '-') {
-	for (j=0; j<num_flag; ++j) {
-	  if (strncmp(&tmp[2], flag_longs[j],
-		      strlen(flag_longs[j]))==0) {
-	    // Right now, all the options require args.
-	    if ((eq = strchr(tmp, '='))==NULL)
-	      unrecognized_option(argv[0], tmp);
-	    flag_vals[j] = eq+1;
+	for (j=0; j<nopt; ++j) {
+	  if (strncmp(&tmp[2], longs[j],
+		      strlen(longs[j]))==0) {
+	    // Only boolean options can take no arguments.
+	    if ((eq = strchr(tmp, '='))==NULL) {
+	      if (bvals[j])
+		svals[j] = "true";
+	      else
+		unrecognized_opt(argv[0], tmp);
+	    }
+	    else {
+	      svals[j] = eq+1;
+	    }
 	    break;
 	  }
 	}
 	// Didn't match a known option.
-	if (j == num_flag)
-	  unrecognized_option(argv[0], tmp);
+	if (j == nopt)
+	  unrecognized_opt(argv[0], tmp);
       }
       // Short form of flag.
       else {
-	for (j=0; j<num_flag; ++j) {
-	  if (tmp[1] == flag_shorts[j][0]) {
-	    // Option has not argument.
-	    if (strlen(tmp) < 3)
-	      unrecognized_option(argv[0], tmp);
-	    flag_vals[j] = tmp+2;
+	for (j=0; j<nopt; ++j) {
+	  if (tmp[1] == shorts[j][0]) {
+	    // Only boolean options can take no argument.
+	    if (strlen(tmp) < 3) {
+	      if (bvals[j])
+		svals[j] = "true";
+	      else
+		unrecognized_opt(argv[0], tmp);
+	    }
+	    else {
+	      svals[j] = tmp+2;
+	    }
 	    break;
 	  }
 	}
 	// No match found.
-	if (j == num_flag)
-	  unrecognized_option(argv[0], tmp);
+	if (j == nopt)
+	  unrecognized_opt(argv[0], tmp);
       }
     }
+    atoi_opts();
   }
 
-  void unrecognized_option(char *argv0, char *option)
+  void unrecognized_opt(char *argv0, char *option)
   {
     printf("%s: unrecognized option '%s'\n"
 	   "Try `%s --help' for more information.\n",
@@ -106,9 +163,26 @@ namespace HTTP_cmdline
     printf("Usage: %s [OPTION]\nA basic web server.\n", argv0);
     /* Note that this may not actually print the default values
      * if the --help flag is not the first flag parsed. Oh well! */
-    for (int i=0; i< num_flag; ++i)
-      printf("-%s, --%s\t%s [default %s]\n",
-	     flag_shorts[i], flag_longs[i], flag_descs[i], flag_vals[i]);
+    for (int i=0; i< nopt; ++i) {
+      printf("-%s, --%s\t%s %s%s%s\n",
+	     shorts[i], longs[i], descs[i],
+	     ((bvals[i]) ? "" : "[default "),
+	     ((bvals[i]) ? "" : svals[i]),
+	     ((bvals[i]) ? "" : "]"));
+    }
     exit(0);
+  }
+
+  void atoi_opts()
+  {
+    for (int i=0; i<nopt; ++i) {
+      if (ivals[i]) {
+	ivals[i] = atoi(svals[i]);
+      }
+      else if (bvals[i]) {
+	if (strncmp(svals[i], "false", strlen("false"))==0)
+	  bvals[i] = false;
+      }
+    }
   }
 };

@@ -17,8 +17,9 @@ class HTTP_Server : public Server
   std::unordered_map<std::string, std::pair<time_t, std::string *> > cache;
   HTTP_mkWork makework;
 public:
-  HTTP_Server(int domain, char const *portno, char const *ifnam, int nworkers)
-    : Server(domain, makework, portno, ifnam, nworkers)
+  HTTP_Server(char const *portno, char const *ifnam, int nworkers,
+	      bool ipv6=false)
+    : Server((ipv6) ? AF_INET6 : AF_INET, makework, portno, ifnam, nworkers)
   {
     makework.init(&q, &sch);
   }

@@ -19,7 +19,7 @@ class FileCache
     ~cinfo();
   };
   std::unordered_map<std::string, cinfo *> c;
-  LockedQueue<std::string *> toevict;
+  LockedQueue<std::string const *> toevict;
   size_t cur, max;
   RWLock lock;
 

@@ -114,10 +114,6 @@ void FileCache::release(std::string &path)
   doenq = (__sync_sub_and_fetch(&(*it).second->refcnt, 1)==0);
   lock.unlock();
   if (doenq)
-    toevict.enq(const_cast<string *>(&((*it).first)));
+    toevict.enq(&((*it).first));
 }
 
-int main()
-{
-
-}
