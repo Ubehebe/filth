@@ -1,6 +1,8 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include <unordered_map>
+
 #include "LockedQueue.hpp"
 #include "Scheduler.hpp"
 #include "Thread.hpp"
@@ -21,8 +23,10 @@ private:
   int domain, listenfd, listenq, nworkers;
 
 protected:
-  LockedQueue<Work *> q;
+  LockedQueue<Work *> q; // Jobs waiting to be worked on.
   Scheduler sch;
+  // Uh oh. Needs to be synchronized.
+  std::unordered_map<int, Work *> state; // Persistent state for work.
 
 public:
   /* For network sockets, bindto should be a string of a port number,

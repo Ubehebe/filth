@@ -20,7 +20,7 @@
 
 Server::Server(int domain, mkWork &makework, char const *bindto,
 	       char const *ifnam, int nworkers, int listenq)
-  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, makework)
+  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, state, makework)
 {
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     perror("socket");

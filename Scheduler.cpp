@@ -22,9 +22,10 @@ namespace handler_sch {
 
 using namespace std;
 
-Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
-		     int pollsz, int maxevents)
-  : q(q), makework(makework), maxevents(maxevents)
+Scheduler::Scheduler(LockedQueue<Work *> &q,
+		     unordered_map<int, Work *> &state,
+		     mkWork &makework, int pollsz, int maxevents)
+  : q(q), state(state), makework(makework), maxevents(maxevents)
 {
 
   /* I didn't design the scheduler class to have more than one instantiation
@@ -48,6 +49,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
     use_signalfd = true;
     close(dummyfd);
   }
+  use_signalfd = false;
   cerr << "scheduler: "
        << ((use_signalfd) ? "" : "not ")
        << "using signalfd\n";
@@ -78,7 +80,6 @@ void Scheduler::schedule(Work *w, bool oneshot)
   }
   if (epoll_ctl(pollfd, EPOLL_CTL_ADD, w->fd, &e)==-1)
     throw ResourceErr("epoll_ctl (EPOLL_CTL_ADD)", errno);
-  delete w;
 }
 
 void Scheduler::reschedule(Work *w, bool oneshot)
@@ -97,7 +98,6 @@ void Scheduler::reschedule(Work *w, bool oneshot)
   }
   if (epoll_ctl(pollfd, EPOLL_CTL_MOD, w->fd, &e)==-1)
     throw ResourceErr("epoll_ctl (EPOLL_CTL_MOD)", errno);
-  delete w;
 }
 
 void Scheduler::poll()
@@ -108,14 +108,18 @@ void Scheduler::poll()
       perror("signalfd");
       exit(1);
     }
-    schedule(makework(sigfd, Work::read), false);
+    Work *sigfdw = makework(sigfd, Work::read);
+    state[sigfd] = sigfdw;
+    schedule(sigfdw, false);
   }
 
   else {
     sigmasks::sigmask_caller(sigmasks::BLOCK_NONE);
   }
 
-  schedule(makework(listenfd, Work::read), false);
+  Work *listenfdw = makework(listenfd, Work::read);
+  state[listenfd] = listenfdw;
+  schedule(listenfdw, false);
 
   struct epoll_event fds[maxevents];
   int fd, nchanged, connfd, flags, so_err;
@@ -173,10 +177,11 @@ void Scheduler::poll()
 	handle_sigs();
       else if (fd == listenfd && (fds[i].events & EPOLLIN))
 	handle_listen();
+      // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN)
-	q.enq(makework(fd, Work::read));
+	q.enq(state[fd]);
       else if (fds[i].events & EPOLLOUT)
-	q.enq(makework(fd, Work::write));
+	q.enq(state[fd]);
       
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
@@ -205,7 +210,9 @@ void Scheduler::handle_listen()
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
-  schedule(makework(acceptfd, Work::read), true);
+  Work *w = makework(acceptfd, Work::read);
+  state[acceptfd] = w;
+  schedule(w, true);
 }
 
 void Scheduler::handle_sigs()

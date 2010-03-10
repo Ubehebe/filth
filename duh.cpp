@@ -1,19 +1,12 @@
 #include <iostream>
-#include <sstream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 
-using namespace std;
+void foo() {}
+void foo(int x, int y) {}
 
 int main()
 {
-  stringstream str;
-  str << "hello, world";
-  string line;
-  getline(str, line);
-  cout << line << endl;
-  str.str("");
-  cout << str.str() << endl;
+  int x = 5;
+  int *y = &x;
+  int *&z = y;
+  std::cout << *y << std::endl;
 }

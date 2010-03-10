@@ -4,6 +4,7 @@
 #include <functional>
 #include <map>
 #include <signal.h>
+#include <unordered_map>
 #include "LockedQueue.hpp"
 #include "Work.hpp"
 
@@ -28,6 +29,8 @@ class Scheduler
   inline void handle_sock_err(int fd);
 
   LockedQueue<Work *> &q;
+  std::unordered_map<int, Work *> &state;
+  
   mkWork &makework;
   /* This doesn't really need to be an ordered map, but since
    * the amount of signal handling we currently do is tiny, I'm not
@@ -44,8 +47,9 @@ class Scheduler
   static Scheduler *handler_sch;
  
 public:
-  Scheduler(LockedQueue<Work *> &q, mkWork &makework,
-	    int pollsz=100, int maxevents=100);
+  Scheduler(LockedQueue<Work *> &q,
+	    std::unordered_map<int, Work *> &state,
+	    mkWork &makework, int pollsz=100, int maxevents=100);
   void schedule(Work *w, bool oneshot=true);
   void reschedule(Work *w, bool oneshot=true);
   void push_sighandler(int signo, void (*handler)(int));

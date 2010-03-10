@@ -17,9 +17,19 @@ using namespace std;
 using namespace HTTP_constants;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), req_line_done(false)
+  : Work(fd, m), req_line_done(false), status_line_done(false), resource(NULL)
 {
   memset((void *)&rdbuf, 0, rdbufsz);
+}
+
+HTTP_Work::~HTTP_Work()
+{
+  // If we're using the cache, tell it we're done.
+  if (resource != NULL)
+    cache->release(path);
+  // Bye client!
+  if (close(fd)==-1)
+    perror("close");
 }
 
 // Returns true if we don't need to parse anything more, false otherwise.
@@ -49,6 +59,7 @@ bool HTTP_Work::parse()
     // We got to the empty (CRLF) line.
     if (line.length() == 1 && pbuf.peek() == '\n') {
       pbuf.str("");
+      stat = OK;
       return true;
     }
     else {
@@ -59,8 +70,6 @@ bool HTTP_Work::parse()
   // Any failure in parsing should stop the worker immediately.
   catch (HTTP_Parse_Err e) {
     stat = e.stat;
-    pbuf.clear();
-    pbuf.str("");
     return true;
   }
 }
@@ -83,12 +92,12 @@ void HTTP_Work::parse_req_line(string &line)
 void HTTP_Work::operator()()
 {
   switch(m) {
-  case Work::read: get_from_client(); break;
-  case Work::write: put_to_client(); break;
+  case Work::read: incoming(); break;
+  case Work::write: outgoing(); break;
   }
 }
 
-void HTTP_Work::get_from_client()
+void HTTP_Work::incoming()
 {
   ssize_t nread;
  /* Read until we would block.
@@ -108,15 +117,50 @@ void HTTP_Work::get_from_client()
   }
   if (nread == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
     throw SocketErr("read", errno);
-  if (!parse())
-    sch->reschedule(this);
-  else
-    ; // schedule write? or wait for asynchronous I/O to complete?
+  /* TODO: right now we schedule a write immediately after the reading is
+   * complete. But when we add more asynchronous/nonblocking I/O on
+   * the server side (e.g. wait for a CGI program to return), we would want
+   * the write to be scheduled only when all the resources are ready. */
+  if (parse()) {
+    format_status_line();
+    m = write;
+  }
+  sch->reschedule(this);
 }
 
-void HTTP_Work::put_to_client()
+void HTTP_Work::outgoing()
 {
+  if (!status_line_done) {
+    outgoing(reinterpret_cast<char **>(&rdbuf), &statlnsz);
+    if (statlnsz == 0)
+      status_line_done = true;
+  }
+  else {
+    outgoing(&resource, &resourcesz);
+    if (resourcesz == 0)
+      deleteme = true;
+  }
+}
 
+void HTTP_Work::outgoing(char **buf, size_t *towrite)
+{
+  ssize_t nwritten;
+  while (true) {
+    if ((nwritten = ::write(fd, (void *) *buf, *towrite))>0) {
+      *buf += nwritten;
+      *towrite -= nwritten;
+    }
+    else if (nwritten == -1 && errno == EINTR)
+      continue;
+    else
+      break;
+  }
+  if (nwritten == -1) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+      sch->reschedule(this);
+    else
+      throw SocketErr("write", errno);
+  }
 }
 
 void HTTP_Work::parse_uri(string &uri)
@@ -147,6 +191,10 @@ void HTTP_Work::parse_uri(string &uri)
     }
     else throw HTTP_Parse_Err(Not_Found);
   }
+  // Did find it in the cache--remember how big it is.
+  else {
+    resourcesz = statbuf.st_size;
+  }
 }
 
 void HTTP_Work::parse_header(string &line)
@@ -165,6 +213,18 @@ void HTTP_Work::parse_header(string &line)
   switch (h) {
   default: break;
   }
+}
+
+/* RFC 2616 sec. 6.1:
+ * Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF */
+void HTTP_Work::format_status_line()
+{
+  // Note that we reuse the read buffer, which ought not to be in use now...
+  snprintf(rdbuf, rdbufsz, "%s %d %s\r\n",
+	   HTTP_Version,
+	   status_vals[stat],
+	   status_strs[stat]);
+  statlnsz = strlen(rdbuf);
 }
 
 void HTTP_mkWork::init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *cache)
