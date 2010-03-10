@@ -33,8 +33,9 @@ sigmasks.o: sigmasks.hpp
 HTTP_constants.o: HTTP_constants.hpp HTTP_status.def HTTP_methods.def
 HTTP_constants.o: HTTP_headers.def HTTP_Parse_Err.hpp ServerErrs.hpp
 HTTP_cmdline.o: HTTP_cmdline.hpp HTTP_cmdline.def
-HTTP_main.o: HTTP_Server.hpp HTTP_cmdline.hpp HTTP_cmdline.def HTTP_Work.hpp
-HTTP_main.o: LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp Server.hpp
-HTTP_main.o: Thread.hpp sigmasks.hpp Thread.cpp Worker.hpp ServerErrs.hpp
-HTTP_Work.o: HTTP_Work.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp
-HTTP_Work.o: ServerErrs.hpp
+HTTP_main.o: HTTP_Server.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
+HTTP_main.o: HTTP_cmdline.hpp HTTP_cmdline.def HTTP_Work.hpp Scheduler.hpp
+HTTP_main.o: Work.hpp Server.hpp Thread.hpp sigmasks.hpp Thread.cpp
+HTTP_main.o: Worker.hpp ServerErrs.hpp
+HTTP_Work.o: HTTP_Work.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
+HTTP_Work.o: Scheduler.hpp Work.hpp ServerErrs.hpp

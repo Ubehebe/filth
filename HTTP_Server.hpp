@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
+#include "FileCache.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Work.hpp"
 #include "Server.hpp"
@@ -14,14 +15,15 @@
 
 class HTTP_Server : public Server
 {
-  std::unordered_map<std::string, std::pair<time_t, std::string *> > cache;
+  FileCache cache;
   HTTP_mkWork makework;
 public:
   HTTP_Server(char const *portno, char const *ifnam, int nworkers,
-	      bool ipv6=false)
-    : Server((ipv6) ? AF_INET6 : AF_INET, makework, portno, ifnam, nworkers)
+	      bool ipv6, size_t cacheszMB)
+    : cache(cacheszMB * (1<<20)),
+      Server((ipv6) ? AF_INET6 : AF_INET, makework, portno, ifnam, nworkers)
   {
-    makework.init(&q, &sch);
+    makework.init(&q, &sch, &cache);
   }
 };
 

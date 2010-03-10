@@ -40,9 +40,14 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, mkWork &makework,
     exit(1);
   }
   
-  /* Test whether we have the signalfd system call.
-   * TODO: could become a new class if other modules need it. */
-  use_signalfd = !(syscall(SYS_signalfd)==-1 && errno == ENOSYS);
+  /* Test whether we have the signalfd system call. */
+  int dummyfd;
+  if ((dummyfd = signalfd(-1, &tohandle, 0))==-1)
+    use_signalfd = false;
+  else {
+    use_signalfd = true;
+    close(dummyfd);
+  }
   cerr << "scheduler: "
        << ((use_signalfd) ? "" : "not ")
        << "using signalfd\n";
