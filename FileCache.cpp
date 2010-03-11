@@ -16,76 +16,65 @@ FileCache::cinfo::~cinfo()
   delete[] buf;
 }
 
-bool FileCache::evict_cond(cinfo *c)
-{
-  return c->refcnt == 0;
-}
-
 bool FileCache::evict()
 {
   bool ans = false;
-  string s;
-  cinfo *c;
-  if (!toevict.nowait_deq(s))
-    return ans;
+  string *s;
+  unordered_map<string, cinfo *>::iterator it;
 
-  /* A file is put on the eviction list whenever its reference count
-   * falls to 0; it is not automatically removed from the list when
-   * its reference count increases. Thus, one file may appear more
-   * than once on the list, and files with positive reference counts
-   * may appear on the list. Therefore any file that is already gone
-   * from the cache, and any file that has a positive reference count,
-   * should just be ignored. */
-  if (ans = h.popif(s, c, FileCache::evict_cond)) {
-    __sync_sub_and_fetch(&cur, c->sz);
-    delete c;
+  // Nothing to evict.
+  if (!toevict.nowait_deq(s))
+    return false;
+
+  /* A file is put on the eviction list whenever its reference count falls to
+   * 0; it is not automatically removed from the list when its reference count
+   * increases. Thus, one file may appear more than once on the list, and files
+   * with positive reference counts may appear on the list. Therefore any file
+   * that is already gone from the cache, and any file that has a positive
+   * reference count, should just be ignored. */
+  clock.wrlock();
+  if ((it = c.find(*s)) != c.end() && it->second->refcnt == 0) {
+    ans = true;
+    __sync_sub_and_fetch(&cur, it->second->sz);
+    delete it->second;
+    c.erase(it);
   }
+  clock.unlock();
   return ans;
 }
 
 /* N.B. this function passes path directly to the kernel.
- * The caller should already have done any needed validity checking
- * (e.g. making sure there are no ".."). */
-char *FileCache::reserve(std::string &path, struct stat *statbuf)
+ * If the application requires path to be in a more restrictive form than
+ * the kernel does (e.g., no ".." to escape the current directory), it should
+ * already have checked for it. */
+char *FileCache::reserve(std::string &path, size_t &sz)
 {
   unordered_map<std::string, cinfo *>::iterator it;
-  struct stat statbuf_backup;
-  struct stat *sbp = (statbuf == NULL) ? &statbuf_backup : statbuf;
   
-  cinfo *tmp;
-
-  if (h.find(path, tmp)) {
-    /* We have to synchronize the reference count update,
-     * but a lock per cache entry sounds too cumbersome. So we
-     * tell GCC to issue some fenced code. Clearly less portable
-     * than a real lock.
-     *
-     * Note that if refcnt is 0 before adding, the file is on
-     * the eviction list, but it shouldn't be evicted. Instead
-     * of searching the eviction list here, we just check in the eviction
-     * routine that the file about to be evicted indeed has refcnt==0. */
-    __sync_fetch_and_add(&tmp->refcnt, 1);
-    return tmp->buf;
+  clock.rdlock();
+  if ((it = c.find(path)) != c.end()) {
+    __sync_fetch_and_add(&it->second->refcnt, 1);
+    clock.unlock();
+    return it->second->buf;
   }
+  clock.unlock();
 
+  struct stat statbuf;
   int fd;
 
   // Try to stat and open file.
-  if (stat(path.c_str(), sbp)==-1) {
-    memset((void *)sbp, 0, sizeof(struct stat));
+  if (stat(path.c_str(), &statbuf)==-1
+      || !S_ISREG(statbuf.st_mode)
+      || (fd = open(path.c_str(), O_RDONLY)) ==-1)
     return NULL;
-  }
-  // The cache should only deal with regular files
-  if (!S_ISREG(sbp->st_mode))
-    return NULL;
-  if ((fd = open(path.c_str(), O_RDONLY))==-1)
-    return NULL;
+
+  sz = statbuf.st_size;
 
  reserve_tryagain:
   
   // Not enough room in the cache?
-  if (__sync_add_and_fetch(&cur, sbp->st_size) > max) {
-    __sync_sub_and_fetch(&cur, sbp->st_size);
+  if (__sync_add_and_fetch(&cur, sz) > max) {
+    __sync_sub_and_fetch(&cur, sz);
     // If we were able to evict something try again.
     if (evict()) {
       goto reserve_tryagain;
@@ -97,18 +86,19 @@ char *FileCache::reserve(std::string &path, struct stat *statbuf)
     }
   }
 
+  cinfo *tmp;
   try {
-    tmp = new cinfo((size_t) sbp->st_size);
+    tmp = new cinfo(sz);
   }
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
-    __sync_sub_and_fetch(&cur, sbp->st_size);
+    __sync_sub_and_fetch(&cur, sz);
     close(fd);
     return NULL;
   }
 
   char *ctmp = tmp->buf;
-  size_t toread = sbp->st_size;
+  size_t toread = sz;
   ssize_t nread;
 
   /* Get the file into memory with an old-fashioned blocking read.
@@ -132,33 +122,41 @@ char *FileCache::reserve(std::string &path, struct stat *statbuf)
   if (nread == -1) {
     perror("read");
     delete tmp;
-    __sync_sub_and_fetch(&cur, sbp->st_size);
+    __sync_sub_and_fetch(&cur, sz);
     goto reserve_tryagain;
   }
   close(fd);
-
-  cinfo *already;
-  if (h.insert(make_pair(path, tmp), already))
-    return tmp->buf;
+  
+  clock.wrlock();
   /* While we were getting the file into memory, someone else
    * put it in cache! So we don't need our copy anymore. Wasteful
-   * but simple. */
-  else {
+   * but simple. Note that in this case the struct stat returned to the
+   * caller could be stale. Could be important if, e.g., we want
+   * modification times. */
+  if ((it = c.find(path)) != c.end()) {
     delete tmp;
-    __sync_sub_and_fetch(&cur, sbp->st_size);
-    char *ans = already->buf;
-    __sync_add_and_fetch(&already->refcnt, 1);
-    return ans;
+    __sync_sub_and_fetch(&cur, sz);
+    it->second->refcnt++;
+    sz = it->second->sz;
+    ctmp = it->second->buf;
   }
+  else {
+    c[path] = tmp;
+    ctmp = tmp->buf;
+  }
+  clock.unlock();
+  return ctmp;
 }
 
 void FileCache::release(std::string &path)
 {
-  cinfo *c;
-  // This always succeeds...right?
-  if (!h.find(path, c))
-    abort();
-  else if (__sync_sub_and_fetch(&c->refcnt, 1)==0)
-    toevict.enq(path);
+  unordered_map<string, cinfo *>::iterator it;
+  bool doenq;
+  clock.rdlock();
+  // The first half should always be true...right?
+  doenq = ((it = c.find(path)) != c.end()
+	   && __sync_sub_and_fetch(&it->second->refcnt, 1)==0);
+  clock.unlock();
+  if (doenq)
+    toevict.enq(const_cast<string *>(&it->first));
 }
-

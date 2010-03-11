@@ -182,19 +182,11 @@ void HTTP_Work::parse_uri(string &uri)
     path = uri.substr(1);
   }
 
-  struct stat statbuf;
-
   // Check the cache.
-  if ((resource = cache->reserve(path, &statbuf))==NULL) {
-    if (S_ISSOCK(statbuf.st_mode)) {
-      ; // dynamic resource...do something!
-    }
-    else throw HTTP_Parse_Err(Not_Found);
+  if ((resource = cache->reserve(path, resourcesz))==NULL) {
+    ; // TODO
   }
   // Did find it in the cache--remember how big it is.
-  else {
-    resourcesz = statbuf.st_size;
-  }
 }
 
 void HTTP_Work::parse_header(string &line)
