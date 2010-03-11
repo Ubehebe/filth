@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "LockedHash.hpp"
 #include "LockedQueue.hpp"
 #include "Locks.hpp"
 
@@ -27,12 +28,13 @@ class FileCache
     cinfo(size_t sz);
     ~cinfo();
   };
-  std::unordered_map<std::string, cinfo *> c;
-  LockedQueue<std::string const *> toevict;
+  LockedHash<std::string, cinfo *> h;
+  LockedQueue<std::string> toevict;
   size_t cur, max;
-  RWLock lock;
 
   bool evict();
+
+  static bool evict_cond(cinfo *c);
 
 public:
   FileCache(size_t max) : cur(0), max(max) {}
@@ -51,5 +53,7 @@ public:
   char *reserve(std::string &filename, struct stat *statbuf=NULL);
   void release(std::string &filename);
 };
+
+
 
 #endif // FILECACHE_HPP

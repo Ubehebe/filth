@@ -16,13 +16,19 @@ FileCache::cinfo::~cinfo()
   delete[] buf;
 }
 
+bool FileCache::evict_cond(cinfo *c)
+{
+  return c->refcnt == 0;
+}
+
 bool FileCache::evict()
 {
-  string *s;
+  bool ans = false;
+  string s;
+  cinfo *c;
   if (!toevict.nowait_deq(s))
-    return false;
-  unordered_map<string, cinfo *>::iterator it;
-  lock.wrlock();
+    return ans;
+
   /* A file is put on the eviction list whenever its reference count
    * falls to 0; it is not automatically removed from the list when
    * its reference count increases. Thus, one file may appear more
@@ -30,13 +36,11 @@ bool FileCache::evict()
    * may appear on the list. Therefore any file that is already gone
    * from the cache, and any file that has a positive reference count,
    * should just be ignored. */
-  if ((it = c.find(*s)) != c.end() && (*it).second->refcnt == 0) {
-    __sync_sub_and_fetch(&cur, (*it).second->sz);
-    delete (*it).second;
-    c.erase(it);
+  if (ans = h.popif(s, c, FileCache::evict_cond)) {
+    __sync_sub_and_fetch(&cur, c->sz);
+    delete c;
   }
-  lock.unlock();
-  return true;
+  return ans;
 }
 
 /* N.B. this function passes path directly to the kernel.
@@ -47,12 +51,10 @@ char *FileCache::reserve(std::string &path, struct stat *statbuf)
   unordered_map<std::string, cinfo *>::iterator it;
   struct stat statbuf_backup;
   struct stat *sbp = (statbuf == NULL) ? &statbuf_backup : statbuf;
+  
+  cinfo *tmp;
 
-  lock.rdlock();
-  it = c.find(path);
-  lock.unlock();
-
-  if (it != c.end()) {
+  if (h.find(path, tmp)) {
     /* We have to synchronize the reference count update,
      * but a lock per cache entry sounds too cumbersome. So we
      * tell GCC to issue some fenced code. Clearly less portable
@@ -62,8 +64,8 @@ char *FileCache::reserve(std::string &path, struct stat *statbuf)
      * the eviction list, but it shouldn't be evicted. Instead
      * of searching the eviction list here, we just check in the eviction
      * routine that the file about to be evicted indeed has refcnt==0. */
-    __sync_fetch_and_add(&(*it).second->refcnt, 1);
-    return (*it).second->buf;
+    __sync_fetch_and_add(&tmp->refcnt, 1);
+    return tmp->buf;
   }
 
   int fd;
@@ -95,9 +97,8 @@ char *FileCache::reserve(std::string &path, struct stat *statbuf)
     }
   }
 
-  cinfo *tmp;
   try {
-  tmp = new cinfo(sbp->st_size);
+    tmp = new cinfo((size_t) sbp->st_size);
   }
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
@@ -135,36 +136,29 @@ char *FileCache::reserve(std::string &path, struct stat *statbuf)
     goto reserve_tryagain;
   }
   close(fd);
-  lock.wrlock();
-  it = c.find(path);
-  if (it == c.end()) {
-    c[path] = tmp;
-    lock.unlock();
+
+  cinfo *already;
+  if (h.insert(make_pair(path, tmp), already))
     return tmp->buf;
-  }
   /* While we were getting the file into memory, someone else
    * put it in cache! So we don't need our copy anymore. Wasteful
    * but simple. */
   else {
     delete tmp;
     __sync_sub_and_fetch(&cur, sbp->st_size);
-    char *ans = (*it).second->buf;
-    (*it).second->refcnt++;
-    lock.unlock();
+    char *ans = already->buf;
+    __sync_add_and_fetch(&already->refcnt, 1);
     return ans;
   }
 }
 
 void FileCache::release(std::string &path)
 {
-  bool doenq;
-  unordered_map<string, cinfo *>::iterator it;  
-  lock.rdlock();
+  cinfo *c;
   // This always succeeds...right?
-  it = c.find(path);
-  doenq = (__sync_sub_and_fetch(&(*it).second->refcnt, 1)==0);
-  lock.unlock();
-  if (doenq)
-    toevict.enq(&((*it).first));
+  if (!h.find(path, c))
+    abort();
+  else if (__sync_sub_and_fetch(&c->refcnt, 1)==0)
+    toevict.enq(path);
 }
 

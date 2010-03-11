@@ -10,6 +10,10 @@
 
 #include "Locks.hpp"
 
+/* Simple locked queue, with a lock for the front and a lock for the back.
+ * The interface is a bit different from the STL interfaces; in particular,
+ * since I don't know enough about the invalidation of iterators,
+ * we don't expose iterators at all. */
 template<class T> class LockedQueue
 {
   std::queue<T> q;
@@ -19,7 +23,7 @@ template<class T> class LockedQueue
   LockedQueue() : nonempty(front) {}
   void enq(T t);
   T wait_deq();
-  bool nowait_deq(T t);
+  bool nowait_deq(T &t);
 };
 
 template<class T> void LockedQueue<T>::enq(T t)
@@ -43,13 +47,14 @@ template<class T> T LockedQueue<T>::wait_deq()
   return ans;
 }
 
-template<class T> bool LockedQueue<T>::nowait_deq(T ans)
+template<class T> bool LockedQueue<T>::nowait_deq(T &ans)
 {
   front.lock();
   if (q.empty()) {
     front.unlock();
     return false;
-  } else {
+  }
+  else {
     ans = q.front();
     q.pop();
     front.unlock();
