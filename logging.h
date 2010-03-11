@@ -24,7 +24,7 @@
  * LOG_NOTICE
  * "normal, but significant, condition".
  * My interpretation: Normal conditions that the user would like to see on
- * standard output (e.g. the address and port a server is listening on).
+ * standard error (e.g. the address and port a server is listening on).
  *
  * LOG_INFO
  * "informational message".
@@ -72,7 +72,7 @@
 
 #ifdef _LOG_CRIT
 #undef _LOG_CRIT
-#define _LOG_CRIT(...) fprintf(stdout, __VA_ARGS__);	\
+#define _LOG_CRIT(...) fprintf(stderr, __VA_ARGS__);	\
   syslog(LOG_USER|LOG_CRIT, __VA_ARGS__)
 #else
 #define _LOG_CRIT(...)
@@ -94,7 +94,7 @@
 
 #ifdef _LOG_NOTICE
 #undef _LOG_NOTICE
-#define _LOG_NOTICE(...) fprintf(stdout, __VA_ARGS__); \
+#define _LOG_NOTICE(...) fprintf(stderr, __VA_ARGS__); \
   syslog(LOG_USER|LOG_NOTICE, __VA_ARGS__)
 #else
 #define _LOG_NOTICE(...)
