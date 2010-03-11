@@ -21,7 +21,7 @@ cgi: $(BASE_OBJS) $(CGI_OBJS)
 depend:
 	makedepend -Y $(BASE_SRCS) $(HTTP_SRCS) $(UNIX_SRCS) 2> /dev/null
 clean:
-	rm -f *.o *~ *\# $(HTTP_PROGNAME)
+	rm -f *.o *~ *\# a.out $(HTTP_PROGNAME)
 # DO NOT DELETE
 
 Scheduler.o: Scheduler.hpp LockedQueue.hpp Locks.hpp Work.hpp ServerErrs.hpp

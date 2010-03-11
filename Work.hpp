@@ -15,26 +15,23 @@
  *
  * Note that the interpretation of "read" and "write" is totally up to the
  * derived class, as is the implementation of any buffering that needs
- * to be done. */
+ * to be done.
+ *
+ * getwork may be as simple as a call to the constructor of the derived class.
+ * (If I knew more about inheritance, maybe I could get this automatically.)
+ * But it has more interesting uses. For example, getwork(fd, m) might first
+ * check if there is already a work object associated with fd, and if so return
+ * that. */
 class Work
 {
 public:
   enum mode { read, write } m;
   int fd;
   bool deleteme;
+  Work(int fd, mode m) : fd(fd), m(m), deleteme(false) {}
+  virtual Work *getwork(int fd, Work::mode m) = 0;
   virtual void operator()() = 0;
   virtual ~Work() {}
-  Work(int fd, mode m) : fd(fd), m(m), deleteme(false) {}
-};
-
-/* Why not just have a pure virtual function makework in the work class?
- * Well, for some reason you can't have virtual static functions. A nonstatic
- * makework function sounds like a bad idea, since (at least one) work object
- * is allocated for each incoming request. */
-class mkWork
-{
-public:
-  virtual Work *operator()(int fd, Work::mode m) = 0;
 };
 
 #endif // WORK_HPP

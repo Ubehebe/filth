@@ -22,10 +22,9 @@ namespace handler_sch {
 
 using namespace std;
 
-Scheduler::Scheduler(LockedQueue<Work *> &q,
-		     unordered_map<int, Work *> &state,
-		     mkWork &makework, int pollsz, int maxevents)
-  : q(q), state(state), makework(makework), maxevents(maxevents)
+Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
+		     int pollsz, int maxevents)
+  : q(q), wmake(wmake), maxevents(maxevents)
 {
 
   /* I didn't design the scheduler class to have more than one instantiation
@@ -49,7 +48,6 @@ Scheduler::Scheduler(LockedQueue<Work *> &q,
     use_signalfd = true;
     close(dummyfd);
   }
-  use_signalfd = false;
   cerr << "scheduler: "
        << ((use_signalfd) ? "" : "not ")
        << "using signalfd\n";
@@ -108,18 +106,14 @@ void Scheduler::poll()
       perror("signalfd");
       exit(1);
     }
-    Work *sigfdw = makework(sigfd, Work::read);
-    state[sigfd] = sigfdw;
-    schedule(sigfdw, false);
+    schedule(wmake.getwork(sigfd, Work::read), false);
   }
 
   else {
     sigmasks::sigmask_caller(sigmasks::BLOCK_NONE);
   }
 
-  Work *listenfdw = makework(listenfd, Work::read);
-  state[listenfd] = listenfdw;
-  schedule(listenfdw, false);
+  schedule(wmake.getwork(listenfd, Work::read), false);
 
   struct epoll_event fds[maxevents];
   int fd, nchanged, connfd, flags, so_err;
@@ -176,12 +170,12 @@ void Scheduler::poll()
       else if (use_signalfd && fd == sigfd && (fds[i].events & EPOLLIN))
 	handle_sigs();
       else if (fd == listenfd && (fds[i].events & EPOLLIN))
-	handle_listen();
+	handle_accept();
       // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN)
-	q.enq(state[fd]);
+	q.enq(wmake.getwork(fd, Work::read));
       else if (fds[i].events & EPOLLOUT)
-	q.enq(state[fd]);
+	q.enq(wmake.getwork(fd, Work::write));
       
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
@@ -192,7 +186,7 @@ void Scheduler::poll()
   q.enq(NULL); // Poison pill for the workers
 }
 
-void Scheduler::handle_listen()
+void Scheduler::handle_accept()
 {
   // accept4 saves the use of the fcntls, but it's not widely available. Darn.
   int acceptfd;
@@ -210,15 +204,13 @@ void Scheduler::handle_listen()
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
-  Work *w = makework(acceptfd, Work::read);
-  state[acceptfd] = w;
-  schedule(w, true);
+  schedule(wmake.getwork(acceptfd, Work::read), true);
 }
 
 void Scheduler::handle_sigs()
 {
   struct signalfd_siginfo siginfo[sighandlers.size()];
-  map<int, void (*)(int)>::iterator iter;
+  unordered_map<int, void (*)(int)>::iterator iter;
   ssize_t nread = read(sigfd, (void *)&siginfo, sizeof(siginfo));
   
   // There might be more than one pending signal.

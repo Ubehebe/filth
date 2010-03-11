@@ -25,13 +25,11 @@ private:
 protected:
   LockedQueue<Work *> q; // Jobs waiting to be worked on.
   Scheduler sch;
-  // Uh oh. Needs to be synchronized.
-  std::unordered_map<int, Work *> state; // Persistent state for work.
 
 public:
   /* For network sockets, bindto should be a string of a port number,
    * like "80". For local sockets, bindto should be a filesystem path. */
-  Server(int domain, mkWork &makework, char const *bindto,
+  Server(int domain, Work &workmaker, char const *bindto,
 	 char const *ifnam, int nworkers, int listenq=10);
   void serve();
 };

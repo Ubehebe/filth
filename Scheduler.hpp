@@ -2,7 +2,6 @@
 #define SCHEDULER_HPP
 
 #include <functional>
-#include <map>
 #include <signal.h>
 #include <unordered_map>
 #include "LockedQueue.hpp"
@@ -25,17 +24,15 @@ class Scheduler
   sigset_t tohandle;
 
   inline void handle_sigs();
-  inline void handle_listen();
+  inline void handle_accept();
   inline void handle_sock_err(int fd);
 
   LockedQueue<Work *> &q;
-  std::unordered_map<int, Work *> &state;
   
-  mkWork &makework;
-  /* This doesn't really need to be an ordered map, but since
-   * the amount of signal handling we currently do is tiny, I'm not
-   * motivated to make it better. */
-  std::map<int, void (*)(int)> sighandlers;
+  Work &wmake;
+  /* Since the amount of signal handling we currently do is tiny,
+   * this could be a vector instead of a hash. w/e */
+  std::unordered_map<int, void (*)(int)> sighandlers;
 
   /* Some ready-made signal handlers. The argument and return types
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't
@@ -47,9 +44,8 @@ class Scheduler
   static Scheduler *handler_sch;
  
 public:
-  Scheduler(LockedQueue<Work *> &q,
-	    std::unordered_map<int, Work *> &state,
-	    mkWork &makework, int pollsz=100, int maxevents=100);
+  Scheduler(LockedQueue<Work *> &q, Work &workmaker,
+	    int pollsz=100, int maxevents=100);
   void schedule(Work *w, bool oneshot=true);
   void reschedule(Work *w, bool oneshot=true);
   void push_sighandler(int signo, void (*handler)(int));

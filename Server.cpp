@@ -18,9 +18,9 @@
 #include "Server.hpp"
 #include "sigmasks.hpp"
 
-Server::Server(int domain, mkWork &makework, char const *bindto,
+Server::Server(int domain, Work &workmaker, char const *bindto,
 	       char const *ifnam, int nworkers, int listenq)
-  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, state, makework)
+  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, workmaker)
 {
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     perror("socket");

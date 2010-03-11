@@ -9,27 +9,33 @@
 #include "HTTP_Work.hpp"
 #include "ServerErrs.hpp"
 
-LockedQueue<Work *> *HTTP_Work::q = NULL;
-Scheduler *HTTP_Work::sch = NULL;
-FileCache *HTTP_Work::cache = NULL;
-
 using namespace std;
 using namespace HTTP_constants;
 
+LockedQueue<Work *> *HTTP_Work::q = NULL;
+Scheduler *HTTP_Work::sch = NULL;
+FileCache *HTTP_Work::cache = NULL;
+unordered_map<int, Work *> *HTTP_Work::st = NULL;
+
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), req_line_done(false), status_line_done(false), resource(NULL)
+  : Work(fd, m), fake(false), erasemyself(true), req_line_done(false),
+    status_line_done(false), resource(NULL)
 {
   memset((void *)&rdbuf, 0, rdbufsz);
 }
 
 HTTP_Work::~HTTP_Work()
 {
-  // If we're using the cache, tell it we're done.
-  if (resource != NULL)
-    cache->release(path);
-  // Bye client!
-  if (close(fd)==-1)
-    perror("close");
+  if (!fake) {
+    // If we're using the cache, tell it we're done.
+    if (resource != NULL)
+      cache->release(path);
+    // Bye client!
+    close(fd);
+    // Remove yourself from the state map. TODO
+    if (erasemyself)
+      st->erase(fd);
+  }
 }
 
 // Returns true if we don't need to parse anything more, false otherwise.
@@ -100,11 +106,11 @@ void HTTP_Work::operator()()
 void HTTP_Work::incoming()
 {
   ssize_t nread;
- /* Read until we would block.
-  * My understanding is reading a socket will return 0
-  * iff the peer hangs up. However, the scheduler already
-  * checks the file descriptor for hangups, which is why
-  * we don't check for nread==0 here. ??? */
+  /* Read until we would block.
+   * My understanding is reading a socket will return 0
+   * iff the peer hangs up. However, the scheduler already
+   * checks the file descriptor for hangups, which is why
+   * we don't check for nread==0 here. ??? */
   while (true) {
     if ((nread = ::read(fd, (void *)rdbuf, rdbufsz))>0)
       pbuf << rdbuf;
@@ -219,14 +225,26 @@ void HTTP_Work::format_status_line()
   statlnsz = strlen(rdbuf);
 }
 
-void HTTP_mkWork::init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *cache)
+void HTTP_Work::init(LockedQueue<Work *> *_q, Scheduler *_sch,
+		     FileCache *_cache, unordered_map<int, Work *> *_st)
 {
-  HTTP_Work::q = q;
-  HTTP_Work::sch = sch;
-  HTTP_Work::cache = cache;
+  q = _q;
+  sch = _sch;
+  cache = _cache;
+  st = _st;
 }
 
-Work *HTTP_mkWork::operator()(int fd, Work::mode m)
+Work *HTTP_Work::getwork(int fd, Work::mode m)
 {
-  return new HTTP_Work(fd, m);
+  /* TODO: think about synchronization.
+   * Note that if fd is found in the state map, the second parameter
+   * is ignored. Is this the right thing to do? */
+  unordered_map<int, Work *>::iterator it;
+  if ((it = st->find(fd)) != st->end())
+    return it->second;
+  else {
+    HTTP_Work *w = new HTTP_Work(fd, m);
+    (*st)[fd] = w;
+    return w;
+  }
 }

@@ -2,11 +2,11 @@
 #define HTTP_WORK_HPP
 
 #include <iostream>
-#include <map>
 #include <sstream>
 #include <stdint.h>
 #include <string>
 #include <sys/types.h>
+#include <unordered_map>
 
 #include "FileCache.hpp"
 #include "HTTP_constants.hpp"
@@ -14,21 +14,17 @@
 #include "Scheduler.hpp"
 #include "Work.hpp"
 
-// Forward declaration for befriending HTTP_Work.
-class HTTP_mkWork;
-
 class HTTP_Work : public Work
 {
-  // Just so it can set the static members.
-  friend class HTTP_mkWork;
-
   // Stuff that should be the same for all.
-  static size_t const rdbufsz = 1<<12;
+  static size_t const rdbufsz = 1<<10;
   static LockedQueue<Work *> *q;
   static Scheduler *sch;
   static FileCache *cache;
+  static std::unordered_map<int, Work *> *st;
 
   // Internal state.
+  bool fake; // Whether this is a dummy object.
   char rdbuf[rdbufsz]; // Buffer to use to read from client...and response??
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
@@ -60,22 +56,23 @@ class HTTP_Work : public Work
   
 public:
   void operator()();
+  Work *getwork(int fd, Work::mode m);
+  // Dummy constructor.
+  HTTP_Work() : fake(true), erasemyself(false), Work(-1, Work::read) {}
   HTTP_Work(int fd, Work::mode m);
   ~HTTP_Work();
+  void init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c,
+	    std::unordered_map<int, Work *> *st);
+  bool erasemyself;
 };
 
-class HTTP_mkWork : public mkWork
-{
-public:
-  Work *operator()(int fd, Work::mode m);
-  /* Rationale: an HTTP_Work object is a particular kind of Work object:
-   * it needs to know about the work queue and the scheduler, since it
-   * might need to initiate new work. But the work queue and the scheduler
-   * don't exist until the server constructor returns. Thus we should call init
-   * in the body of the HTTP_Server constructor to set them. Note that this
-   * means that we can't actually start the server from inside the server
-   * constructor; we provide a serve() function instead. */
-  void init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c);
-};
+
+/* Rationale: an HTTP_Work object is a particular kind of Work object:
+ * it needs to know about the work queue and the scheduler, since it
+ * might need to initiate new work. But the work queue and the scheduler
+ * don't exist until the server constructor returns. Thus we should call init
+ * in the body of the HTTP_Server constructor to set them. Note that this
+ * means that we can't actually start the server from inside the server
+ * constructor; we provide a serve() function instead. */
 
 #endif // HTTP_WORK_HPP
