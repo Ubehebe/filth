@@ -2,7 +2,6 @@
 #include <fcntl.h>
 #include <iostream>
 #include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -12,6 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "logging.h"
 #include "Scheduler.hpp"
 #include "ServerErrs.hpp"
 #include "sigmasks.hpp"
@@ -36,7 +36,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
 
   // Set up the signal file descriptor.
   if (sigemptyset(&tohandle)==-1) {
-    perror("sigemptyset");
+    _LOG_CRIT("sigemptyset: %m");
     exit(1);
   }
   
@@ -48,13 +48,11 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
     use_signalfd = true;
     close(dummyfd);
   }
-  cerr << "scheduler: "
-       << ((use_signalfd) ? "" : "not ")
-       << "using signalfd\n";
+  _LOG_INFO("scheduler:%s using signalfd", (use_signalfd) ? "" : " not");
 
   // Set up the polling file descriptor.
   if ((pollfd = epoll_create(pollsz))==-1) {
-    perror("epoll_create");
+    _LOG_CRIT("epoll_create: %m");
     exit(1);
   }
 
@@ -103,7 +101,7 @@ void Scheduler::poll()
   if (use_signalfd) {
     sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
     if ((sigfd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
-      perror("signalfd");
+      _LOG_CRIT("signalfd: %m");
       exit(1);
     }
     schedule(wmake.getwork(sigfd, Work::read), false);
@@ -240,7 +238,7 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
 	   << "redefining signal handler for signal " << signo << endl;
     }
     else if (sigaddset(&tohandle, signo)==-1) {
-      perror("sigaddset");
+      _LOG_CRIT("sigaddset: %m");
       exit(1);
     }    
     sighandlers[signo] = handler; 
@@ -250,12 +248,12 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
     struct sigaction act;
     memset((void *)&act, 0, sizeof(act));
     if (sigemptyset(&act.sa_mask)!=0) {
-      perror("sigemptyset");
+      _LOG_CRIT("sigemptyset: %m");
       exit(1);
     }
     act.sa_handler = handler;
     if (sigaction(signo, &act, NULL)==-1) {
-      perror("sigaction");
+      _LOG_CRIT("sigaction: %m");
       exit(1);
     }    
   }
@@ -263,7 +261,7 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
 
 void Scheduler::halt(int ignore)
 {
-  cerr << "scheduler halting\n";
+  _LOG_INFO("scheduler halting");
   handler_sch::s->dowork = false;
 }
 

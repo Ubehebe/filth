@@ -11,6 +11,7 @@
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Statemap.hpp"
 #include "HTTP_Work.hpp"
+#include "logging.h"
 #include "Server.hpp"
 #include "ServerErrs.hpp"
 
@@ -35,7 +36,7 @@ HTTP_Server::HTTP_Server(char const *portno, char const *ifnam,
     Server((ipv6) ? AF_INET6 : AF_INET, workmaker, portno, ifnam, nworkers)
 {
   if (chdir(mount)==-1) {
-    perror("chdir");
+    _LOG_ERR("%m");
     exit(1);
   }
   workmaker.init(&q, &sch, &cache, &st);

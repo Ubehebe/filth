@@ -3,9 +3,10 @@
 
 #include <errno.h>
 #include <functional>
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include "logging.h"
 
 template<class C> Thread<C>::Thread(void (C::*p)())
   : _c(new C()), _p(p), dodelete(true)
@@ -36,7 +37,7 @@ template<class C> void Thread<C>::_init(sigmasks::builtin *b)
   _Thread *tmp = new _Thread(_c, _p, b);
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
-    perror("pthread_create");
+    _LOG_CRIT("pthread_create: %m");
     exit(1);
   }
 }
@@ -63,7 +64,7 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 template<class C> Thread<C>::~Thread() 
 {
   if (pthread_join(th, NULL)!=0) {
-    perror("pthread_join");
+    _LOG_CRIT("pthread_join: %m");
     exit(1);
   }
   if (dodelete) 

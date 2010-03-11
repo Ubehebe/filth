@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "FileCache.hpp"
+#include "logging.h"
 
 using namespace std;
 
@@ -120,7 +121,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   }
   // Some other kind of error; start over.
   if (nread == -1) {
-    perror("read");
+    _LOG_WARNING("read: %m");
     delete tmp;
     __sync_sub_and_fetch(&cur, sz);
     goto reserve_tryagain;
