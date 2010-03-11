@@ -15,10 +15,16 @@ using namespace HTTP_constants;
 LockedQueue<Work *> *HTTP_Work::q = NULL;
 Scheduler *HTTP_Work::sch = NULL;
 FileCache *HTTP_Work::cache = NULL;
-unordered_map<int, Work *> *HTTP_Work::st = NULL;
+HTTP_Statemap *HTTP_Work::st = NULL;
+
+// Dummy constructor.
+HTTP_Work::HTTP_Work()
+  : Work(-1, Work::read), erasemyself(false), resource(NULL)
+{
+}
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), fake(false), erasemyself(true), req_line_done(false),
+  : Work(fd, m), erasemyself(true), req_line_done(false),
     status_line_done(false), resource(NULL)
 {
   memset((void *)&rdbuf, 0, rdbufsz);
@@ -26,16 +32,15 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
 
 HTTP_Work::~HTTP_Work()
 {
-  if (!fake) {
-    // If we're using the cache, tell it we're done.
-    if (resource != NULL)
-      cache->release(path);
-    // Bye client!
+  /* Objects allocated through the dummy constructor have fd==-1.
+   * It's not dangerous to call close(-1), but valgrind complains. */
+  if (fd >= 0)
     close(fd);
-    // Remove yourself from the state map. TODO
-    if (erasemyself)
-      st->erase(fd);
-  }
+  // If we're using the cache, tell it we're done.
+  if (resource != NULL)
+    cache->release(path);
+  if (erasemyself)
+    st->erase(fd);
 }
 
 // Returns true if we don't need to parse anything more, false otherwise.
@@ -188,11 +193,10 @@ void HTTP_Work::parse_uri(string &uri)
     path = uri.substr(1);
   }
 
-  // Check the cache.
-  if ((resource = cache->reserve(path, resourcesz))==NULL) {
-    ; // TODO
-  }
-  // Did find it in the cache--remember how big it is.
+  // Check the cache; for now we don't support dynamic resources
+  if ((resource = cache->reserve(path, resourcesz)) == NULL)
+    throw HTTP_Parse_Err(Not_Found);
+
 }
 
 void HTTP_Work::parse_header(string &line)
@@ -226,7 +230,7 @@ void HTTP_Work::format_status_line()
 }
 
 void HTTP_Work::init(LockedQueue<Work *> *_q, Scheduler *_sch,
-		     FileCache *_cache, unordered_map<int, Work *> *_st)
+		     FileCache *_cache, HTTP_Statemap *_st)
 {
   q = _q;
   sch = _sch;
@@ -239,7 +243,7 @@ Work *HTTP_Work::getwork(int fd, Work::mode m)
   /* TODO: think about synchronization.
    * Note that if fd is found in the state map, the second parameter
    * is ignored. Is this the right thing to do? */
-  unordered_map<int, Work *>::iterator it;
+  HTTP_Statemap::iterator it;
   if ((it = st->find(fd)) != st->end())
     return it->second;
   else {

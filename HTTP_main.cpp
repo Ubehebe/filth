@@ -11,6 +11,7 @@ int main(int argc, char **argv)
     HTTP_Server(
 		HTTP_cmdline::svals[HTTP_cmdline::port],
 		HTTP_cmdline::svals[HTTP_cmdline::ifnam],
+		HTTP_cmdline::svals[HTTP_cmdline::mount],
 		HTTP_cmdline::ivals[HTTP_cmdline::nworkers],
 		HTTP_cmdline::bvals[HTTP_cmdline::ipv6],
 		HTTP_cmdline::ivals[HTTP_cmdline::cachesz]).serve();

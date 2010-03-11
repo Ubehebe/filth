@@ -10,6 +10,7 @@
 
 #include "FileCache.hpp"
 #include "HTTP_constants.hpp"
+#include "HTTP_Statemap.hpp"
 #include "LockedQueue.hpp"
 #include "Scheduler.hpp"
 #include "Work.hpp"
@@ -21,10 +22,9 @@ class HTTP_Work : public Work
   static LockedQueue<Work *> *q;
   static Scheduler *sch;
   static FileCache *cache;
-  static std::unordered_map<int, Work *> *st;
+  static HTTP_Statemap *st;
 
   // Internal state.
-  bool fake; // Whether this is a dummy object.
   char rdbuf[rdbufsz]; // Buffer to use to read from client...and response??
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
@@ -57,12 +57,11 @@ class HTTP_Work : public Work
 public:
   void operator()();
   Work *getwork(int fd, Work::mode m);
-  // Dummy constructor.
-  HTTP_Work() : fake(true), erasemyself(false), Work(-1, Work::read) {}
+  HTTP_Work();
   HTTP_Work(int fd, Work::mode m);
   ~HTTP_Work();
   void init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c,
-	    std::unordered_map<int, Work *> *st);
+	    HTTP_Statemap *st);
   bool erasemyself;
 };
 

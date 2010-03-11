@@ -1,14 +1,14 @@
 #include <iostream>
+#include <syslog.h>
+#include <unistd.h>
+#include <stdlib.h>
 
-class Foo
-{
-  int x,y;
-public:
-  ~Foo();
-  ~Foo(int x);
-};
 
-int main()
+int main(int argc, char **argv)
 {
-  std::cout << sizeof(Foo) << std::endl;
+  openlog(argv[0], LOG_PID, LOG_USER);
+  if (close(-1) == -1) {
+    syslog(LOG_ERR, "close: %m, exiting");
+    exit(1);
+  }
 }
