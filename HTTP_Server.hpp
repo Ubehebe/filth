@@ -33,14 +33,14 @@ public:
 
 HTTP_Server::HTTP_Server(char const *portno, char const *ifnam,
 			 char const *mount, int nworkers, bool ipv6, size_t cacheszMB)
-  : cache(cacheszMB * (1<<20)),
-    Server((ipv6) ? AF_INET6 : AF_INET, workmaker, portno, ifnam, nworkers)
+  : Server((ipv6) ? AF_INET6 : AF_INET, workmaker, portno, ifnam, nworkers),
+    workmaker(&q, &sch, &cache, &st),
+    cache(cacheszMB * (1<<20), sch)
 {
   if (chdir(mount)==-1) {
     _LOG_ERR("%m");
     exit(1);
   }
-  workmaker.init(&q, &sch, &cache, &st);
 }
 
 HTTP_Server::~HTTP_Server()

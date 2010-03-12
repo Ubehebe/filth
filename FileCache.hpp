@@ -10,6 +10,7 @@
 
 #include "LockedQueue.hpp"
 #include "Locks.hpp"
+#include "Scheduler.hpp"
 
 /* Simple file cache. The biggest inefficiency is that it calls new for
  * each allocation, rather than malloc'ing all the memory at the outset
@@ -36,15 +37,21 @@ class FileCache
     ~cinfo();
   };
   std::unordered_map<std::string, cinfo *> c;
-  RWLock clock;
-  LockedQueue<std::string *> toevict;
+  RWLock clock; // watchds also uses this.
+  LockedQueue<std::string> toevict;
   size_t cur, max;
 
   bool evict();
 
+  int inotifyfd;
+  std::unordered_map<uint32_t, std::string> watchds;
+  Scheduler &sch;
+
+  static FileCache *recvinotify;
+  static void inotify_cb(uint32_t events);
 
 public:
-  FileCache(size_t max) : cur(0), max(max) {}
+  FileCache(size_t max, Scheduler &sch);
 
   /* This function should search the cache and return the file if it's there.
    * If it's not, it should read it in from disk, then return it.
@@ -53,7 +60,5 @@ public:
   char *reserve(std::string &path, size_t &sz);
   void release(std::string &path);
 };
-
-
 
 #endif // FILECACHE_HPP

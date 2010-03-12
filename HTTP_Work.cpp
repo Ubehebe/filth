@@ -246,8 +246,9 @@ void HTTP_Work::format_status_line()
   statlnsz = strlen(rdbuf);
 }
 
-void HTTP_Work::init(LockedQueue<Work *> *_q, Scheduler *_sch,
+HTTP_Work::HTTP_Work(LockedQueue<Work *> *_q, Scheduler *_sch,
 		     FileCache *_cache, HTTP_Statemap *_st)
+  : Work(-1, Work::read)
 {
   q = _q;
   sch = _sch;

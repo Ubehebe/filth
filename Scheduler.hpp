@@ -33,6 +33,7 @@ class Scheduler
   /* Since the amount of signal handling we currently do is tiny,
    * this could be a vector instead of a hash. w/e */
   std::unordered_map<int, void (*)(int)> sighandlers;
+  std::unordered_map<int, void (*)(uint32_t)> special_fd_handlers;
 
   /* Some ready-made signal handlers. The argument and return types
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't
@@ -51,9 +52,14 @@ public:
   void push_sighandler(int signo, void (*handler)(int));
   bool dowork;
   void set_listenfd(int _listenfd);
+  /* Other modules can request that the scheduler pay attention
+   * to certain file descriptors without the scheduler having to know
+   * how to handle them. For example, a cache module can register
+   * an fd with the scheduler that becomes readable whenever a file in the
+   * cache changes on disk. */
+  void register_special_fd(int fd, void (*cb)(uint32_t),
+			   Work::mode m, bool oneshot=true);
   void poll();
-
-
 };
 
 /* To support signal handling without the use of signalfd, we need

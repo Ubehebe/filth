@@ -1,10 +1,42 @@
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/inotify.h>
 
 #include "FileCache.hpp"
 #include "logging.h"
+#include "Work.hpp"
 
 using namespace std;
+
+FileCache *FileCache::recvinotify = NULL;
+
+FileCache::FileCache(size_t max, Scheduler &sch)
+  : cur(0), max(max), sch(sch)
+{
+  // I hate this pattern.
+  if (recvinotify == NULL)
+    recvinotify = this;
+
+  if ((inotifyfd = inotify_init())==-1) {
+    _LOG_CRIT("FileCache::FileCache: inotify_init: %m");
+    exit(1);
+  }
+  int flags;
+  if ((flags = fcntl(inotifyfd, F_GETFL))==-1) {
+    _LOG_CRIT("FileCache::FileCache: fcntl (F_GETFL): %m");
+    exit(1);
+  }
+  if (fcntl(inotifyfd, F_SETFL, flags | O_NONBLOCK)==-1) {
+    _LOG_CRIT("FileCache::FileCache: fcntl (F_SETFL): %m");
+    exit(1);
+  }
+  sch.register_special_fd(inotifyfd, FileCache::inotify_cb, Work::read);
+}
+
+void FileCache::inotify_cb(uint32_t events)
+{
+
+}
 
 FileCache::cinfo::cinfo(size_t sz)
   : sz(sz), refcnt(1)
@@ -19,7 +51,7 @@ FileCache::cinfo::~cinfo()
 
 bool FileCache::evict()
 {
-  string *s;
+  string s;
   unordered_map<string, cinfo *>::iterator it;
 
  evict_tryagain:
@@ -35,8 +67,8 @@ bool FileCache::evict()
    * that is already gone from the cache, and any file that has a positive
    * reference count, should just be ignored. */
   clock.wrlock();
-  if ((it = c.find(*s)) != c.end() && it->second->refcnt == 0) {
-    _LOG_DEBUG("FileCache::evict %s", s->c_str());
+  if ((it = c.find(s)) != c.end() && it->second->refcnt == 0) {
+    _LOG_DEBUG("FileCache::evict %s", s.c_str());
     __sync_sub_and_fetch(&cur, it->second->sz);
     delete it->second;
     c.erase(it);
@@ -169,6 +201,13 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   }
   else {
     _LOG_DEBUG("FileCache::reserve %s: is now in cache", path.c_str());
+    uint32_t watchd;
+    if ((watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))==-1) {
+	_LOG_WARNING("FileCache::reserve %s: inotifyfd: %m", path.c_str());
+    }
+    else {
+      watchds.insert(make_pair(watchd, path));
+    }
     c[path] = tmp;
     ctmp = tmp->buf;
   }
@@ -188,6 +227,6 @@ void FileCache::release(std::string &path)
   if (doenq) {
     _LOG_DEBUG("FileCache::release %s:"
 	       "no one else is using, putting on evict list", path.c_str());
-    toevict.enq(const_cast<string *>(&it->first));
+    toevict.enq(it->first);
   }
 }

@@ -26,7 +26,6 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
 		     int pollsz, int maxevents)
   : q(q), wmake(wmake), maxevents(maxevents)
 {
-
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
    * only know about one instance. If we really need support for this,
@@ -58,6 +57,38 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
 
   // The default behavior of SIGINTs should be halting.
   push_sighandler(SIGINT, Scheduler::halt);
+}
+
+void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
+				    Work::mode m, bool oneshot)
+{
+  if (fd < 0) {
+    _LOG_NOTICE("Scheduler::register_special_fd %d:"
+		" invalid file descriptor, ignoring", fd);
+    return;
+  } else if (fd == listenfd) {
+    _LOG_NOTICE("Scheduler::register_special_fd %d:"
+		" identical to listening fd, ignoring", fd);
+    return;
+  } else if (fd == pollfd) {
+    _LOG_NOTICE("Scheduler::register_special_fd %d:"
+		" identical to polling fd, ignoring", fd);
+    return;
+  } else if (use_signalfd && fd == sigfd) {
+    _LOG_NOTICE("Scheduler::register_special_fd %d:"
+		" identical to signal fd, ignoring", fd);
+    return;
+  }
+
+  unordered_map<int, void (*)(uint32_t)>::iterator it;
+  if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end()) {
+    _LOG_WARNING("Scheduler::register_special_fd %d: redefining handler", fd);
+    it->second = cb;
+  }
+  else { 
+    special_fd_handlers[fd] = cb;
+  }
+  schedule(wmake.getwork(fd, m), oneshot);
 }
 
 void Scheduler::schedule(Work *w, bool oneshot)
@@ -131,10 +162,6 @@ void Scheduler::poll()
 	&& errno != EINTR)
 	throw ResourceErr("epoll_wait", errno);
 
-    /* This is sequential, but should not be a bottleneck because no
-     * blocking is involved. I suppose we could put the fd's of interest
-     * into a queue and have workers inspect them...probably overkill. */
-
     /* Stream sockets are full-duplex, so it is reasonable to expect
      * that they could be simultaneously readable and writable. But
      * schedule() and reschedule(), which are the only interfaces to the
@@ -160,10 +187,14 @@ void Scheduler::poll()
      * identify the resource, another worker might be enlisted to prepare
      * the resource; but the first worker should ultimately send it back to
      * the client. */
+    unordered_map<int, void (*)(uint32_t)>::iterator it;
     for (int i=0; i<nchanged; ++i) {
       fd = fds[i].data.fd;
+      // If we have a special handler for this fd, use that.
+      if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end())
+	it->second(fds[i].events);
       // epoll_wait always collects these. Do we know what to do with them?
-      if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
+      else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
 	_LOG_INFO("Scheduler::poll: hangup or error on %d", fd);
       else if (use_signalfd && fd == sigfd && (fds[i].events & EPOLLIN))
 	handle_sigs();
@@ -174,7 +205,6 @@ void Scheduler::poll()
 	q.enq(wmake.getwork(fd, Work::read));
       else if (fds[i].events & EPOLLOUT)
 	q.enq(wmake.getwork(fd, Work::write));
-      
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
       if (!dowork) break;
@@ -217,9 +247,10 @@ void Scheduler::handle_sigs()
   while (nread > 0) {
     if ((iter = sighandlers.find(siginfo[i].ssi_signo)) != sighandlers.end()) {
       ((*iter).second)(0);
-      _LOG_INFO("Scheduler::handle_sigs: got %s", strsignal(siginfo[i].ssi_signo));
+      _LOG_INFO("Scheduler::handle_sigs: got signal %s",
+		strsignal(siginfo[i].ssi_signo));
     } else {
-      _LOG_WARNING("Scheduler::handle_sigs: got %s"
+      _LOG_WARNING("Scheduler::handle_sigs: got signal %s"
 		   " but have no handler for it, ignoring", strsignal(siginfo[i].ssi_signo));
     }
     /* The signal handler could have set dowork to false, so we should

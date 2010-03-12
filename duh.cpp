@@ -6,21 +6,24 @@ using namespace std;
 
 class Foo
 {
-  int fake;
 public:
-  static Foo *mkFoo() { return new Foo(); }
-  static list<Foo *> *l;
+  Foo() { cout << "Foo\n"; }
 };
 
-list<Foo *> *Foo::l = NULL;
+class Bar
+{
+public:
+  Bar() { cout << "Bar\n"; }
+};
+
+class Baz : public Bar
+{
+  Foo f;
+public:
+  Baz() { cout << "Baz\n"; }
+};
 
 int main()
 {
-  list<Foo *> l;
-  Foo::l = &l;
- generate_n(l.begin(), 10, Foo::mkFoo);
-  
-  for (list<Foo *>::iterator it = l.begin(); it != l.end(); ++it)
-    delete *it;
-  
+  Baz();
 }

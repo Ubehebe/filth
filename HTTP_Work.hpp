@@ -59,10 +59,9 @@ public:
   Work *getwork(int fd, Work::mode m);
   HTTP_Work();
   HTTP_Work(int fd, Work::mode m);
-  ~HTTP_Work();
-  inline void deinit();
-  void init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c,
+  HTTP_Work(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c,
 	    HTTP_Statemap *st);
+  ~HTTP_Work();
 };
 
 
