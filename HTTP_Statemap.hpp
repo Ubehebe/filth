@@ -5,7 +5,7 @@
 
 #include "Work.hpp"
 
-/* TODO: this data structure is unsynchronized. I believe this is safe since
+/* This data structure is unsynchronized. I believe this is safe since
  * two workers never have the same file descriptor, but I need to think
  * about it more. */
 typedef std::unordered_map<int, Work *> HTTP_Statemap;

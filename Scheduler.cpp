@@ -217,10 +217,10 @@ void Scheduler::handle_sigs()
   while (nread > 0) {
     if ((iter = sighandlers.find(siginfo[i].ssi_signo)) != sighandlers.end()) {
       ((*iter).second)(0);
-      _LOG_INFO("Scheduler::handle_sigs: got signal %d", siginfo[i].ssi_signo);
+      _LOG_INFO("Scheduler::handle_sigs: got %s", strsignal(siginfo[i].ssi_signo));
     } else {
-      _LOG_WARNING("Scheduler::handle_sigs: got signal %d"
-		   " but have no handler for it, ignoring", siginfo[i].ssi_signo);
+      _LOG_WARNING("Scheduler::handle_sigs: got %s"
+		   " but have no handler for it, ignoring", strsignal(siginfo[i].ssi_signo));
     }
     /* The signal handler could have set dowork to false, so we should
      * return immediately. */

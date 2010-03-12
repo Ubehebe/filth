@@ -60,7 +60,7 @@ public:
   HTTP_Work();
   HTTP_Work(int fd, Work::mode m);
   ~HTTP_Work();
-  //  void almostDestructor(); // Doesn't unseat from the map
+  inline void deinit();
   void init(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c,
 	    HTTP_Statemap *st);
 };

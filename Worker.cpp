@@ -2,6 +2,7 @@
 #include <iostream>
 #include <unistd.h>
 
+#include "logging.h"
 #include "sigmasks.hpp"
 #include "Worker.hpp"
 
@@ -25,5 +26,5 @@ void Worker::work()
 	delete w;
     }
   }
-  std::cerr << "worker retiring\n";
+  _LOG_INFO("worker retiring");
 }

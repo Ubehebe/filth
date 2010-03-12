@@ -37,11 +37,12 @@ HTTP_Work::~HTTP_Work()
   if (fd >= 0) {
     _LOG_DEBUG("HTTP_Work::~HTTP_Work %d: close", fd);
     close(fd);
-    // If we're using the cache, tell it we're done.
-    if (resource != NULL)
-      cache->release(path);
-    st->erase(fd);
   }
+  // If we're using the cache, tell it we're done.
+  if (resource != NULL)
+    cache->release(path);
+  // If fd==-1, this will fail but that's OK.
+   st->erase(fd);
 }
 
 // Returns true if we don't need to parse anything more, false otherwise.

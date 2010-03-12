@@ -8,7 +8,8 @@ using namespace HTTP_cmdline;
 
 int main(int argc, char **argv)
 {
-  openlog(argv[0], 0, LOG_USER);
+  openlog((argv[0][0] == '.' && argv[0][1] == '/') ? &argv[0][2] : argv[0],
+	  0, LOG_USER);
   _LOG_INFO("main: starting");
   parsecmdline(argc, argv);
   try {

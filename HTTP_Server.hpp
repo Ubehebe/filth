@@ -1,6 +1,7 @@
 #ifndef HTTP_SERVER_HPP
 #define HTTP_SERVER_HPP
 
+#include <list>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -44,11 +45,11 @@ HTTP_Server::HTTP_Server(char const *portno, char const *ifnam,
 
 HTTP_Server::~HTTP_Server()
 {
-  HTTP_Statemap::iterator it;
-  for (it = st.begin(); it != st.end(); ++it) {
-    dynamic_cast<HTTP_Work *>(it->second)->erasemyself = false;
-    delete it->second;
-  }
+  std::list<Work *> todel;
+  for (HTTP_Statemap::iterator it = st.begin(); it != st.end(); ++it)
+    todel.push_back(it->second);
+  for (std::list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
+    delete *it;
 }
 
 
