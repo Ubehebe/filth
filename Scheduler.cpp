@@ -164,7 +164,7 @@ void Scheduler::poll()
       fd = fds[i].data.fd;
       // epoll_wait always collects these. Do we know what to do with them?
       if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
-	cerr << "Scheduler::poll: hangup or error, descriptor " << fd << endl;
+	_LOG_INFO("Scheduler::poll: hangup or error on %d", fd);
       else if (use_signalfd && fd == sigfd && (fds[i].events & EPOLLIN))
 	handle_sigs();
       else if (fd == listenfd && (fds[i].events & EPOLLIN))
@@ -180,21 +180,22 @@ void Scheduler::poll()
       if (!dowork) break;
     }
   }
-  cerr << "scheduler retiring\n";
+  _LOG_INFO("scheduler retiring");
   q.enq(NULL); // Poison pill for the workers
 }
 
 void Scheduler::handle_accept()
 {
-  // accept4 saves the use of the fcntls, but it's not widely available. Darn.
   int acceptfd;
   if ((acceptfd = accept(listenfd, NULL, NULL))==-1) {
     // See "Unix Network Programming", 2nd ed., sec. 16.6 for rationale.
     if (errno == EWOULDBLOCK
 	|| errno == ECONNABORTED
 	|| errno == EPROTO
-	|| errno == EINTR)
+	|| errno == EINTR) {
+      _LOG_DEBUG("Scheduler::handle_accept: %m");
       return;
+    }
     else throw SocketErr("accept", errno);
   }
   int flags;
@@ -216,11 +217,10 @@ void Scheduler::handle_sigs()
   while (nread > 0) {
     if ((iter = sighandlers.find(siginfo[i].ssi_signo)) != sighandlers.end()) {
       ((*iter).second)(0);
-      cerr << "got signal " << siginfo[i].ssi_signo << endl;
+      _LOG_INFO("Scheduler::handle_sigs: got signal %d", siginfo[i].ssi_signo);
     } else {
-      cerr << "Scheduler::handle_sigs: warning:\n"
-	   << "got signal " << siginfo[i].ssi_signo
-	   << " but have no handler for it, ignoring\n";
+      _LOG_WARNING("Scheduler::handle_sigs: got signal %d"
+		   " but have no handler for it, ignoring", siginfo[i].ssi_signo);
     }
     /* The signal handler could have set dowork to false, so we should
      * return immediately. */
@@ -234,8 +234,8 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
 {
   if (use_signalfd) {
     if (sighandlers.find(signo) != sighandlers.end()) {
-      cerr << "Scheduler::push_sighandler: warning:\n"
-	   << "redefining signal handler for signal " << signo << endl;
+      _LOG_WARNING("Scheduler::push_sighandler:"
+		   " redefining signal handler for signal %d", signo);
     }
     else if (sigaddset(&tohandle, signo)==-1) {
       _LOG_CRIT("sigaddset: %m");

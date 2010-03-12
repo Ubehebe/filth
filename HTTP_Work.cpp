@@ -7,6 +7,7 @@
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Parse_Err.hpp"
 #include "HTTP_Work.hpp"
+#include "logging.h"
 #include "ServerErrs.hpp"
 
 using namespace std;
@@ -19,12 +20,12 @@ HTTP_Statemap *HTTP_Work::st = NULL;
 
 // Dummy constructor.
 HTTP_Work::HTTP_Work()
-  : Work(-1, Work::read), erasemyself(false), resource(NULL)
+  : Work(-1, Work::read), resource(NULL)
 {
 }
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), erasemyself(true), req_line_done(false),
+  : Work(fd, m), req_line_done(false),
     status_line_done(false), resource(NULL)
 {
   memset((void *)&rdbuf, 0, rdbufsz);
@@ -32,15 +33,15 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
 
 HTTP_Work::~HTTP_Work()
 {
-  /* Objects allocated through the dummy constructor have fd==-1.
-   * It's not dangerous to call close(-1), but valgrind complains. */
-  if (fd >= 0)
+  /* Objects allocated through the dummy constructor have fd==-1.*/
+  if (fd >= 0) {
+    _LOG_DEBUG("HTTP_Work::~HTTP_Work %d: close", fd);
     close(fd);
-  // If we're using the cache, tell it we're done.
-  if (resource != NULL)
-    cache->release(path);
-  if (erasemyself)
+    // If we're using the cache, tell it we're done.
+    if (resource != NULL)
+      cache->release(path);
     st->erase(fd);
+  }
 }
 
 // Returns true if we don't need to parse anything more, false otherwise.
@@ -59,6 +60,8 @@ bool HTTP_Work::parse()
       /* If the line isn't properly terminated, save it and report that we
        * need more text from the client in order to parse. */
       if (pbuf.peek() != '\n') {
+	_LOG_DEBUG("HTTP_Work::parse %d: line not properly terminated: %s",
+		   fd, line.c_str());
 	pbuf.clear();
 	pbuf.str(line);
 	return false;
@@ -69,11 +72,14 @@ bool HTTP_Work::parse()
     pbuf.clear();
     // We got to the empty (CRLF) line.
     if (line.length() == 1 && pbuf.peek() == '\n') {
+      _LOG_DEBUG("HTTP_Work::parse %d: complete", fd);
       pbuf.str("");
       stat = OK;
       return true;
     }
     else {
+      _LOG_DEBUG("HTTP_Work::parse %d: line not properly terminated: %s",
+		 fd, line.c_str());
       pbuf.str(line);
       return false;
     }
@@ -88,6 +94,7 @@ bool HTTP_Work::parse()
 // RFC 2616 sec. 5.1: Request-Line = Method SP Request-URI SP HTTP-Version CRLF
 void HTTP_Work::parse_req_line(string &line)
 {
+  _LOG_DEBUG("HTTP_Work::parse_req_line %d: %s", fd, line.c_str());
   istringstream tmp(line);
   tmp >> meth;
   string uri;
@@ -121,8 +128,10 @@ void HTTP_Work::incoming()
       pbuf << rdbuf;
     /* Interrupted by a system call. I'm currently blocking signals to
      * workers, but just in case I decide to change that. */
-    else if (nread == -1 && errno == EINTR)
+    else if (nread == -1 && errno == EINTR) {
+      _LOG_DEBUG("HTTP_Work::incoming %d: read: %m, continuing", fd);
       continue;
+    }
     else
       break;
   }
@@ -136,6 +145,8 @@ void HTTP_Work::incoming()
     format_status_line();
     m = write;
   }
+  _LOG_DEBUG("HTTP_Work::incoming %d: rescheduling for %s",
+	     fd, (m == read) ? "read" : "write");
   sch->reschedule(this);
 }
 
@@ -161,14 +172,18 @@ void HTTP_Work::outgoing(char **buf, size_t *towrite)
       *buf += nwritten;
       *towrite -= nwritten;
     }
-    else if (nwritten == -1 && errno == EINTR)
+    else if (nwritten == -1 && errno == EINTR) {
+      _LOG_DEBUG("HTTP_Work::outgoing %d: write: %m, continuing", fd);
       continue;
+    }
     else
       break;
   }
   if (nwritten == -1) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK)
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      _LOG_DEBUG("HTTP_Work::outgoing %d: rescheduling write", fd);
       sch->reschedule(this);
+    }
     else
       throw SocketErr("write", errno);
   }
@@ -226,6 +241,7 @@ void HTTP_Work::format_status_line()
 	   HTTP_Version,
 	   status_vals[stat],
 	   status_strs[stat]);
+  _LOG_DEBUG("HTTP_Work::format_status_line %d: %s", fd, rdbuf);
   statlnsz = strlen(rdbuf);
 }
 

@@ -48,4 +48,4 @@ HTTP_Work.o: HTTP_cmdline.hpp HTTP_cmdline.def HTTP_Parse_Err.hpp
 HTTP_Work.o: HTTP_constants.hpp HTTP_status.def HTTP_methods.def
 HTTP_Work.o: HTTP_headers.def ServerErrs.hpp HTTP_Work.hpp FileCache.hpp
 HTTP_Work.o: LockedQueue.hpp Locks.hpp HTTP_Statemap.hpp Work.hpp
-HTTP_Work.o: Scheduler.hpp
+HTTP_Work.o: Scheduler.hpp logging.h

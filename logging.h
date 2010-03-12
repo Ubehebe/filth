@@ -15,11 +15,13 @@
  *
  * LOG_ERR
  * "error conditions".
- * My interpretation: an error we're going to try to recover from.
+ * My interpretation: an error that will cause a major change in program state
+ * (e.g. if the kernel refuses an allocation, maybe we flush a cache).
  *
  * LOG_WARNING
  * "warning conditions".
- * My interpretation: ?
+ * My interpretation: non-normal but non-error conditions (e.g. a 
+ * requested file cannot be found or open).
  *
  * LOG_NOTICE
  * "normal, but significant, condition".
