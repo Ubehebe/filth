@@ -11,6 +11,7 @@
 #include "LockedQueue.hpp"
 #include "Locks.hpp"
 #include "Scheduler.hpp"
+#include "Work.hpp"
 
 /* Simple file cache. The biggest inefficiency is that it calls new for
  * each allocation, rather than malloc'ing all the memory at the outset
@@ -32,6 +33,7 @@ class FileCache
   {
     char *buf;
     int refcnt;
+    int invalid;
     size_t sz;
     cinfo(size_t sz);
     ~cinfo();
@@ -43,15 +45,17 @@ class FileCache
 
   bool evict();
 
-  int inotifyfd;
   std::unordered_map<uint32_t, std::string> watchds;
-  Scheduler &sch;
 
+  /* I didn't intend to have more than one instantiation of a file
+   * cache at a time, but if we do, they should share all this. */
+  static Scheduler *sch;
+  static Work *wmake;
   static FileCache *recvinotify;
-  static void inotify_cb(uint32_t events);
+
 
 public:
-  FileCache(size_t max, Scheduler &sch);
+  FileCache(size_t max, Scheduler *sch, Work *wmake);
 
   /* This function should search the cache and return the file if it's there.
    * If it's not, it should read it in from disk, then return it.
@@ -59,6 +63,8 @@ public:
    * error), it should return NULL. */
   char *reserve(std::string &path, size_t &sz);
   void release(std::string &path);
+  int inotifyfd;
+  static void inotify_cb(uint32_t events);
 };
 
 #endif // FILECACHE_HPP

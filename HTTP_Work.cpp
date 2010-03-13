@@ -18,6 +18,15 @@ Scheduler *HTTP_Work::sch = NULL;
 FileCache *HTTP_Work::cache = NULL;
 HTTP_Statemap *HTTP_Work::st = NULL;
 
+void HTTP_Work::static_init(LockedQueue<Work *> *_q, Scheduler *_sch,
+			    FileCache *_cache, HTTP_Statemap *_st)
+{
+  HTTP_Work::q = _q;
+  HTTP_Work::sch = _sch;
+  HTTP_Work::cache = _cache;
+  HTTP_Work::st = _st;
+}
+
 // Dummy constructor.
 HTTP_Work::HTTP_Work()
   : Work(-1, Work::read), resource(NULL)
@@ -42,7 +51,7 @@ HTTP_Work::~HTTP_Work()
   if (resource != NULL)
     cache->release(path);
   // If fd==-1, this will fail but that's OK.
-   st->erase(fd);
+  st->erase(fd);
 }
 
 // Returns true if we don't need to parse anything more, false otherwise.
@@ -246,15 +255,7 @@ void HTTP_Work::format_status_line()
   statlnsz = strlen(rdbuf);
 }
 
-HTTP_Work::HTTP_Work(LockedQueue<Work *> *_q, Scheduler *_sch,
-		     FileCache *_cache, HTTP_Statemap *_st)
-  : Work(-1, Work::read)
-{
-  q = _q;
-  sch = _sch;
-  cache = _cache;
-  st = _st;
-}
+
 
 Work *HTTP_Work::getwork(int fd, Work::mode m)
 {

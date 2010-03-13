@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/epoll.h> // Just for constants
 #include <sys/inotify.h>
 
 #include "FileCache.hpp"
@@ -9,13 +10,21 @@
 using namespace std;
 
 FileCache *FileCache::recvinotify = NULL;
+Scheduler *FileCache::sch = NULL;
+Work *FileCache::wmake = NULL;
 
-FileCache::FileCache(size_t max, Scheduler &sch)
-  : cur(0), max(max), sch(sch)
+FileCache::FileCache(size_t max, Scheduler *sch, Work *wmake)
+  : cur(0), max(max)
 {
-  // I hate this pattern.
-  if (recvinotify == NULL)
-    recvinotify = this;
+  /* Set up static members. Doing this from the constructor means
+   * we are running through these loops for every instantiation,
+   * but right now I'm only using one instantiation, so it's fine. */
+  if (FileCache::recvinotify == NULL)
+    FileCache::recvinotify = this;
+  if (FileCache::sch == NULL)
+    FileCache::sch = sch;
+  if (FileCache::wmake == NULL)
+    FileCache::wmake = wmake;
 
   if ((inotifyfd = inotify_init())==-1) {
     _LOG_CRIT("FileCache::FileCache: inotify_init: %m");
@@ -30,16 +39,38 @@ FileCache::FileCache(size_t max, Scheduler &sch)
     _LOG_CRIT("FileCache::FileCache: fcntl (F_SETFL): %m");
     exit(1);
   }
-  sch.register_special_fd(inotifyfd, FileCache::inotify_cb, Work::read);
 }
 
 void FileCache::inotify_cb(uint32_t events)
 {
+  if (!(events & EPOLLIN)) {
+    _LOG_WARNING("inotifyfd activated by epoll but not readable, ignoring");
+    return;
+  }
+  struct inotify_event iev;
+  unordered_map<uint32_t, string>::iterator it;
 
+  FileCache *r = FileCache::recvinotify;
+  
+  r->clock.rdlock();
+  while (true) {
+    if (read(r->inotifyfd, (void *)&iev, sizeof(iev))==-1) {
+      if (errno != EINTR)
+	break;
+    }
+    else {
+      string tmp = r->watchds[iev.wd];
+      __sync_fetch_and_add(&r->c[tmp]->invalid, 1);
+      _LOG_INFO("FileCache::inotify_cb: invalidated %s in cache", tmp.c_str());
+    }
+  }
+  r->clock.unlock();
+  if (errno == EAGAIN || errno == EWOULDBLOCK)
+    sch->reschedule(wmake->getwork(r->inotifyfd, Work::read));
 }
 
 FileCache::cinfo::cinfo(size_t sz)
-  : sz(sz), refcnt(1)
+  : sz(sz), refcnt(1), invalid(0)
 {
   buf = new char[sz];
 }
@@ -88,12 +119,20 @@ bool FileCache::evict()
 char *FileCache::reserve(std::string &path, size_t &sz)
 {
   unordered_map<std::string, cinfo *>::iterator it;
+  char *ans = NULL;
   
   clock.rdlock();
   if ((it = c.find(path)) != c.end()) {
-    __sync_fetch_and_add(&it->second->refcnt, 1);
+    if (__sync_fetch_and_add(&it->second->invalid, 0)!=1) {
+      __sync_fetch_and_add(&it->second->refcnt, 1);
+      ans = it->second->buf;
+    }
+    else {
+      _LOG_INFO("FileCache::reserve %s: in cache but invalidated"
+		" (should try again?)", path.c_str());
+    }
     clock.unlock();
-    return it->second->buf;
+    return ans;
   }
   clock.unlock();
 
@@ -203,7 +242,8 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     _LOG_DEBUG("FileCache::reserve %s: is now in cache", path.c_str());
     uint32_t watchd;
     if ((watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))==-1) {
-	_LOG_WARNING("FileCache::reserve %s: inotifyfd: %m", path.c_str());
+	_LOG_WARNING("FileCache::reserve %s: inotifyfd: %m,"
+		     "so not watching", path.c_str());
     }
     else {
       watchds.insert(make_pair(watchd, path));

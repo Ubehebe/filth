@@ -57,20 +57,12 @@ class HTTP_Work : public Work
 public:
   void operator()();
   Work *getwork(int fd, Work::mode m);
+  // Dummy constructor.
   HTTP_Work();
   HTTP_Work(int fd, Work::mode m);
-  HTTP_Work(LockedQueue<Work *> *q, Scheduler *sch, FileCache *c,
-	    HTTP_Statemap *st);
+  static void static_init(LockedQueue<Work *> *q, Scheduler *sch,
+			  FileCache *c, HTTP_Statemap *st);
   ~HTTP_Work();
 };
-
-
-/* Rationale: an HTTP_Work object is a particular kind of Work object:
- * it needs to know about the work queue and the scheduler, since it
- * might need to initiate new work. But the work queue and the scheduler
- * don't exist until the server constructor returns. Thus we should call init
- * in the body of the HTTP_Server constructor to set them. Note that this
- * means that we can't actually start the server from inside the server
- * constructor; we provide a serve() function instead. */
 
 #endif // HTTP_WORK_HPP

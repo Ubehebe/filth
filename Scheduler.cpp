@@ -88,6 +88,7 @@ void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
   else { 
     special_fd_handlers[fd] = cb;
   }
+  _LOG_INFO("Scheduler::register_special_fd %d: registered", fd);
   schedule(wmake.getwork(fd, m), oneshot);
 }
 

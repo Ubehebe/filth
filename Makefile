@@ -1,3 +1,4 @@
+# Collect environment vars, if they exist
 HTTP_PROGNAME ?= ocotillo
 CGI_PROGNAME ?= ollitoco
 
@@ -12,8 +13,8 @@ CGI_SRCS = CGI_main.cpp
 CGI_OBJS = $(CGI_SRCS:.cpp=.o)
 
 CXXFLAGS = -std=c++0x
-# change this to e.g. _LOG_NOTICE later
-CPPFLAGS = -D _LOG_DEBUG
+# change this to e.g. _LOG_NOTICE later.
+CPPFLAGS = -D _LOG_DEBUG -D LOG_HTTP=LOG_LPR
 
 all: http cgi
 http: $(BASE_OBJS) $(HTTP_OBJS)
@@ -32,7 +33,8 @@ Scheduler.o: logging.h Scheduler.hpp LockedQueue.hpp Locks.hpp Work.hpp
 Scheduler.o: ServerErrs.hpp sigmasks.hpp
 Server.o: Server.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp
 Server.o: Thread.hpp sigmasks.hpp Thread.cpp logging.h Worker.hpp
-Worker.o: sigmasks.hpp Worker.hpp LockedQueue.hpp Locks.hpp Work.hpp
+Worker.o: logging.h sigmasks.hpp Worker.hpp LockedQueue.hpp Locks.hpp
+Worker.o: Work.hpp
 Locks.o: Locks.hpp logging.h
 sigmasks.o: logging.h sigmasks.hpp
 FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp logging.h
