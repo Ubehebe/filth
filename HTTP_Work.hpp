@@ -35,6 +35,7 @@ class HTTP_Work : public Work
   size_t resourcesz; // Size of resource (for static only??)
   size_t statlnsz; // Size of status line
   bool req_line_done, status_line_done;
+  char *outgoing_offset;
   
   // No copying, no assigning.
   HTTP_Work(HTTP_Work const &);
@@ -45,7 +46,7 @@ class HTTP_Work : public Work
    * return stuff to the client. */
   inline void incoming();
   inline void outgoing();
-  inline void outgoing(char **buf, size_t *towrite);
+  inline void outgoing(size_t &towrite);
 
   inline void format_status_line();
   bool parse();

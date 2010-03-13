@@ -31,6 +31,8 @@ namespace HTTP_constants
 #undef DEFINE_ME
     };
 
+  void cpp_token_tinker(char **strs, size_t num, char from, char to);
+
   // Don't need an operator>> for statuses.
   std::ostream &operator<<(std::ostream &i, status &s);
   std::istream &operator>>(std::istream &i, method &m);
@@ -42,13 +44,13 @@ namespace HTTP_constants
   extern char const *HTTP_Version;
   extern size_t const num_status;
   extern uint16_t const status_vals[];
-  extern char const *status_strs[];
+  extern char *status_strs[];
   extern size_t const num_method;
   extern char const *method_strs[];
   extern bool const method_is_implemented[];
   extern bool const header_is_implemented[];
   extern size_t const num_header;
-  extern char const *header_strs[];
+  extern char *header_strs[];
 
 };
 

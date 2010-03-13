@@ -10,6 +10,7 @@
 
 #include "FileCache.hpp"
 #include "HTTP_cmdline.hpp"
+#include "HTTP_constants.hpp"
 #include "HTTP_Statemap.hpp"
 #include "HTTP_Work.hpp"
 #include "logging.h"
@@ -40,10 +41,16 @@ HTTP_Server::HTTP_Server(char const *portno,
   : Server((ipv6) ? AF_INET6 : AF_INET, workmaker, portno, ifnam, nworkers),
     cache(cacheszMB * (1<<20), &sch, &workmaker)
 {
+  HTTP_constants::cpp_token_tinker(HTTP_constants::status_strs,
+				   HTTP_constants::num_status,
+				   '_', ' ');
+  //  HTTP_constants::cpp_token_tinker(HTTP_constants::header_strs,
+  //				   HTTP_constants::num_header,
+  //				   '_', '-');
   workmaker.static_init(&q, &sch, &cache, &st);
   sch.register_special_fd(cache.inotifyfd, cache.inotify_cb, Work::read);
   if (chdir(mount)==-1) {
-    _LOG_ERR("%m");
+    _LOG_CRIT("%m");
     exit(1);
   }
 }

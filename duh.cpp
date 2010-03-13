@@ -1,8 +1,14 @@
 #include <iostream>
+#include <string>
 
 using namespace std;
 
+void foo(char *x)
+{
+  *x = 'a';
+}
+
 int main()
 {
-  cout << BAR << '\t' << FOO << endl;
+  foo("hi");
 }

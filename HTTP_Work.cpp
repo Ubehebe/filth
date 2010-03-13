@@ -48,7 +48,7 @@ HTTP_Work::~HTTP_Work()
     close(fd);
   }
   // If we're using the cache, tell it we're done.
-  if (resource != NULL)
+  if (stat == OK && resource != NULL)
     cache->release(path);
   // If fd==-1, this will fail but that's OK.
   st->erase(fd);
@@ -163,24 +163,27 @@ void HTTP_Work::incoming()
 void HTTP_Work::outgoing()
 {
   if (!status_line_done) {
-    outgoing(reinterpret_cast<char **>(&rdbuf), &statlnsz);
-    if (statlnsz == 0)
+    outgoing(statlnsz);
+    if (statlnsz == 0) {
       status_line_done = true;
+      outgoing_offset = resource;
+      sch->reschedule(this);
+    }
   }
   else {
-    outgoing(&resource, &resourcesz);
+    outgoing(resourcesz);
     if (resourcesz == 0)
       deleteme = true;
   }
 }
 
-void HTTP_Work::outgoing(char **buf, size_t *towrite)
+void HTTP_Work::outgoing(size_t &towrite)
 {
   ssize_t nwritten;
   while (true) {
-    if ((nwritten = ::write(fd, (void *) *buf, *towrite))>0) {
-      *buf += nwritten;
-      *towrite -= nwritten;
+    if ((nwritten = ::write(fd, (void *) outgoing_offset, towrite))>0) {
+      outgoing_offset += nwritten;
+      towrite -= nwritten;
     }
     else if (nwritten == -1 && errno == EINTR) {
       _LOG_DEBUG("HTTP_Work::outgoing %d: write: %m, continuing", fd);
@@ -194,8 +197,10 @@ void HTTP_Work::outgoing(char **buf, size_t *towrite)
       _LOG_DEBUG("HTTP_Work::outgoing %d: rescheduling write", fd);
       sch->reschedule(this);
     }
-    else
+    else {
+      _LOG_DEBUG("HTTP_Work::outgoing %d: write: %m", fd);
       throw SocketErr("write", errno);
+    }
   }
 }
 
@@ -253,9 +258,13 @@ void HTTP_Work::format_status_line()
 	   status_strs[stat]);
   _LOG_DEBUG("HTTP_Work::format_status_line %d: %s", fd, rdbuf);
   statlnsz = strlen(rdbuf);
+  outgoing_offset = rdbuf;
+  // For now, just copy any error response to the message body itself.
+  if (stat != OK) {
+    resource = rdbuf;
+    resourcesz = statlnsz;
+  }
 }
-
-
 
 Work *HTTP_Work::getwork(int fd, Work::mode m)
 {
