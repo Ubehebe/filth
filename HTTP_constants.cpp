@@ -24,8 +24,8 @@ namespace HTTP_constants
 #undef DEFINE_ME
   };
 
-  char *status_strs[] = {
-#define DEFINE_ME(name,val) (char *)#name,
+  char const *status_strs[] = {
+#define DEFINE_ME(name,val) #name,
 #include "HTTP_status.def"
 #undef DEFINE_ME
   };
@@ -54,8 +54,8 @@ namespace HTTP_constants
 #undef DEFINE_ME
     ;
 
-  char *header_strs[] = {
-#define DEFINE_ME(name, ignore) (char *)#name,
+  char const *header_strs[] = {
+#define DEFINE_ME(name, ignore) #name,
 #include "HTTP_headers.def"
 #undef DEFINE_ME
   };
@@ -65,17 +65,6 @@ namespace HTTP_constants
 #include "HTTP_headers.def"
 #undef DEFINE_ME
   };
-
-  void cpp_token_tinker(char **strs, size_t num, char from, char to)
-  {
-    char *tmp;
-    for (int i=0; i<num; ++i) {
-      tmp = strs[i];
-      if ((tmp = strchr(tmp, from)) != NULL) {
-	*tmp = to;
-      }
-    }
-  }
 
   std::ostream& operator<<(std::ostream &o, status &s)
   {
@@ -107,6 +96,11 @@ namespace HTTP_constants
   {
     std::string tmp;
     i >> tmp;
+
+    // Dirty trick...
+    std::string::size_type hyphen = -1;
+    while ((hyphen = tmp.find('-'), hyphen+1) != std::string::npos)
+      tmp[hyphen] = '_';
 
     for (int j=0; j<num_header; ++j) {
       if (tmp == header_strs[j]) {

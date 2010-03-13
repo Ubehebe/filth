@@ -47,13 +47,14 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
     use_signalfd = true;
     close(dummyfd);
   }
-  _LOG_INFO("scheduler:%s using signalfd", (use_signalfd) ? "" : " not");
+  _LOG_INFO("%s using signalfd", (use_signalfd) ? "" : " not");
 
   // Set up the polling file descriptor.
   if ((pollfd = epoll_create(pollsz))==-1) {
     _LOG_CRIT("epoll_create: %m");
     exit(1);
   }
+  _LOG_INFO("polling fd is %d", pollfd);
 
   // The default behavior of SIGINTs should be halting.
   push_sighandler(SIGINT, Scheduler::halt);
@@ -63,32 +64,27 @@ void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
 				    Work::mode m, bool oneshot)
 {
   if (fd < 0) {
-    _LOG_NOTICE("Scheduler::register_special_fd %d:"
-		" invalid file descriptor, ignoring", fd);
+    _LOG_NOTICE("invalid file descriptor %d, ignoring", fd);
     return;
   } else if (fd == listenfd) {
-    _LOG_NOTICE("Scheduler::register_special_fd %d:"
-		" identical to listening fd, ignoring", fd);
+    _LOG_NOTICE("%d identical to listening fd, ignoring", fd);
     return;
   } else if (fd == pollfd) {
-    _LOG_NOTICE("Scheduler::register_special_fd %d:"
-		" identical to polling fd, ignoring", fd);
+    _LOG_NOTICE("%d identical to polling fd, ignoring", fd);
     return;
   } else if (use_signalfd && fd == sigfd) {
-    _LOG_NOTICE("Scheduler::register_special_fd %d:"
-		" identical to signal fd, ignoring", fd);
+    _LOG_NOTICE("%d identical to signal fd, ignoring", fd);
     return;
   }
 
   unordered_map<int, void (*)(uint32_t)>::iterator it;
   if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end()) {
-    _LOG_WARNING("Scheduler::register_special_fd %d: redefining handler", fd);
+    _LOG_WARNING("redefining handler for %d", fd);
     it->second = cb;
   }
   else { 
     special_fd_handlers[fd] = cb;
   }
-  _LOG_INFO("Scheduler::register_special_fd %d: registered", fd);
   schedule(wmake.getwork(fd, m), oneshot);
 }
 
@@ -136,6 +132,7 @@ void Scheduler::poll()
       _LOG_CRIT("signalfd: %m");
       exit(1);
     }
+    _LOG_INFO("signal fd is %d", sigfd);
     schedule(wmake.getwork(sigfd, Work::read), false);
   }
 
@@ -196,7 +193,7 @@ void Scheduler::poll()
 	it->second(fds[i].events);
       // epoll_wait always collects these. Do we know what to do with them?
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
-	_LOG_INFO("Scheduler::poll: hangup or error on %d", fd);
+	_LOG_INFO("hangup or error on %d", fd);
       else if (use_signalfd && fd == sigfd && (fds[i].events & EPOLLIN))
 	handle_sigs();
       else if (fd == listenfd && (fds[i].events & EPOLLIN))
@@ -224,7 +221,7 @@ void Scheduler::handle_accept()
 	|| errno == ECONNABORTED
 	|| errno == EPROTO
 	|| errno == EINTR) {
-      _LOG_DEBUG("Scheduler::handle_accept: %m");
+      _LOG_DEBUG("accept: %m");
       return;
     }
     else throw SocketErr("accept", errno);
@@ -248,11 +245,10 @@ void Scheduler::handle_sigs()
   while (nread > 0) {
     if ((iter = sighandlers.find(siginfo[i].ssi_signo)) != sighandlers.end()) {
       ((*iter).second)(0);
-      _LOG_INFO("Scheduler::handle_sigs: got signal %s",
-		strsignal(siginfo[i].ssi_signo));
+      _LOG_INFO("got signal %s", strsignal(siginfo[i].ssi_signo));
     } else {
-      _LOG_WARNING("Scheduler::handle_sigs: got signal %s"
-		   " but have no handler for it, ignoring", strsignal(siginfo[i].ssi_signo));
+      _LOG_WARNING("got signal %s but have no handler for it, ignoring",
+		   strsignal(siginfo[i].ssi_signo));
     }
     /* The signal handler could have set dowork to false, so we should
      * return immediately. */
@@ -266,8 +262,7 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
 {
   if (use_signalfd) {
     if (sighandlers.find(signo) != sighandlers.end()) {
-      _LOG_WARNING("Scheduler::push_sighandler:"
-		   " redefining signal handler for signal %d", signo);
+      _LOG_WARNING(" redefining signal handler for signal %d", signo);
     }
     else if (sigaddset(&tohandle, signo)==-1) {
       _LOG_CRIT("sigaddset: %m");

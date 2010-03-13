@@ -34,7 +34,7 @@ Server::Server(int domain, Work &workmaker, char const *bindto,
   case AF_INET6: setup_AF_INET6(bindto, ifnam); break;
   case AF_LOCAL: setup_AF_LOCAL(bindto); break;
   default: 
-    _LOG_CRIT("Server::Server: unsupported domain %d", domain);
+    _LOG_CRIT("unsupported domain %d", domain);
     exit(1);
   }
 
@@ -54,6 +54,7 @@ Server::Server(int domain, Work &workmaker, char const *bindto,
     _LOG_CRIT("listen: %m");
     exit(1);
   }
+  _LOG_INFO("listen fd is %d", listenfd);
 
   // listenfd was meaningless until we bound it.
   sch.set_listenfd(listenfd);

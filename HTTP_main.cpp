@@ -14,7 +14,7 @@ void logatexit()
 int main(int argc, char **argv)
 {
   openlog((argv[0][0] == '.' && argv[0][1] == '/') ? &argv[0][2] : argv[0],
-	  0, LOG_HTTP);
+	  0, LOG_USER);
   atexit(logatexit);
   _LOG_INFO("main: starting");
   parsecmdline(argc, argv);

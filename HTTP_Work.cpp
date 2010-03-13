@@ -44,11 +44,11 @@ HTTP_Work::~HTTP_Work()
 {
   /* Objects allocated through the dummy constructor have fd==-1.*/
   if (fd >= 0) {
-    _LOG_DEBUG("HTTP_Work::~HTTP_Work %d: close", fd);
+    _LOG_DEBUG("close %d", fd);
     close(fd);
   }
   // If we're using the cache, tell it we're done.
-  if (stat == OK && resource != NULL)
+  if (resource != NULL && stat == OK)
     cache->release(path);
   // If fd==-1, this will fail but that's OK.
   st->erase(fd);
@@ -70,7 +70,7 @@ bool HTTP_Work::parse()
       /* If the line isn't properly terminated, save it and report that we
        * need more text from the client in order to parse. */
       if (pbuf.peek() != '\n') {
-	_LOG_DEBUG("HTTP_Work::parse %d: line not properly terminated: %s",
+	_LOG_DEBUG("parse %d: line not properly terminated: %s",
 		   fd, line.c_str());
 	pbuf.clear();
 	pbuf.str(line);
@@ -82,13 +82,13 @@ bool HTTP_Work::parse()
     pbuf.clear();
     // We got to the empty (CRLF) line.
     if (line.length() == 1 && pbuf.peek() == '\n') {
-      _LOG_DEBUG("HTTP_Work::parse %d: complete", fd);
+      _LOG_DEBUG("parse %d: complete", fd);
       pbuf.str("");
       stat = OK;
       return true;
     }
     else {
-      _LOG_DEBUG("HTTP_Work::parse %d: line not properly terminated: %s",
+      _LOG_DEBUG("parse %d: line not properly terminated: %s",
 		 fd, line.c_str());
       pbuf.str(line);
       return false;
@@ -104,7 +104,7 @@ bool HTTP_Work::parse()
 // RFC 2616 sec. 5.1: Request-Line = Method SP Request-URI SP HTTP-Version CRLF
 void HTTP_Work::parse_req_line(string &line)
 {
-  _LOG_DEBUG("HTTP_Work::parse_req_line %d: %s", fd, line.c_str());
+  _LOG_DEBUG("parse_req_line %d: %s", fd, line.c_str());
   istringstream tmp(line);
   tmp >> meth;
   string uri;
@@ -139,7 +139,7 @@ void HTTP_Work::incoming()
     /* Interrupted by a system call. I'm currently blocking signals to
      * workers, but just in case I decide to change that. */
     else if (nread == -1 && errno == EINTR) {
-      _LOG_DEBUG("HTTP_Work::incoming %d: read: %m, continuing", fd);
+      _LOG_DEBUG("incoming %d: read: %m, continuing", fd);
       continue;
     }
     else
@@ -155,7 +155,7 @@ void HTTP_Work::incoming()
     format_status_line();
     m = write;
   }
-  _LOG_DEBUG("HTTP_Work::incoming %d: rescheduling for %s",
+  _LOG_DEBUG("incoming %d: rescheduling for %s",
 	     fd, (m == read) ? "read" : "write");
   sch->reschedule(this);
 }
@@ -186,7 +186,7 @@ void HTTP_Work::outgoing(size_t &towrite)
       towrite -= nwritten;
     }
     else if (nwritten == -1 && errno == EINTR) {
-      _LOG_DEBUG("HTTP_Work::outgoing %d: write: %m, continuing", fd);
+      _LOG_DEBUG("outgoing %d: write: %m, continuing", fd);
       continue;
     }
     else
@@ -194,11 +194,11 @@ void HTTP_Work::outgoing(size_t &towrite)
   }
   if (nwritten == -1) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      _LOG_DEBUG("HTTP_Work::outgoing %d: rescheduling write", fd);
+      _LOG_DEBUG("outgoing %d: rescheduling write", fd);
       sch->reschedule(this);
     }
     else {
-      _LOG_DEBUG("HTTP_Work::outgoing %d: write: %m", fd);
+      _LOG_DEBUG("outgoing %d: write: %m", fd);
       throw SocketErr("write", errno);
     }
   }
@@ -256,7 +256,11 @@ void HTTP_Work::format_status_line()
 	   HTTP_Version,
 	   status_vals[stat],
 	   status_strs[stat]);
-  _LOG_DEBUG("HTTP_Work::format_status_line %d: %s", fd, rdbuf);
+  char *tmp = rdbuf;
+  // Dirty trick...
+  while ((tmp = strchr(tmp, '_'))!=NULL)
+    *tmp = ' ';
+  _LOG_DEBUG("format_status_line %d: %s", fd, rdbuf);
   statlnsz = strlen(rdbuf);
   outgoing_offset = rdbuf;
   // For now, just copy any error response to the message body itself.

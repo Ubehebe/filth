@@ -74,44 +74,57 @@
 
 #ifdef _LOG_CRIT
 #undef _LOG_CRIT
-#define _LOG_CRIT(...) fprintf(stderr, __VA_ARGS__);	\
-  syslog(LOG_USER|LOG_CRIT, __VA_ARGS__)
+#define _LOG_CRIT(...)						\
+  fprintf(stderr, "%s.%d: ", __FILE__, __LINE__),		\
+    fprintf(stderr, __VA_ARGS__),				\
+    syslog(LOG_USER|LOG_CRIT, "%s.%d:", __FILE__, __LINE__),	\
+    syslog(LOG_USER|LOG_CRIT, __VA_ARGS__)
 #else
 #define _LOG_CRIT(...)
 #endif
 
 #ifdef _LOG_ERR
 #undef _LOG_ERR
-#define _LOG_ERR(...) syslog(LOG_USER|LOG_ERR, __VA_ARGS__)
+#define _LOG_ERR(...) \
+  syslog(LOG_USER|LOG_ERR, "%s.%d:", __FILE__, __LINE__),	\
+    syslog(LOG_USER|LOG_ERR, __VA_ARGS__)
 #else
 #define _LOG_ERR(...)
 #endif
 
 #ifdef _LOG_WARNING
 #undef _LOG_WARNING
-#define _LOG_WARNING(...) syslog(LOG_USER|LOG_WARNING, __VA_ARGS__)
+#define _LOG_WARNING(...)					\
+  syslog(LOG_USER|LOG_WARNING, "%s.%d:", __FILE__, __LINE__),	\
+    syslog(LOG_USER|LOG_WARNING, __VA_ARGS__)
 #else
 #define _LOG_WARNING(...)
 #endif
 
 #ifdef _LOG_NOTICE
 #undef _LOG_NOTICE
-#define _LOG_NOTICE(...) fprintf(stderr, __VA_ARGS__); \
-  syslog(LOG_USER|LOG_NOTICE, __VA_ARGS__)
+#define _LOG_NOTICE(...)						\
+  fprintf(stderr, __VA_ARGS__),						\
+    syslog(LOG_USER|LOG_NOTICE, "%s.%d:", __FILE__, __LINE__),		\
+    syslog(LOG_USER|LOG_NOTICE, __VA_ARGS__)
 #else
 #define _LOG_NOTICE(...)
 #endif
 
 #ifdef _LOG_INFO
 #undef _LOG_INFO
-#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, __VA_ARGS__)
+#define _LOG_INFO(...)						\
+  syslog(LOG_USER|LOG_INFO, "%s.%d:", __FILE__, __LINE__),	\
+    syslog(LOG_USER|LOG_INFO, __VA_ARGS__)
 #else
 #define _LOG_INFO(...)
 #endif
 
 #ifdef _LOG_DEBUG
 #undef _LOG_DEBUG
-#define _LOG_DEBUG(...) syslog(LOG_USER|LOG_DEBUG, __VA_ARGS__)
+#define _LOG_DEBUG(...)						\
+  syslog(LOG_USER|LOG_DEBUG, "%s.%d:", __FILE__, __LINE__),	\
+    syslog(LOG_USER|LOG_DEBUG, __VA_ARGS__)
 #else
 #define _LOG_DEBUG(...)
 #endif

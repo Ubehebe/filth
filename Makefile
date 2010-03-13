@@ -14,7 +14,7 @@ CGI_OBJS = $(CGI_SRCS:.cpp=.o)
 
 CXXFLAGS = -std=c++0x
 # change this to e.g. _LOG_NOTICE later.
-CPPFLAGS = -D _LOG_DEBUG -D LOG_HTTP=LOG_LPR
+CPPFLAGS = -D _LOG_DEBUG
 
 all: http cgi
 http: $(BASE_OBJS) $(HTTP_OBJS)
