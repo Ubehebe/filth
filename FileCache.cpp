@@ -40,6 +40,7 @@ FileCache::FileCache(size_t max, Scheduler *sch, Work *wmake)
     _LOG_CRIT("fcntl (F_SETFL): %m");
     exit(1);
   }
+  _LOG_INFO("inotify fd is %d", inotifyfd);
 }
 
 void FileCache::inotify_cb(uint32_t events)
@@ -138,8 +139,6 @@ char *FileCache::reserve(std::string &path, size_t &sz)
 
   struct stat statbuf;
   int fd;
-
-  _LOG_DEBUG("%s", get_current_dir_name());
 
   // Try to stat and open file.
   if (stat(path.c_str(), &statbuf)==-1) {

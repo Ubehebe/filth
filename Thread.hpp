@@ -26,6 +26,10 @@
  * should know how to set it. */
 template<class C> class Thread
 {
+  // No copying, no assigning.
+  Thread(Thread const&);
+  Thread &operator=(Thread const&);
+
 public:
   Thread(void (C::*p)());
   Thread(void (C::*p)(), sigmasks::builtin b);

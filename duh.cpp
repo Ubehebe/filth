@@ -1,7 +1,15 @@
 #include <stdio.h>
-#include <string>
+
+#include "Thread.hpp"
+
+class Foo
+{
+public:
+  void blah() {}
+};
 
 int main()
 {
-  printf("hi"), printf("hello");
+  for (int i=0; i< 100; ++i)
+    Thread<Foo> th(&Foo::blah);
 }

@@ -16,6 +16,10 @@
  * we don't expose iterators at all. */
 template<class T> class LockedQueue
 {
+  // No copying, no assigning.
+  LockedQueue(LockedQueue const&);
+  LockedQueue &operator=(LockedQueue const&);
+
   std::queue<T> q;
   Mutex front, back;
   CondVar nonempty;

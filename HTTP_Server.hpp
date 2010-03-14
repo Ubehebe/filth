@@ -19,6 +19,10 @@
 
 class HTTP_Server : public Server
 {
+  // No copying, no assigning.
+  HTTP_Server(HTTP_Server const&);
+  HTTP_Server &operator=(HTTP_Server const&);
+
   FileCache cache;
   HTTP_Statemap st;
   HTTP_Work workmaker;
@@ -55,7 +59,7 @@ HTTP_Server::~HTTP_Server()
   for (HTTP_Statemap::iterator it = st.begin(); it != st.end(); ++it)
     todel.push_back(it->second);
   for (std::list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
-    delete *it;
+  delete *it;
 }
 
 

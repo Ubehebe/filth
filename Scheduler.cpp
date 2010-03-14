@@ -72,10 +72,8 @@ void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
   } else if (fd == pollfd) {
     _LOG_NOTICE("%d identical to polling fd, ignoring", fd);
     return;
-  } else if (use_signalfd && fd == sigfd) {
-    _LOG_NOTICE("%d identical to signal fd, ignoring", fd);
-    return;
   }
+  // We don't compare against sigfd because that isn't set until poll().
 
   unordered_map<int, void (*)(uint32_t)>::iterator it;
   if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end()) {

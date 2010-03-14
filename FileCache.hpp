@@ -29,6 +29,10 @@
  * entire FileCache class. */
 class FileCache
 {
+  // No copying, no assigning.
+  FileCache(FileCache const&);
+  FileCache &operator=(FileCache const&);
+
   struct cinfo
   {
     char *buf;

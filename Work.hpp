@@ -24,6 +24,10 @@
  * that. */
 class Work
 {
+  // No copying, no assigning.
+  Work(Work const&);
+  Work &operator=(Work const&);
+
 public:
   enum mode { read, write } m;
   int fd;

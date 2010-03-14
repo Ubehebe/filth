@@ -134,12 +134,15 @@ void HTTP_Work::incoming()
    * checks the file descriptor for hangups, which is why
    * we don't check for nread==0 here. ??? */
   while (true) {
-    if ((nread = ::read(fd, (void *)rdbuf, rdbufsz))>0)
+    if ((nread = ::read(fd, (void *)rdbuf, rdbufsz-1))>0) {
+      rdbuf[nread] = '\0';
+      _LOG_DEBUG("read %d: %s", fd, rdbuf);
       pbuf << rdbuf;
+    }
     /* Interrupted by a system call. I'm currently blocking signals to
      * workers, but just in case I decide to change that. */
     else if (nread == -1 && errno == EINTR) {
-      _LOG_DEBUG("incoming %d: read: %m, continuing", fd);
+      _LOG_DEBUG("read %d: %m, continuing", fd);
       continue;
     }
     else
@@ -155,8 +158,7 @@ void HTTP_Work::incoming()
     format_status_line();
     m = write;
   }
-  _LOG_DEBUG("incoming %d: rescheduling for %s",
-	     fd, (m == read) ? "read" : "write");
+  _LOG_DEBUG("rescheduling %d for %s", fd, (m == read) ? "read" : "write");
   sch->reschedule(this);
 }
 
@@ -180,13 +182,18 @@ void HTTP_Work::outgoing()
 void HTTP_Work::outgoing(size_t &towrite)
 {
   ssize_t nwritten;
+  char save;
   while (true) {
     if ((nwritten = ::write(fd, (void *) outgoing_offset, towrite))>0) {
+      save = *(outgoing_offset+nwritten);
+      *(outgoing_offset+nwritten) = '\0';
+      _LOG_DEBUG("write %d: %s", fd, outgoing_offset);
+      *(outgoing_offset+nwritten) = save;
       outgoing_offset += nwritten;
       towrite -= nwritten;
     }
     else if (nwritten == -1 && errno == EINTR) {
-      _LOG_DEBUG("outgoing %d: write: %m, continuing", fd);
+      _LOG_DEBUG("write %d: %m, continuing", fd);
       continue;
     }
     else
@@ -251,8 +258,11 @@ void HTTP_Work::parse_header(string &line)
  * Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF */
 void HTTP_Work::format_status_line()
 {
+  /* For now we put the CRLF separating the response headers from the
+   * response message body on the end of the status line. Will need to
+   * change once we reply with additional response headers...*/
   // Note that we reuse the read buffer, which ought not to be in use now...
-  snprintf(rdbuf, rdbufsz, "%s %d %s\r\n",
+  snprintf(rdbuf, rdbufsz, "%s %d %s\r\n\r\n",
 	   HTTP_Version,
 	   status_vals[stat],
 	   status_strs[stat]);

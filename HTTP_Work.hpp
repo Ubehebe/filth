@@ -17,6 +17,10 @@
 
 class HTTP_Work : public Work
 {
+  // No copying, no assigning.
+  HTTP_Work(HTTP_Work const&);
+  HTTP_Work &operator=(HTTP_Work const&);
+
   // Stuff that should be the same for all.
   static size_t const rdbufsz = 1<<10;
   static LockedQueue<Work *> *q;
@@ -37,11 +41,6 @@ class HTTP_Work : public Work
   bool req_line_done, status_line_done;
   char *outgoing_offset;
   
-  // No copying, no assigning.
-  HTTP_Work(HTTP_Work const &);
-  HTTP_Work &operator=(HTTP_Work const &);
-
-
   /* The main internal driver functions to get stuff from the client and
    * return stuff to the client. */
   inline void incoming();
