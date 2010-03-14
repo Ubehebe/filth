@@ -28,16 +28,16 @@ FileCache::FileCache(size_t max, Scheduler *sch, Work *wmake)
     FileCache::wmake = wmake;
 
   if ((inotifyfd = inotify_init())==-1) {
-    _LOG_CRIT("inotify_init: %m");
+    _LOG_FATAL("inotify_init: %m");
     exit(1);
   }
   int flags;
   if ((flags = fcntl(inotifyfd, F_GETFL))==-1) {
-    _LOG_CRIT("fcntl (F_GETFL): %m");
+    _LOG_FATAL("fcntl (F_GETFL): %m");
     exit(1);
   }
   if (fcntl(inotifyfd, F_SETFL, flags | O_NONBLOCK)==-1) {
-    _LOG_CRIT("fcntl (F_SETFL): %m");
+    _LOG_FATAL("fcntl (F_SETFL): %m");
     exit(1);
   }
   _LOG_INFO("inotify fd is %d", inotifyfd);
@@ -46,7 +46,8 @@ FileCache::FileCache(size_t max, Scheduler *sch, Work *wmake)
 void FileCache::inotify_cb(uint32_t events)
 {
   if (!(events & EPOLLIN)) {
-    _LOG_WARNING("inotifyfd activated by epoll but not readable, ignoring");
+    _LOG_INFO("unanticipated: "
+	      "inotifyfd activated by epoll but not readable, ignoring");
     return;
   }
   struct inotify_event iev;
@@ -63,7 +64,7 @@ void FileCache::inotify_cb(uint32_t events)
     else {
       string tmp = r->watchds[iev.wd];
       __sync_fetch_and_add(&r->c[tmp]->invalid, 1);
-      _LOG_INFO("inotify_cb: invalidated %s in cache", tmp.c_str());
+      _LOG_INFO("%s invalidated", tmp.c_str());
     }
   }
   r->clock.unlock();
@@ -120,6 +121,7 @@ bool FileCache::evict()
  * already have checked for it. */
 char *FileCache::reserve(std::string &path, size_t &sz)
 {
+  _LOG_DEBUG("reserve %s", path.c_str());
   unordered_map<std::string, cinfo *>::iterator it;
   char *ans = NULL;
   
@@ -128,51 +130,55 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     if (__sync_fetch_and_add(&it->second->invalid, 0)!=1) {
       __sync_fetch_and_add(&it->second->refcnt, 1);
       ans = it->second->buf;
+      sz = it->second->sz;
     }
     else {
-      _LOG_INFO("reserve %s: in cache but invalidated", path.c_str());
+      _LOG_DEBUG("%s in cache but invalid", path.c_str());
     }
     clock.unlock();
     return ans;
   }
   clock.unlock();
 
+  _LOG_DEBUG("%s not in cache", path.c_str());
+
   struct stat statbuf;
   int fd;
 
   // Try to stat and open file.
   if (stat(path.c_str(), &statbuf)==-1) {
-    _LOG_WARNING("reserve %s stat: %m", path.c_str());
+    _LOG_DEBUG("stat %s: %m", path.c_str());
     return NULL;
   }
   else if (!S_ISREG(statbuf.st_mode)) {
-    _LOG_WARNING("reserve %s: not a regular file", path.c_str());
+    _LOG_DEBUG("%s not a regular file", path.c_str());
     return NULL;
   }
-  else if (fd = open(path.c_str(), O_RDONLY) ==-1) {
-    _LOG_WARNING("reserve %s: open: %m", path.c_str());
+  // Site of awesomest bug ever: take out the parens around the assignment.
+  else if ((fd = open(path.c_str(), O_RDONLY)) ==-1) {
+    _LOG_DEBUG("open %s: %m", path.c_str());
     return NULL;
   }
 
   sz = statbuf.st_size;
-
+  
  reserve_tryagain:
   
   // Not enough room in the cache?
   if (__sync_add_and_fetch(&cur, sz) > max) {
     __sync_sub_and_fetch(&cur, sz);
-    _LOG_WARNING(
-		 "reserve %s: not enough room in cache"
-		 "(cur ~%d, max %d, need %d)"
-		 "--attempting to evict",
-		 path.c_str(), cur, max, sz);
+    _LOG_DEBUG(
+	       "reserve %s: not enough room in cache"
+	       "(cur ~%d, max %d, need %d)"
+	       "--attempting to evict",
+	       path.c_str(), cur, max, sz);
     // If we were able to evict something try again.
     if (evict()) {
       goto reserve_tryagain;
     }
     // Otherwise just give up.
     else {
-      _LOG_ERR("reserve %s: nothing to evict, giving up", path.c_str());
+      _LOG_INFO("reserve %s: nothing to evict, giving up", path.c_str());
       close(fd);
       return NULL;
     }
@@ -185,8 +191,8 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
     __sync_sub_and_fetch(&cur, sz);
-    _LOG_ERR("reserve %s: allocation of %d bytes failed, giving up",
-	     path.c_str(), sz);
+    _LOG_INFO("reserve %s: allocation of %d bytes failed, giving up",
+	      path.c_str(), sz);
     close(fd);
     return NULL;
   }
@@ -197,8 +203,9 @@ char *FileCache::reserve(std::string &path, size_t &sz)
 
   /* Get the file into memory with an old-fashioned blocking read.
    * TODO: replace with asynchronous I/O? */
-  while (true) {
-    if ((nread = read(fd, (void *) ctmp, toread)) > 0) {
+  while (toread) {
+    if ((nread = ::read(fd, (void *) ctmp, toread)) > 0) {
+      //      _LOG_DEBUG("read %s", ctmp);
       toread -= nread;
       ctmp += nread;
     }
@@ -208,7 +215,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
      * should be masked here. But let's check anyway in case there is a
      * reason for such a configuration. */
     else if (nread == -1 && errno == EINTR) {
-      _LOG_DEBUG("reserve %s: read: %m", path.c_str());
+      _LOG_DEBUG("read %s: %m", path.c_str());
       continue;
     }
     else
@@ -216,7 +223,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   }
   // Some other kind of error; start over.
   if (nread == -1) {
-    _LOG_WARNING("reserve %s: read: %m, starting read over", path.c_str());
+    _LOG_INFO("read %s: %m, starting read over", path.c_str());
     delete tmp;
     __sync_sub_and_fetch(&cur, sz);
     goto reserve_tryagain;
@@ -224,12 +231,11 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   close(fd);
   
   clock.wrlock();
-  /* While we were getting the file into memory, someone else
-   * put it in cache! So we don't need our copy anymore. Wasteful
-   * but simple. */
+  /* While we were getting the file into memory, someone else put it in cache!
+   * So we don't need our copy anymore. Wasteful but simple. */
   if ((it = c.find(path)) != c.end()) {
-    _LOG_DEBUG("reserve %s: file appeared in cache"
-	       " while we were reading from disk", path.c_str());
+    _LOG_DEBUG("%s appeared in cache while we were reading from disk",
+	       path.c_str());
     delete tmp;
     __sync_sub_and_fetch(&cur, sz);
     it->second->refcnt++;
@@ -237,11 +243,10 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     ctmp = it->second->buf;
   }
   else {
-    _LOG_DEBUG("reserve %s: is now in cache", path.c_str());
+    _LOG_DEBUG("%s now in cache", path.c_str());
     uint32_t watchd;
     if ((watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))==-1) {
-	_LOG_WARNING("reserve %s: inotifyfd: %m, so not watching",
-		     path.c_str());
+      _LOG_INFO("inotifyfd: %m, so not watching %s", path.c_str());
     }
     else {
       watchds.insert(make_pair(watchd, path));
@@ -250,6 +255,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     ctmp = tmp->buf;
   }
   clock.unlock();
+  _LOG_DEBUG("reserve %s: about to return", path.c_str());
   return ctmp;
 }
 
@@ -263,8 +269,7 @@ void FileCache::release(std::string &path)
 	   && __sync_sub_and_fetch(&it->second->refcnt, 1)==0);
   clock.unlock();
   if (doenq) {
-    _LOG_DEBUG("release %s: no one else is using, putting on evict list",
-	       path.c_str());
+    _LOG_DEBUG("putting %s on evict list", path.c_str());
     toevict.enq(it->first);
   }
 }

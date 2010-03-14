@@ -66,12 +66,11 @@ bool HTTP_Work::parse()
   try {
     /* Get a line until there are no more lines, or we hit the CRLF line.
      * Thus we're ignoring the message body for now. */
-    while (getline(pbuf, line, '\r') && line.length() > 1) {
+    while (getline(pbuf, line, '\r') && line.length() > 0) {
+      _LOG_DEBUG("parse: line %s", line.c_str());
       /* If the line isn't properly terminated, save it and report that we
        * need more text from the client in order to parse. */
       if (pbuf.peek() != '\n') {
-	_LOG_DEBUG("parse %d: line not properly terminated: %s",
-		   fd, line.c_str());
 	pbuf.clear();
 	pbuf.str(line);
 	return false;
@@ -81,7 +80,7 @@ bool HTTP_Work::parse()
     }
     pbuf.clear();
     // We got to the empty (CRLF) line.
-    if (line.length() == 1 && pbuf.peek() == '\n') {
+    if (line.length() == 0 && pbuf.peek() == '\n') {
       _LOG_DEBUG("parse %d: complete", fd);
       pbuf.str("");
       stat = OK;
@@ -182,13 +181,8 @@ void HTTP_Work::outgoing()
 void HTTP_Work::outgoing(size_t &towrite)
 {
   ssize_t nwritten;
-  char save;
   while (true) {
     if ((nwritten = ::write(fd, (void *) outgoing_offset, towrite))>0) {
-      save = *(outgoing_offset+nwritten);
-      *(outgoing_offset+nwritten) = '\0';
-      _LOG_DEBUG("write %d: %s", fd, outgoing_offset);
-      *(outgoing_offset+nwritten) = save;
       outgoing_offset += nwritten;
       towrite -= nwritten;
     }
@@ -213,6 +207,7 @@ void HTTP_Work::outgoing(size_t &towrite)
 
 void HTTP_Work::parse_uri(string &uri)
 {
+  _LOG_DEBUG("parse_uri %s", uri.c_str());
   // Malformed or dangerous URI.
   if (uri[0] != '/' || uri.find("..") != string::npos)
     throw HTTP_Parse_Err(Bad_Request);
@@ -229,11 +224,9 @@ void HTTP_Work::parse_uri(string &uri)
   else {
     path = uri.substr(1);
   }
-
   // Check the cache; for now we don't support dynamic resources
   if ((resource = cache->reserve(path, resourcesz)) == NULL)
     throw HTTP_Parse_Err(Not_Found);
-
 }
 
 void HTTP_Work::parse_header(string &line)
@@ -247,10 +240,6 @@ void HTTP_Work::parse_header(string &line)
   catch (HTTP_Parse_Err e) {
     if (e.stat != Not_Implemented)
       throw e;
-  }
-  // A huge list.
-  switch (h) {
-  default: break;
   }
 }
 

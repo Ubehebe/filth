@@ -22,7 +22,7 @@ Server::Server(int domain, Work &workmaker, char const *bindto,
   : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, workmaker)
 {
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
-    _LOG_CRIT("socket: %m");
+    _LOG_FATAL("socket: %m");
     exit(1);
   }
 
@@ -34,7 +34,7 @@ Server::Server(int domain, Work &workmaker, char const *bindto,
   case AF_INET6: setup_AF_INET6(bindto, ifnam); break;
   case AF_LOCAL: setup_AF_LOCAL(bindto); break;
   default: 
-    _LOG_CRIT("unsupported domain %d", domain);
+    _LOG_FATAL("unsupported domain %d", domain);
     exit(1);
   }
 
@@ -43,18 +43,18 @@ Server::Server(int domain, Work &workmaker, char const *bindto,
   // Make listening socket nonblocking.
   int flags;
   if ((flags = fcntl(listenfd, F_GETFL))==-1) {
-    _LOG_CRIT("fcntl (F_GETFL): %m");
+    _LOG_FATAL("fcntl (F_GETFL): %m");
     exit(1);
   }
   if (fcntl(listenfd, F_SETFL, flags|O_NONBLOCK)==-1) {
-    _LOG_CRIT("fcntl (F_SETFL): %m");
+    _LOG_FATAL("fcntl (F_SETFL): %m");
     exit(1);
   }
   if (listen(listenfd, listenq)==-1) {
-    _LOG_CRIT("listen: %m");
+    _LOG_FATAL("listen: %m");
     exit(1);
   }
-  _LOG_INFO("listen fd is %d", listenfd);
+  _LOG_DEBUG("listen fd is %d", listenfd);
 
   // listenfd was meaningless until we bound it.
   sch.set_listenfd(listenfd);
@@ -84,7 +84,7 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
   struct ifaddrs *ifap;
 
   if (getifaddrs(&ifap)==-1) {
-    _LOG_CRIT("getifaddrs: %m");
+    _LOG_FATAL("getifaddrs: %m");
     exit(1);
   }
 
@@ -110,22 +110,22 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
 
   // This should catch the case when portno is bad.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
-    _LOG_CRIT("bind: %m");
+    _LOG_FATAL("bind: %m");
     exit(1);
   }
   socklen_t salen = sizeof(sa);
   if (getsockname(listenfd, (struct sockaddr *) &sa, &salen)==-1) {
-    _LOG_CRIT("getsockname: %m");
+    _LOG_FATAL("getsockname: %m");
     exit(1);
   }
 
   char ipnam[INET_ADDRSTRLEN];
   if (inet_ntop(AF_INET, (void *) &sa.sin_addr, ipnam, INET_ADDRSTRLEN)
       ==NULL) {
-    _LOG_CRIT("inet_ntop: %m");
+    _LOG_FATAL("inet_ntop: %m");
     exit(1);
   }
-  _LOG_NOTICE("listening on %s:%d", ipnam, ntohs(sa.sin_port));
+  _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin_port));
 }
 
 void Server::setup_AF_INET6(char const *portno, char const *ifnam)
@@ -133,7 +133,7 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
   struct ifaddrs *ifap;
 
   if (getifaddrs(&ifap)==-1) {
-    _LOG_CRIT("getifaddrs: %m");
+    _LOG_FATAL("getifaddrs: %m");
     exit(1);
   }
 
@@ -144,7 +144,7 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
       break;
   }
   if (tmp == NULL) {
-    printf("interface %s not found for family AF_INET6\n", ifnam);
+    _LOG_FATAL("interface %s not found for family AF_INET6", ifnam);
     exit(1);
   }
 
@@ -157,29 +157,27 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
 	 sizeof(struct in6_addr));
 
   freeifaddrs(ifap);
-
-
+  
   // This should catch the case when portno is bad.
   /* TODO: why does bind succeed for ipv6 on loopback interface
    * but not e.g. eth0? */
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
-    _LOG_CRIT("bind: %m");
+    _LOG_FATAL("bind: %m");
     exit(1);
   }
   socklen_t salen = sizeof(sa);
   if (getsockname(listenfd, (struct sockaddr *) &sa, &salen)==-1) {
-    _LOG_CRIT("getsockname: %m");
+    _LOG_FATAL("getsockname: %m");
     exit(1);
   }
 
   char ipnam[INET6_ADDRSTRLEN];
   if (inet_ntop(AF_INET6, (void *) &sa.sin6_addr, ipnam, INET6_ADDRSTRLEN)
       ==NULL) {
-    _LOG_CRIT("inet_ntop: %m");
+    _LOG_FATAL("inet_ntop: %m");
     exit(1);
   }
-  std::cout << "listening on " << ipnam << ":"
-	    << ntohs(sa.sin6_port) << std::endl;
+  _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin6_port));
 }
 
 void Server::setup_AF_LOCAL(char const *bindto)
@@ -191,14 +189,14 @@ void Server::setup_AF_LOCAL(char const *bindto)
   strncpy(sa.sun_path, bindto, sizeof(sa.sun_path)-1);
 
   if (strlen(bindto) > sizeof(sa.sun_path)-1) {
-    std::cerr << "warning: domain socket name "
-	      << bindto << "is too long, truncating to " << sa.sun_path;
+    _LOG_INFO("domain socket name %s is too long, truncating to %s",
+	      bindto, sa.sun_path);
   }
 
   // This will fail if the path exists, which is what we want.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
-    _LOG_CRIT("bind: %m");
+    _LOG_FATAL("bind: %m");
     exit(1);
   }
-  _LOG_NOTICE("listening on %s", sa.sun_path);
+  _LOG_INFO("listening on %s", sa.sun_path);
 }

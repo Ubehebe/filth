@@ -4,39 +4,15 @@
 #include <stdio.h>
 #include <syslog.h>
 
-/* Here is a list of levels accepted by syslog(), the description in man 3
- * syslog, and how I intend to use them. This header currently doesn't
- * support the two highest levels, LOG_EMERG ("system is unusable")
- * and LOG_ALERT ("action must be taken immediately").
- *
- * LOG_CRIT
- * "critical conditions".
- * My interpretation: the program will terminate immediately after logging.
- *
- * LOG_ERR
- * "error conditions".
- * My interpretation: an error that will cause a major change in program state
- * (e.g. if the kernel refuses an allocation, maybe we flush a cache).
- *
- * LOG_WARNING
- * "warning conditions".
- * My interpretation: non-normal but non-error conditions (e.g. a 
- * requested file cannot be found or open).
- *
- * LOG_NOTICE
- * "normal, but significant, condition".
- * My interpretation: Normal conditions that the user would like to see on
- * standard error (e.g. the address and port a server is listening on).
- *
- * LOG_INFO
- * "informational message".
- * My interpretation: tracks high-level change in the program's state (e.g.
- * a thread started or stopped, a major constructor/destructor was called).
- *
- * LOG_DEBUG
- * "debug-level message".
- * My interpretation: anything you want to print.
- */
+/* The system logger turns out to be incredibly expensive; in the past it
+ * has increased my heap usage by an order of magnitude. Therefore to avoid
+ * encouraging its use, I don't expose all the levels given in man 3 syslog.
+ * _LOG_FATAL is for when the very next statement is exit().
+ * _LOG_INFO is for a major change in state (e.g. cache flush) or anything
+ * the user should see (e.g. the address of a listening socket).
+ * _LOG_DEBUG is for anything else and should absolutely be turned off
+ * for production use.
+ * _LOG_FATAL and _LOG_INFO are also sent to stderr by default. */
 
 /* K&R A12.3: "Unless the parameter in the replacement sequence is preceded
  * by #, or preceded or followed by ##, the argument tokens are examined for
@@ -45,84 +21,36 @@
 #define QUOT(x) QUOT_(x)
 #define _SRC __FILE__"."QUOT(__LINE__)": "
 
-/* The intent is to define the lowest-priority level of logging; every higher
- * priority will be automatically defined. The tokens are prepended with _
- * to prevent clashing with the corresponding macros in syslog.h. */
-
-#ifdef _LOG_DEBUG
-#define _LOG_INFO
-#define _LOG_NOTICE
-#define _LOG_WARNING
-#define _LOG_ERR
-#define _LOG_CRIT
-#endif
-
-#ifdef _LOG_INFO
-#define _LOG_NOTICE
-#define _LOG_WARNING
-#define _LOG_ERR
-#define _LOG_CRIT
-#endif
-
-#ifdef _LOG_NOTICE
-#define _LOG_WARNING
-#define _LOG_ERR
-#define _LOG_CRIT
-#endif
-
-#ifdef _LOG_WARNING
-#define _LOG_ERR
-#define _LOG_CRIT
-#endif
-
-#ifdef _LOG_ERR
-#define _LOG_CRIT
-#endif
-
-#ifdef _LOG_CRIT
-#undef _LOG_CRIT
-#define _LOG_CRIT(...)						\
-  fprintf(stderr, _SRC __VA_ARGS__),				\
-    syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
-#else
-#define _LOG_CRIT(...)
-#endif
-
-#ifdef _LOG_ERR
-#undef _LOG_ERR
-#define _LOG_ERR(...) syslog(LOG_USER|LOG_ERR, _SRC __VA_ARGS__)
-#else
-#define _LOG_ERR(...)
-#endif
-
-#ifdef _LOG_WARNING
-#undef _LOG_WARNING
-#define _LOG_WARNING(...) syslog(LOG_USER|LOG_WARNING, _SRC __VA_ARGS__)
-#else
-#define _LOG_WARNING(...)
-#endif
-
-#ifdef _LOG_NOTICE
-#undef _LOG_NOTICE
-#define _LOG_NOTICE(...)						\
-  fprintf(stderr, __VA_ARGS__),						\
-    syslog(LOG_USER|LOG_NOTICE, _SRC __VA_ARGS__)
-#else
-#define _LOG_NOTICE(...)
-#endif
-
-#ifdef _LOG_INFO
-#undef _LOG_INFO
-#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC __VA_ARGS__)
-#else
-#define _LOG_INFO(...)
-#endif
-
 #ifdef _LOG_DEBUG
 #undef _LOG_DEBUG
+#undef _LOG_INFO
+#undef _LOG_FATAL
+#define SYSLOG_OPTS LOG_PERROR
 #define _LOG_DEBUG(...) syslog(LOG_USER|LOG_DEBUG, _SRC __VA_ARGS__)
-#else
+#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC __VA_ARGS__)
+#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
+#warning debug logging enabled; expect the heap to be huge
+#else // #ifdef _LOG_DEBUG
+#ifdef _LOG_INFO
+#define SYSLOG_OPTS 0
 #define _LOG_DEBUG(...)
-#endif
-
+#undef _LOG_INFO
+#undef _LOG_FATAL
+#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC __VA_ARGS__)
+#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
+#else // #ifdef _LOG_INFO
+#ifdef _LOG_FATAL
+#undef _LOG_FATAL
+#define SYSLOG_OPTS 0
+#define _LOG_DEBUG(...)
+#define _LOG_INFO(...)
+#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
+#else // #ifdef _LOG_FATAL
+#define SYSLOG_OPTS 0
+#define _LOG_DEBUG(...)
+#define _LOG_INFO(...)
+#define _LOG_FATAL(...)
+#endif // #ifdef _LOG_FATAL
+#endif // #ifdef _LOG_INFO
+#endif // #ifdef _LOG_DEBUG
 #endif // LOGGING_H

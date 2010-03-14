@@ -35,7 +35,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
 
   // Set up the signal file descriptor.
   if (sigemptyset(&tohandle)==-1) {
-    _LOG_CRIT("sigemptyset: %m");
+    _LOG_FATAL("sigemptyset: %m");
     exit(1);
   }
   
@@ -47,14 +47,14 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
     use_signalfd = true;
     close(dummyfd);
   }
-  _LOG_INFO("%s using signalfd", (use_signalfd) ? "" : " not");
+  _LOG_DEBUG("%s using signalfd", (use_signalfd) ? "" : " not");
 
   // Set up the polling file descriptor.
   if ((pollfd = epoll_create(pollsz))==-1) {
-    _LOG_CRIT("epoll_create: %m");
+    _LOG_FATAL("epoll_create: %m");
     exit(1);
   }
-  _LOG_INFO("polling fd is %d", pollfd);
+  _LOG_DEBUG("polling fd is %d", pollfd);
 
   // The default behavior of SIGINTs should be halting.
   push_sighandler(SIGINT, Scheduler::halt);
@@ -64,20 +64,20 @@ void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
 				    Work::mode m, bool oneshot)
 {
   if (fd < 0) {
-    _LOG_NOTICE("invalid file descriptor %d, ignoring", fd);
+    _LOG_INFO("invalid file descriptor %d, ignoring", fd);
     return;
   } else if (fd == listenfd) {
-    _LOG_NOTICE("%d identical to listening fd, ignoring", fd);
+    _LOG_INFO("%d identical to listening fd, ignoring", fd);
     return;
   } else if (fd == pollfd) {
-    _LOG_NOTICE("%d identical to polling fd, ignoring", fd);
+    _LOG_INFO("%d identical to polling fd, ignoring", fd);
     return;
   }
   // We don't compare against sigfd because that isn't set until poll().
 
   unordered_map<int, void (*)(uint32_t)>::iterator it;
   if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end()) {
-    _LOG_WARNING("redefining handler for %d", fd);
+    _LOG_INFO("redefining handler for %d", fd);
     it->second = cb;
   }
   else { 
@@ -127,10 +127,10 @@ void Scheduler::poll()
   if (use_signalfd) {
     sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
     if ((sigfd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
-      _LOG_CRIT("signalfd: %m");
+      _LOG_FATAL("signalfd: %m");
       exit(1);
     }
-    _LOG_INFO("signal fd is %d", sigfd);
+    _LOG_DEBUG("signal fd is %d", sigfd);
     schedule(wmake.getwork(sigfd, Work::read), false);
   }
 
@@ -245,8 +245,8 @@ void Scheduler::handle_sigs()
       ((*iter).second)(0);
       _LOG_INFO("got signal %s", strsignal(siginfo[i].ssi_signo));
     } else {
-      _LOG_WARNING("got signal %s but have no handler for it, ignoring",
-		   strsignal(siginfo[i].ssi_signo));
+      _LOG_INFO("got signal %s but have no handler for it, ignoring",
+		strsignal(siginfo[i].ssi_signo));
     }
     /* The signal handler could have set dowork to false, so we should
      * return immediately. */
@@ -260,12 +260,12 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
 {
   if (use_signalfd) {
     if (sighandlers.find(signo) != sighandlers.end()) {
-      _LOG_WARNING(" redefining signal handler for signal %d", signo);
+      _LOG_INFO(" redefining signal handler for signal %d", signo);
     }
     else if (sigaddset(&tohandle, signo)==-1) {
-      _LOG_CRIT("sigaddset: %m");
+      _LOG_FATAL("sigaddset: %m");
       exit(1);
-    }    
+    }
     sighandlers[signo] = handler; 
   }
 
@@ -273,12 +273,12 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
     struct sigaction act;
     memset((void *)&act, 0, sizeof(act));
     if (sigemptyset(&act.sa_mask)!=0) {
-      _LOG_CRIT("sigemptyset: %m");
+      _LOG_FATAL("sigemptyset: %m");
       exit(1);
     }
     act.sa_handler = handler;
     if (sigaction(signo, &act, NULL)==-1) {
-      _LOG_CRIT("sigaction: %m");
+      _LOG_FATAL("sigaction: %m");
       exit(1);
     }    
   }

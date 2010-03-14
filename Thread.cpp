@@ -37,7 +37,7 @@ template<class C> void Thread<C>::_init(sigmasks::builtin *b)
   _Thread *tmp = new _Thread(_c, _p, b);
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
-    _LOG_CRIT("pthread_create: %m");
+    _LOG_FATAL("pthread_create: %m");
     exit(1);
   }
 }
@@ -64,7 +64,7 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 template<class C> Thread<C>::~Thread() 
 {
   if (pthread_join(th, NULL)!=0) {
-    _LOG_CRIT("pthread_join: %m");
+    _LOG_FATAL("pthread_join: %m");
     exit(1);
   }
   if (dodelete) 

@@ -48,7 +48,7 @@ HTTP_Server::HTTP_Server(char const *portno,
   workmaker.static_init(&q, &sch, &cache, &st);
   sch.register_special_fd(cache.inotifyfd, cache.inotify_cb, Work::read);
   if (chdir(mount)==-1) {
-    _LOG_CRIT("%m");
+    _LOG_FATAL("chdir: %m");
     exit(1);
   }
 }

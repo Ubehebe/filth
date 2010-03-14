@@ -2,6 +2,7 @@
 
 #include "HTTP_constants.hpp"
 #include "HTTP_Parse_Err.hpp"
+#include "logging.h"
 
 /* TODO: All the operator>>'s, and certainly all
  * the operator<<'s, work the same way, with some
@@ -99,8 +100,10 @@ namespace HTTP_constants
 
     // Dirty trick...
     std::string::size_type hyphen = -1;
-    while ((hyphen = tmp.find('-'), hyphen+1) != std::string::npos)
+    while ((hyphen = tmp.find('-', hyphen+1)) != std::string::npos) {
       tmp[hyphen] = '_';
+    }
+    tmp.erase(tmp.end()-1); // Because of the colon.
 
     for (int j=0; j<num_header; ++j) {
       if (tmp == header_strs[j]) {
@@ -110,7 +113,7 @@ namespace HTTP_constants
 	} else throw HTTP_Parse_Err(Not_Implemented);
       }
     }
-    throw HTTP_Parse_Err(Bad_Request);
+    // If we don't recognize the header, keep parsing and hope for the best.
   }
 
   std::ostream &operator<<(std::ostream &o, header &h)
