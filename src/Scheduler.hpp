@@ -4,8 +4,10 @@
 #include <functional>
 #include <signal.h>
 #include <unordered_map>
+
+#include "Callback.hpp"
 #include "LockedQueue.hpp"
-#include "Work.hpp"
+#include "FindWork.hpp"
 
 /* N.B. Keep in mind that if the scheduler uses old-fashioned signal
  * handlers, as opposed to signalfd, then any slow system call in the
@@ -28,12 +30,12 @@ class Scheduler
   inline void handle_sock_err(int fd);
 
   LockedQueue<Work *> &q;
-  
-  Work &wmake;
+  FindWork &fwork;
+
   /* Since the amount of signal handling we currently do is tiny,
    * this could be a vector instead of a hash. w/e */
   std::unordered_map<int, void (*)(int)> sighandlers;
-  std::unordered_map<int, void (*)(uint32_t)> special_fd_handlers;
+  std::unordered_map<int, Callback *> fdcbs;
 
   /* Some ready-made signal handlers. The argument and return types
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't
@@ -45,7 +47,7 @@ class Scheduler
   static Scheduler *handler_sch;
  
 public:
-  Scheduler(LockedQueue<Work *> &q, Work &workmaker,
+  Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 	    int pollsz=100, int maxevents=100);
   void schedule(Work *w, bool oneshot=true);
   void reschedule(Work *w, bool oneshot=true);
@@ -57,8 +59,7 @@ public:
    * how to handle them. For example, a cache module can register
    * an fd with the scheduler that becomes readable whenever a file in the
    * cache changes on disk. */
-  void register_special_fd(int fd, void (*cb)(uint32_t),
-			   Work::mode m, bool oneshot=true);
+  void registercb(int fd, Callback *cb, Work::mode m, bool oneshot=true);
   void poll();
 };
 

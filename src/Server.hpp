@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 
+#include "FindWork.hpp"
 #include "LockedQueue.hpp"
 #include "Scheduler.hpp"
 #include "Thread.hpp"
@@ -29,7 +30,7 @@ protected:
 public:
   /* For network sockets, bindto should be a string of a port number,
    * like "80". For local sockets, bindto should be a filesystem path. */
-  Server(int domain, Work &workmaker, char const *bindto,
+  Server(int domain, FindWork &fwork, char const *bindto,
 	 char const *ifnam, int nworkers, int listenq=10);
   void serve();
 };

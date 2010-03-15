@@ -22,9 +22,9 @@ namespace handler_sch {
 
 using namespace std;
 
-Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
+Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 		     int pollsz, int maxevents)
-  : q(q), wmake(wmake), maxevents(maxevents)
+  : q(q), fwork(fwork), maxevents(maxevents)
 {
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
@@ -60,8 +60,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, Work &wmake,
   push_sighandler(SIGINT, Scheduler::halt);
 }
 
-void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
-				    Work::mode m, bool oneshot)
+void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
 {
   if (fd < 0) {
     _LOG_INFO("invalid file descriptor %d, ignoring", fd);
@@ -75,15 +74,15 @@ void Scheduler::register_special_fd(int fd, void (*cb)(uint32_t),
   }
   // We don't compare against sigfd because that isn't set until poll().
 
-  unordered_map<int, void (*)(uint32_t)>::iterator it;
-  if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end()) {
+  unordered_map<int, Callback *>::iterator it;
+  if ((it = fdcbs.find(fd)) != fdcbs.end()) {
     _LOG_INFO("redefining handler for %d", fd);
     it->second = cb;
   }
   else { 
-    special_fd_handlers[fd] = cb;
+    fdcbs[fd] = cb;
   }
-  schedule(wmake.getwork(fd, m), oneshot);
+  schedule(fwork(fd, m), oneshot);
 }
 
 void Scheduler::schedule(Work *w, bool oneshot)
@@ -131,14 +130,14 @@ void Scheduler::poll()
       exit(1);
     }
     _LOG_DEBUG("signal fd is %d", sigfd);
-    schedule(wmake.getwork(sigfd, Work::read), false);
+    schedule(fwork(sigfd, Work::read), false);
   }
 
   else {
     sigmasks::sigmask_caller(sigmasks::BLOCK_NONE);
   }
 
-  schedule(wmake.getwork(listenfd, Work::read), false);
+  schedule(fwork(listenfd, Work::read), false);
 
   struct epoll_event fds[maxevents];
   int fd, nchanged, connfd, flags, so_err;
@@ -183,12 +182,12 @@ void Scheduler::poll()
      * identify the resource, another worker might be enlisted to prepare
      * the resource; but the first worker should ultimately send it back to
      * the client. */
-    unordered_map<int, void (*)(uint32_t)>::iterator it;
+    unordered_map<int, Callback *>::iterator it;
     for (int i=0; i<nchanged; ++i) {
       fd = fds[i].data.fd;
       // If we have a special handler for this fd, use that.
-      if ((it = special_fd_handlers.find(fd)) != special_fd_handlers.end())
-	it->second(fds[i].events);
+      if ((it = fdcbs.find(fd)) != fdcbs.end())
+	(*(it->second))();
       // epoll_wait always collects these. Do we know what to do with them?
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
 	_LOG_INFO("hangup or error on %d", fd);
@@ -198,9 +197,9 @@ void Scheduler::poll()
 	handle_accept();
       // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN)
-	q.enq(wmake.getwork(fd, Work::read));
+	q.enq(fwork(fd, Work::read));
       else if (fds[i].events & EPOLLOUT)
-	q.enq(wmake.getwork(fd, Work::write));
+	q.enq(fwork(fd, Work::write));
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
       if (!dowork) break;
@@ -229,7 +228,7 @@ void Scheduler::handle_accept()
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
-  schedule(wmake.getwork(acceptfd, Work::read), true);
+  schedule(fwork(acceptfd, Work::read), true);
 }
 
 void Scheduler::handle_sigs()

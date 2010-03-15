@@ -17,9 +17,9 @@
 #include "Server.hpp"
 #include "sigmasks.hpp"
 
-Server::Server(int domain, Work &workmaker, char const *bindto,
+Server::Server(int domain, FindWork &fwork, char const *bindto,
 	       char const *ifnam, int nworkers, int listenq)
-  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, workmaker)
+  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, fwork)
 {
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     _LOG_FATAL("socket: %m");

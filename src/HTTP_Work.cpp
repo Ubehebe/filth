@@ -13,25 +13,9 @@
 using namespace std;
 using namespace HTTP_constants;
 
-LockedQueue<Work *> *HTTP_Work::q = NULL;
 Scheduler *HTTP_Work::sch = NULL;
 FileCache *HTTP_Work::cache = NULL;
 HTTP_Statemap *HTTP_Work::st = NULL;
-
-void HTTP_Work::static_init(LockedQueue<Work *> *_q, Scheduler *_sch,
-			    FileCache *_cache, HTTP_Statemap *_st)
-{
-  HTTP_Work::q = _q;
-  HTTP_Work::sch = _sch;
-  HTTP_Work::cache = _cache;
-  HTTP_Work::st = _st;
-}
-
-// Dummy constructor.
-HTTP_Work::HTTP_Work()
-  : Work(-1, Work::read), resource(NULL)
-{
-}
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
   : Work(fd, m), req_line_done(false),
@@ -266,20 +250,5 @@ void HTTP_Work::format_status_line()
   if (stat != OK) {
     resource = rdbuf;
     resourcesz = statlnsz;
-  }
-}
-
-Work *HTTP_Work::getwork(int fd, Work::mode m)
-{
-  /* TODO: think about synchronization.
-   * Note that if fd is found in the state map, the second parameter
-   * is ignored. Is this the right thing to do? */
-  HTTP_Statemap::iterator it;
-  if ((it = st->find(fd)) != st->end())
-    return it->second;
-  else {
-    HTTP_Work *w = new HTTP_Work(fd, m);
-    (*st)[fd] = w;
-    return w;
   }
 }

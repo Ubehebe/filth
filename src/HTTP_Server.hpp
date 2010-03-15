@@ -12,7 +12,7 @@
 #include "HTTP_cmdline.hpp"
 #include "HTTP_constants.hpp"
 #include "HTTP_Statemap.hpp"
-#include "HTTP_Work.hpp"
+#include "HTTP_FindWork.hpp"
 #include "logging.h"
 #include "Server.hpp"
 #include "ServerErrs.hpp"
@@ -25,7 +25,7 @@ class HTTP_Server : public Server
 
   FileCache cache;
   HTTP_Statemap st;
-  HTTP_Work workmaker;
+  HTTP_FindWork fwork;
 public:
   HTTP_Server(char const *portno,
 	      char const *ifnam,
@@ -33,7 +33,6 @@ public:
 	      int nworkers,
 	      bool ipv6,
 	      size_t cacheszMB);
-  ~HTTP_Server();
 };
 
 HTTP_Server::HTTP_Server(char const *portno,
@@ -42,25 +41,15 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 int nworkers,
 			 bool ipv6,
 			 size_t cacheszMB)
-  : Server((ipv6) ? AF_INET6 : AF_INET, workmaker, portno, ifnam, nworkers),
-    cache(cacheszMB * (1<<20), &sch, &workmaker)
+  : Server((ipv6) ? AF_INET6 : AF_INET, fwork, portno, ifnam, nworkers),
+    cache(cacheszMB * (1<<20), sch, fwork),
+    fwork(q, sch, cache, st)
 {
-  workmaker.static_init(&q, &sch, &cache, &st);
-  sch.register_special_fd(cache.inotifyfd, cache.inotify_cb, Work::read);
+  sch.registercb(cache.inotifyfd, &cache, Work::read);
   if (chdir(mount)==-1) {
     _LOG_FATAL("chdir: %m");
     exit(1);
   }
 }
-
-HTTP_Server::~HTTP_Server()
-{
-  std::list<Work *> todel;
-  for (HTTP_Statemap::iterator it = st.begin(); it != st.end(); ++it)
-    todel.push_back(it->second);
-  for (std::list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
-  delete *it;
-}
-
 
 #endif // HTTP_SERVER_HPP

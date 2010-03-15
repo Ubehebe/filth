@@ -17,13 +17,12 @@
 
 class HTTP_Work : public Work
 {
+  friend class HTTP_FindWork;
   // No copying, no assigning.
   HTTP_Work(HTTP_Work const&);
   HTTP_Work &operator=(HTTP_Work const&);
 
-  // Stuff that should be the same for all.
   static size_t const rdbufsz = 1<<10;
-  static LockedQueue<Work *> *q;
   static Scheduler *sch;
   static FileCache *cache;
   static HTTP_Statemap *st;
@@ -56,12 +55,7 @@ class HTTP_Work : public Work
   
 public:
   void operator()();
-  Work *getwork(int fd, Work::mode m);
-  // Dummy constructor.
-  HTTP_Work();
   HTTP_Work(int fd, Work::mode m);
-  static void static_init(LockedQueue<Work *> *q, Scheduler *sch,
-			  FileCache *c, HTTP_Statemap *st);
   ~HTTP_Work();
 };
 

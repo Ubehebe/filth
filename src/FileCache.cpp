@@ -6,27 +6,12 @@
 
 #include "FileCache.hpp"
 #include "logging.h"
-#include "Work.hpp"
 
 using namespace std;
 
-FileCache *FileCache::recvinotify = NULL;
-Scheduler *FileCache::sch = NULL;
-Work *FileCache::wmake = NULL;
-
-FileCache::FileCache(size_t max, Scheduler *sch, Work *wmake)
-  : cur(0), max(max)
+FileCache::FileCache(size_t max, Scheduler &sch, FindWork &fwork)
+  : cur(0), max(max), sch(sch), fwork(fwork)
 {
-  /* Set up static members. Doing this from the constructor means
-   * we are running through these loops for every instantiation,
-   * but right now I'm only using one instantiation, so it's fine. */
-  if (FileCache::recvinotify == NULL)
-    FileCache::recvinotify = this;
-  if (FileCache::sch == NULL)
-    FileCache::sch = sch;
-  if (FileCache::wmake == NULL)
-    FileCache::wmake = wmake;
-
   if ((inotifyfd = inotify_init())==-1) {
     _LOG_FATAL("inotify_init: %m");
     exit(1);
@@ -43,33 +28,26 @@ FileCache::FileCache(size_t max, Scheduler *sch, Work *wmake)
   _LOG_INFO("inotify fd is %d", inotifyfd);
 }
 
-void FileCache::inotify_cb(uint32_t events)
+void FileCache::operator()()
 {
-  if (!(events & EPOLLIN)) {
-    _LOG_INFO("unanticipated: "
-	      "inotifyfd activated by epoll but not readable, ignoring");
-    return;
-  }
   struct inotify_event iev;
   unordered_map<uint32_t, string>::iterator it;
 
-  FileCache *r = FileCache::recvinotify;
-  
-  r->clock.rdlock();
+  clock.rdlock();
   while (true) {
-    if (read(r->inotifyfd, (void *)&iev, sizeof(iev))==-1) {
+    if (read(inotifyfd, (void *)&iev, sizeof(iev))==-1) {
       if (errno != EINTR)
 	break;
     }
     else {
-      string tmp = r->watchds[iev.wd];
-      __sync_fetch_and_add(&r->c[tmp]->invalid, 1);
+      string tmp = watchds[iev.wd];
+      __sync_fetch_and_add(&c[tmp]->invalid, 1);
       _LOG_INFO("%s invalidated", tmp.c_str());
     }
   }
-  r->clock.unlock();
+  clock.unlock();
   if (errno == EAGAIN || errno == EWOULDBLOCK)
-    sch->reschedule(wmake->getwork(r->inotifyfd, Work::read));
+    sch.reschedule(fwork(inotifyfd, Work::read));
 }
 
 FileCache::cinfo::cinfo(size_t sz)

@@ -8,26 +8,19 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "Callback.hpp"
 #include "LockedQueue.hpp"
 #include "Locks.hpp"
 #include "Scheduler.hpp"
-#include "Work.hpp"
+#include "FindWork.hpp"
 
 /* Simple file cache. The biggest inefficiency is that it calls new for
  * each allocation, rather than malloc'ing all the memory at the outset
  * and managing it itself. I did this because I do not know how to design
  * a concurrent memory allocator; all my ideas involve walking a free list,
  * and I don't know how to make that thread-safe without locking the whole
- * list. TODO: learn more about lock-free lists!
- *
- * At one point I tried pulling the "unordered map + reader/writer lock" into a
- * "LockedHash" class. The reason I stopped was because I didn't know what
- * interface to export. You cannot export an STL-like interface with locking
- * done inside the calls; if you drop the lock and return the element, the
- * element could already be gone. So we would have to export a reserve/
- * release interface with internal reference counting. This is pretty much the
- * entire FileCache class. */
-class FileCache
+ * list. TODO: learn more about lock-free lists! */
+class FileCache : public Callback
 {
   // No copying, no assigning.
   FileCache(FileCache const&);
@@ -53,13 +46,11 @@ class FileCache
 
   /* I didn't intend to have more than one instantiation of a file
    * cache at a time, but if we do, they should share all this. */
-  static Scheduler *sch;
-  static Work *wmake;
-  static FileCache *recvinotify;
-
+  Scheduler &sch;
+  FindWork &fwork;
 
 public:
-  FileCache(size_t max, Scheduler *sch, Work *wmake);
+  FileCache(size_t max, Scheduler &sch, FindWork &fwork);
 
   /* This function should search the cache and return the file if it's there.
    * If it's not, it should read it in from disk, then return it.
@@ -67,8 +58,10 @@ public:
    * error), it should return NULL. */
   char *reserve(std::string &path, size_t &sz);
   void release(std::string &path);
+  void operator()();
+  /* This might as well be public since an accessor could do anything to the
+   * descriptor. */
   int inotifyfd;
-  static void inotify_cb(uint32_t events);
 };
 
 #endif // FILECACHE_HPP
