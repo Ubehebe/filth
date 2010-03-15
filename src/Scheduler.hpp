@@ -25,9 +25,9 @@ class Scheduler
   int listenfd, pollfd, sigfd, maxevents;
   sigset_t tohandle;
 
-  inline void handle_sigs();
-  inline void handle_accept();
-  inline void handle_sock_err(int fd);
+  void handle_sigs();
+  void handle_accept();
+  void handle_sock_err(int fd);
 
   LockedQueue<Work *> &q;
   FindWork &fwork;

@@ -209,7 +209,7 @@ void Scheduler::poll()
   q.enq(NULL); // Poison pill for the workers
 }
 
-void Scheduler::handle_accept()
+inline void Scheduler::handle_accept()
 {
   int acceptfd;
   if ((acceptfd = accept(listenfd, NULL, NULL))==-1) {
@@ -231,7 +231,7 @@ void Scheduler::handle_accept()
   schedule(fwork(acceptfd, Work::read), true);
 }
 
-void Scheduler::handle_sigs()
+inline void Scheduler::handle_sigs()
 {
   struct signalfd_siginfo siginfo[sighandlers.size()];
   unordered_map<int, void (*)(int)>::iterator iter;
@@ -294,7 +294,7 @@ void Scheduler::flush(int ignore)
   // TODO
 }
 
-void Scheduler::handle_sock_err(int fd)
+inline void Scheduler::handle_sock_err(int fd)
 {
   // What's this for?
 }

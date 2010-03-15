@@ -42,11 +42,11 @@ class HTTP_Work : public Work
   
   /* The main internal driver functions to get stuff from the client and
    * return stuff to the client. */
-  inline void incoming();
-  inline void outgoing();
-  inline void outgoing(size_t &towrite);
+  void incoming();
+  void outgoing();
+  void outgoing(size_t &towrite);
 
-  inline void format_status_line();
+  void format_status_line();
   bool parse();
   void parse_req_line(std::string &line);
   void parse_header(std::string &line);

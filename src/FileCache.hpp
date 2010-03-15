@@ -8,10 +8,8 @@
 #include <unistd.h>
 #include <unordered_map>
 
-#include "Callback.hpp"
 #include "LockedQueue.hpp"
 #include "Locks.hpp"
-#include "Scheduler.hpp"
 #include "FindWork.hpp"
 
 /* Simple file cache. The biggest inefficiency is that it calls new for
@@ -20,48 +18,35 @@
  * a concurrent memory allocator; all my ideas involve walking a free list,
  * and I don't know how to make that thread-safe without locking the whole
  * list. TODO: learn more about lock-free lists! */
-class FileCache : public Callback
+class FileCache
 {
   // No copying, no assigning.
   FileCache(FileCache const&);
   FileCache &operator=(FileCache const&);
 
+protected:
   struct cinfo
   {
     char *buf;
     int refcnt;
-    int invalid;
+    uint32_t invalid;
     size_t sz;
     cinfo(size_t sz);
     ~cinfo();
   };
-  std::unordered_map<std::string, cinfo *> c;
-  RWLock clock; // watchds also uses this.
+  typedef std::unordered_map<std::string, cinfo *> cache;
+  cache c;
+  RWLock clock;
   LockedQueue<std::string> toevict;
   size_t cur, max;
+  virtual bool evict();
 
-  bool evict();
-
-  std::unordered_map<uint32_t, std::string> watchds;
-
-  /* I didn't intend to have more than one instantiation of a file
-   * cache at a time, but if we do, they should share all this. */
-  Scheduler &sch;
   FindWork &fwork;
 
 public:
-  FileCache(size_t max, Scheduler &sch, FindWork &fwork);
-
-  /* This function should search the cache and return the file if it's there.
-   * If it's not, it should read it in from disk, then return it.
-   * If it's unable to get it from disk (e.g. it doesn't exist, or allocation
-   * error), it should return NULL. */
-  char *reserve(std::string &path, size_t &sz);
-  void release(std::string &path);
-  void operator()();
-  /* This might as well be public since an accessor could do anything to the
-   * descriptor. */
-  int inotifyfd;
+  FileCache(size_t max, FindWork &fwork) : cur(0), max(max), fwork(fwork) {}
+  virtual char *reserve(std::string &path, size_t &sz);
+  virtual void release(std::string &path);
 };
 
 #endif // FILECACHE_HPP

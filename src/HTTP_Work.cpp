@@ -108,7 +108,7 @@ void HTTP_Work::operator()()
   }
 }
 
-void HTTP_Work::incoming()
+inline void HTTP_Work::incoming()
 {
   ssize_t nread;
   /* Read until we would block.
@@ -145,7 +145,7 @@ void HTTP_Work::incoming()
   sch->reschedule(this);
 }
 
-void HTTP_Work::outgoing()
+inline void HTTP_Work::outgoing()
 {
   if (!status_line_done) {
     outgoing(statlnsz);
@@ -162,7 +162,7 @@ void HTTP_Work::outgoing()
   }
 }
 
-void HTTP_Work::outgoing(size_t &towrite)
+inline void HTTP_Work::outgoing(size_t &towrite)
 {
   ssize_t nwritten;
   while (true) {
@@ -229,7 +229,7 @@ void HTTP_Work::parse_header(string &line)
 
 /* RFC 2616 sec. 6.1:
  * Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF */
-void HTTP_Work::format_status_line()
+inline void HTTP_Work::format_status_line()
 {
   /* For now we put the CRLF separating the response headers from the
    * response message body on the end of the status line. Will need to

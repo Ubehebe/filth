@@ -1,54 +1,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
-#include <sys/epoll.h> // Just for constants
-#include <sys/inotify.h>
-#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 
 #include "FileCache.hpp"
 #include "logging.h"
 
 using namespace std;
-
-FileCache::FileCache(size_t max, Scheduler &sch, FindWork &fwork)
-  : cur(0), max(max), sch(sch), fwork(fwork)
-{
-  if ((inotifyfd = inotify_init())==-1) {
-    _LOG_FATAL("inotify_init: %m");
-    exit(1);
-  }
-  int flags;
-  if ((flags = fcntl(inotifyfd, F_GETFL))==-1) {
-    _LOG_FATAL("fcntl (F_GETFL): %m");
-    exit(1);
-  }
-  if (fcntl(inotifyfd, F_SETFL, flags | O_NONBLOCK)==-1) {
-    _LOG_FATAL("fcntl (F_SETFL): %m");
-    exit(1);
-  }
-  _LOG_INFO("inotify fd is %d", inotifyfd);
-}
-
-void FileCache::operator()()
-{
-  struct inotify_event iev;
-  unordered_map<uint32_t, string>::iterator it;
-
-  clock.rdlock();
-  while (true) {
-    if (read(inotifyfd, (void *)&iev, sizeof(iev))==-1) {
-      if (errno != EINTR)
-	break;
-    }
-    else {
-      string tmp = watchds[iev.wd];
-      __sync_fetch_and_add(&c[tmp]->invalid, 1);
-      _LOG_INFO("%s invalidated", tmp.c_str());
-    }
-  }
-  clock.unlock();
-  if (errno == EAGAIN || errno == EWOULDBLOCK)
-    sch.reschedule(fwork(inotifyfd, Work::read));
-}
 
 FileCache::cinfo::cinfo(size_t sz)
   : sz(sz), refcnt(1), invalid(0)
@@ -64,7 +23,7 @@ FileCache::cinfo::~cinfo()
 bool FileCache::evict()
 {
   string s;
-  unordered_map<string, cinfo *>::iterator it;
+  cache::iterator it;
 
  evict_tryagain:
 
@@ -100,7 +59,7 @@ bool FileCache::evict()
 char *FileCache::reserve(std::string &path, size_t &sz)
 {
   _LOG_DEBUG("reserve %s", path.c_str());
-  unordered_map<std::string, cinfo *>::iterator it;
+  cache::iterator it;
   char *ans = NULL;
   
   clock.rdlock();
@@ -222,13 +181,6 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   }
   else {
     _LOG_DEBUG("%s now in cache", path.c_str());
-    uint32_t watchd;
-    if ((watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))==-1) {
-      _LOG_INFO("inotifyfd: %m, so not watching %s", path.c_str());
-    }
-    else {
-      watchds.insert(make_pair(watchd, path));
-    }
     c[path] = tmp;
     ctmp = tmp->buf;
   }
@@ -239,7 +191,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
 
 void FileCache::release(std::string &path)
 {
-  unordered_map<string, cinfo *>::iterator it;
+  cache::iterator it;
   bool doenq;
   clock.rdlock();
   // The first half should always be true...right?

@@ -1,22 +1,23 @@
-#include <stdio.h>
+#include <iostream>
 
 class Foo
 {
+protected:
+  int x;
 public:
-  virtual void operator()(int blah) =0;
+  Foo() : x(13) {}
 };
 
-class Bar : public Foo
+class Bar : protected Foo
 {
+  void oops() { std::cout << Foo::x << std::endl; }
 public:
-  void operator()(int blah=44)
-  {
-    printf("%d\n", blah);
-  }
+  int b;
+  Bar() : b(45) {}
+
 };
 
 int main()
 {
   Bar b;
-  b();
 }
