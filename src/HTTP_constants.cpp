@@ -15,55 +15,55 @@ namespace HTTP_constants
 
   size_t const num_status =
 #define DEFINE_ME(blah1,blah2) +1
-#include "../data/HTTP_status.def"
+#include "HTTP_status.def"
 #undef DEFINE_ME
     ;
 
   uint16_t const status_vals[] = {
 #define DEFINE_ME(name,val) val,
-#include "../data/HTTP_status.def"
+#include "HTTP_status.def"
 #undef DEFINE_ME
   };
 
   char const *status_strs[] = {
 #define DEFINE_ME(name,val) #name,
-#include "../data/HTTP_status.def"
+#include "HTTP_status.def"
 #undef DEFINE_ME
   };
 
   size_t const num_method = 
 #define DEFINE_ME(ignore1, ignore2) +1
-#include "../data/HTTP_methods.def"
+#include "HTTP_methods.def"
 #undef DEFINE_ME
     ;
 
   char const *method_strs[] = {
 #define DEFINE_ME(name, ignore) #name,
-#include "../data/HTTP_methods.def"
+#include "HTTP_methods.def"
 #undef DEFINE_ME
   };
 
   bool const method_is_implemented[] = {
 #define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
-#include "../data/HTTP_methods.def"
+#include "HTTP_methods.def"
 #undef DEFINE_ME
   };
 
   size_t const num_header = 
 #define DEFINE_ME(ignore1, ignore2) +1
-#include "../data/HTTP_headers.def"
+#include "HTTP_headers.def"
 #undef DEFINE_ME
     ;
 
   char const *header_strs[] = {
 #define DEFINE_ME(name, ignore) #name,
-#include "../data/HTTP_headers.def"
+#include "HTTP_headers.def"
 #undef DEFINE_ME
   };
 
   bool const header_is_implemented[] = {
 #define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
-#include "../data/HTTP_headers.def"
+#include "HTTP_headers.def"
 #undef DEFINE_ME
   };
 

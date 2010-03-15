@@ -12,42 +12,47 @@ HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 CGI_SRCS = CGI_main.cpp
 CGI_OBJS = $(CGI_SRCS:.cpp=.o)
 
-CXXFLAGS = -std=c++0x
-CPPFLAGS = -D _LOG_FATAL
-
-all: http cgi
 http: $(BASE_OBJS) $(HTTP_OBJS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -lpthread $(BASE_OBJS) $(HTTP_OBJS) \
 	-o $(HTTP_PROGNAME)
 cgi: $(BASE_OBJS) $(CGI_OBJS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -lpthread $(BASE_OBJS) $(CGI_OBJS) \
 	-o $(CGI_PROGNAME)
+.PHONY: depend
 depend:
-	makedepend -Y $(BASE_SRCS) $(HTTP_SRCS) $(UNIX_SRCS) 2> /dev/null
+	makedepend $(INCLUDE_DIRS) -Y $(BASE_SRCS) $(HTTP_SRCS) 2> /dev/null
+.PHONY: clean
 clean:
 	rm -f *.o *~ *\# a.out $(HTTP_PROGNAME) $(CGI_PROGNAME)
 # DO NOT DELETE
 
-Scheduler.o: Scheduler.hpp LockedQueue.hpp Locks.hpp Work.hpp ServerErrs.hpp
-Scheduler.o: sigmasks.hpp
+Scheduler.o: logging.h Scheduler.hpp LockedQueue.hpp Locks.hpp Work.hpp
+Scheduler.o: ServerErrs.hpp sigmasks.hpp
 Server.o: Server.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp
-Server.o: Thread.hpp sigmasks.hpp Thread.cpp Worker.hpp
-Worker.o: sigmasks.hpp Worker.hpp LockedQueue.hpp Locks.hpp Work.hpp
-Locks.o: Locks.hpp
-sigmasks.o: sigmasks.hpp
+Server.o: Thread.hpp sigmasks.hpp Thread.cpp logging.h Worker.hpp
+Worker.o: logging.h sigmasks.hpp Worker.hpp LockedQueue.hpp Locks.hpp
+Worker.o: Work.hpp
+Locks.o: Locks.hpp logging.h
+sigmasks.o: logging.h sigmasks.hpp
 FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp Scheduler.hpp Work.hpp
-HTTP_constants.o: HTTP_constants.hpp ../data/HTTP_status.def
-HTTP_constants.o: ../data/HTTP_methods.def ../data/HTTP_headers.def
-HTTP_constants.o: HTTP_Parse_Err.hpp ServerErrs.hpp
-HTTP_cmdline.o: HTTP_cmdline.hpp ../data/HTTP_cmdline.def
-HTTP_main.o: HTTP_Server.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
-HTTP_main.o: Scheduler.hpp Work.hpp HTTP_cmdline.hpp ../data/HTTP_cmdline.def
-HTTP_main.o: HTTP_constants.hpp ../data/HTTP_status.def
-HTTP_main.o: ../data/HTTP_methods.def ../data/HTTP_headers.def
-HTTP_main.o: HTTP_Statemap.hpp HTTP_Work.hpp Server.hpp Thread.hpp
-HTTP_main.o: sigmasks.hpp Thread.cpp Worker.hpp ServerErrs.hpp
-HTTP_Work.o: HTTP_cmdline.hpp ../data/HTTP_cmdline.def HTTP_Parse_Err.hpp
-HTTP_Work.o: HTTP_constants.hpp ../data/HTTP_status.def
-HTTP_Work.o: ../data/HTTP_methods.def ../data/HTTP_headers.def ServerErrs.hpp
+FileCache.o: logging.h
+HTTP_constants.o: HTTP_constants.hpp /home/brendan/http/data/HTTP_status.def
+HTTP_constants.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_constants.o: /home/brendan/http/data/HTTP_headers.def HTTP_Parse_Err.hpp
+HTTP_constants.o: ServerErrs.hpp logging.h
+HTTP_cmdline.o: HTTP_cmdline.hpp /home/brendan/http/data/HTTP_cmdline.def
+HTTP_main.o: logging.h HTTP_Server.hpp FileCache.hpp LockedQueue.hpp
+HTTP_main.o: Locks.hpp Scheduler.hpp Work.hpp HTTP_cmdline.hpp
+HTTP_main.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_constants.hpp
+HTTP_main.o: /home/brendan/http/data/HTTP_status.def
+HTTP_main.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_main.o: /home/brendan/http/data/HTTP_headers.def HTTP_Statemap.hpp
+HTTP_main.o: HTTP_Work.hpp Server.hpp Thread.hpp sigmasks.hpp Thread.cpp
+HTTP_main.o: Worker.hpp ServerErrs.hpp
+HTTP_Work.o: HTTP_cmdline.hpp /home/brendan/http/data/HTTP_cmdline.def
+HTTP_Work.o: HTTP_Parse_Err.hpp HTTP_constants.hpp
+HTTP_Work.o: /home/brendan/http/data/HTTP_status.def
+HTTP_Work.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_Work.o: /home/brendan/http/data/HTTP_headers.def ServerErrs.hpp
 HTTP_Work.o: HTTP_Work.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
-HTTP_Work.o: Scheduler.hpp Work.hpp HTTP_Statemap.hpp
+HTTP_Work.o: Scheduler.hpp Work.hpp HTTP_Statemap.hpp logging.h

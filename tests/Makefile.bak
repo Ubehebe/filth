@@ -1,0 +1,20 @@
+TEST_SRCS = LockedQueueTest.cpp
+TEST_OBJS = $(TEST_SRCS:.cpp=.o)
+
+.PHONY: depend
+depend:
+	makedepend $(INCLUDE_DIRS) -Y $(TEST_SRCS) 2> /dev/null
+.PHONY: clean
+clean:
+	rm -f *.o *~ *\# a.out
+
+
+
+# DO NOT DELETE
+
+LockedQueueTest.o: /home/brendan/http/src/LockedQueue.hpp
+LockedQueueTest.o: /home/brendan/http/src/Locks.hpp
+LockedQueueTest.o: /home/brendan/http/src/Thread.hpp
+LockedQueueTest.o: /home/brendan/http/src/sigmasks.hpp
+LockedQueueTest.o: /home/brendan/http/src/Thread.cpp
+LockedQueueTest.o: /home/brendan/http/src/logging.h

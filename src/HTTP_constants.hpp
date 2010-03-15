@@ -11,7 +11,7 @@ namespace HTTP_constants
   // 404, etc.
   enum status {
 #define DEFINE_ME(name,val) name,
-#include "../data/HTTP_status.def"
+#include "HTTP_status.def"
 #undef DEFINE_ME
   };
 
@@ -19,7 +19,7 @@ namespace HTTP_constants
   enum method
     {
 #define DEFINE_ME(name, ignore) name,
-#include "../data/HTTP_methods.def"
+#include "HTTP_methods.def"
 #undef DEFINE_ME
     };
 
@@ -27,7 +27,7 @@ namespace HTTP_constants
   enum header
     {
 #define DEFINE_ME(name, ignore) name,
-#include "../data/HTTP_headers.def"
+#include "HTTP_headers.def"
 #undef DEFINE_ME
     };
 
