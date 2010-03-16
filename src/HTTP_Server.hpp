@@ -23,9 +23,13 @@ class HTTP_Server : public Server
   HTTP_Server(HTTP_Server const&);
   HTTP_Server &operator=(HTTP_Server const&);
 
-  inotifyFileCache cache;
+  /* The cache constructor registers its inotify fd with the scheduler using
+   * fwork. fwork checks st to see if such a work object already exists, so
+   * st needs to have been initialized already. */
   HTTP_Statemap st;
   HTTP_FindWork fwork;
+  inotifyFileCache cache;
+
 public:
   HTTP_Server(char const *portno,
 	      char const *ifnam,
@@ -42,8 +46,8 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 bool ipv6,
 			 size_t cacheszMB)
   : Server((ipv6) ? AF_INET6 : AF_INET, fwork, portno, ifnam, nworkers),
-    cache(cacheszMB * (1<<20), fwork, sch),
-    fwork(q, sch, cache, st)
+    fwork(q, sch, cache, st),
+    cache(cacheszMB * (1<<20), fwork, sch)
 {
   if (chdir(mount)==-1) {
     _LOG_FATAL("chdir: %m");

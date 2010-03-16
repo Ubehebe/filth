@@ -62,6 +62,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 
 void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
 {
+
   if (fd < 0) {
     _LOG_INFO("invalid file descriptor %d, ignoring", fd);
     return;

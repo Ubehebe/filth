@@ -15,6 +15,11 @@ FileCache::cinfo::cinfo(size_t sz)
   buf = new char[sz];
 }
 
+FileCache::cinfo *FileCache::mkcinfo(string &path, size_t sz)
+{
+  return new cinfo(sz); // No need to store path yet
+}
+
 FileCache::cinfo::~cinfo()
 {
   delete[] buf;
@@ -60,20 +65,21 @@ char *FileCache::reserve(std::string &path, size_t &sz)
 {
   _LOG_DEBUG("reserve %s", path.c_str());
   cache::iterator it;
-  char *ans = NULL;
   
   clock.rdlock();
   if ((it = c.find(path)) != c.end()) {
-    if (__sync_fetch_and_add(&it->second->invalid, 0)!=1) {
-      __sync_fetch_and_add(&it->second->refcnt, 1);
-      ans = it->second->buf;
-      sz = it->second->sz;
+    if (__sync_fetch_and_add(&it->second->invalid, 0)!=0) {
+      _LOG_INFO("%s invalid", path.c_str());
+      clock.unlock();
+      return NULL;
     }
     else {
-      _LOG_DEBUG("%s in cache but invalid", path.c_str());
+      __sync_fetch_and_add(&it->second->refcnt, 1);
+      char *ans = it->second->buf;
+      sz = it->second->sz;
+      clock.unlock();
+      return ans;
     }
-    clock.unlock();
-    return ans;
   }
   clock.unlock();
 
@@ -123,7 +129,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
 
   cinfo *tmp;
   try {
-    tmp = new cinfo(sz);
+    tmp = mkcinfo(path, sz);
   }
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
@@ -161,7 +167,9 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   // Some other kind of error; start over.
   if (nread == -1) {
     _LOG_INFO("read %s: %m, starting read over", path.c_str());
+    clock.wrlock(); // OMG
     delete tmp;
+    clock.unlock(); // OMG
     __sync_sub_and_fetch(&cur, sz);
     goto reserve_tryagain;
   }

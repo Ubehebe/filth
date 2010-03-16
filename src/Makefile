@@ -13,17 +13,16 @@ CGI_SRCS = CGI_main.cpp
 CGI_OBJS = $(CGI_SRCS:.cpp=.o)
 
 http: $(BASE_OBJS) $(HTTP_OBJS)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -lpthread $(BASE_OBJS) $(HTTP_OBJS) \
-	-o $(HTTP_PROGNAME)
+	mv *.o $(OBJ_DIR) && cd $(OBJ_DIR) && \
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread \
+	$(BASE_OBJS) $(HTTP_OBJS) -o $(BIN_DIR)/$(HTTP_PROGNAME)
 cgi: $(BASE_OBJS) $(CGI_OBJS)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -lpthread $(BASE_OBJS) $(CGI_OBJS) \
-	-o $(CGI_PROGNAME)
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -lpthread $(BASE_OBJS:%=$(OBJ_DIR)/%) \
+	$(CGI_OBJS:%=$(OBJ_DIR)/%) -o $(BIN_DIR)/$(CGI_PROGNAME)
 .PHONY: depend
 depend:
 	makedepend $(INCLUDE_DIRS) -Y $(BASE_SRCS) $(HTTP_SRCS) 2> /dev/null
-.PHONY: clean
-clean:
-	rm -f *.o *~ *\# a.out $(HTTP_PROGNAME) $(CGI_PROGNAME)
+
 # DO NOT DELETE
 
 Scheduler.o: logging.h Scheduler.hpp Callback.hpp LockedQueue.hpp Locks.hpp

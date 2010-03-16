@@ -25,28 +25,32 @@ class FileCache
   FileCache &operator=(FileCache const&);
 
 protected:
+  /* Note that this base class has the concept of a cache entry being
+   * invalid, but no mechanism to actually invalidate cache entries.
+   * We leave that up to derived classes. */
   struct cinfo
   {
     char *buf;
     int refcnt;
-    uint32_t invalid;
+    int invalid; // Rather than bool so we can use atomic builtins.
     size_t sz;
     cinfo(size_t sz);
-    ~cinfo();
+    virtual ~cinfo();
   };
   typedef std::unordered_map<std::string, cinfo *> cache;
   cache c;
   RWLock clock;
   LockedQueue<std::string> toevict;
   size_t cur, max;
-  virtual bool evict();
-
   FindWork &fwork;
+
+  bool evict();
+  virtual cinfo *mkcinfo(std::string &path, size_t sz);
 
 public:
   FileCache(size_t max, FindWork &fwork) : cur(0), max(max), fwork(fwork) {}
-  virtual char *reserve(std::string &path, size_t &sz);
-  virtual void release(std::string &path);
+  char *reserve(std::string &path, size_t &sz);
+  void release(std::string &path);
 };
 
 #endif // FILECACHE_HPP

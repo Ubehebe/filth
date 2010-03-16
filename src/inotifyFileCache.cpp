@@ -9,6 +9,33 @@
 
 using namespace std;
 
+int inotifyFileCache::inotify_cinfo::inotifyfd = -1;
+inotifyFileCache::watchmap *inotifyFileCache::inotify_cinfo::wmap = NULL;
+
+FileCache::cinfo *inotifyFileCache::mkcinfo(string &path, size_t sz)
+{
+  // If this fails, it will be caught by base class.
+  inotify_cinfo *ans = new inotify_cinfo(sz);
+  if ((ans->watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))
+      ==-1) {
+    _LOG_INFO("inotify_add_watch: %m, so not watching %s", path.c_str());
+  }
+  else {
+    clock.wrlock();
+    wmap[ans->watchd] = path;
+    clock.unlock();
+  }
+}
+
+inotifyFileCache::inotify_cinfo::~inotify_cinfo()
+{
+  // N.B. we have the writer lock; look at where delete occurs in base class.
+  if (inotify_rm_watch(inotifyfd, watchd)==-1)
+    _LOG_INFO("inotify_rm_watch watchd %d: %m, continuing", watchd);
+  wmap->erase(watchd);
+  // Need to explicitly call base destructor??
+}
+
 inotifyFileCache::inotifyFileCache(size_t max, FindWork &fwork, Scheduler &sch)
   : FileCache(max, fwork), sch(sch)
 {
@@ -27,14 +54,17 @@ inotifyFileCache::inotifyFileCache(size_t max, FindWork &fwork, Scheduler &sch)
   }
   _LOG_INFO("inotify fd is %d", inotifyfd);
 
-  // Is this gonna work? Nope!
-  //  sch.registercb(inotifyfd, this, Work::read);
+  inotify_cinfo::inotifyfd = inotifyfd;
+  inotify_cinfo::wmap = &wmap;
+  
+  sch.registercb(inotifyfd, this, Work::read);
 }
 
 void inotifyFileCache::operator()()
 {
   struct inotify_event iev;
-  watchmap::iterator it;
+  cache::iterator cit;
+  watchmap::iterator wit;
 
   clock.rdlock();
   while (true) {
@@ -42,65 +72,25 @@ void inotifyFileCache::operator()()
       if (errno != EINTR)
 	break;
     }
+    else if ((wit = wmap.find(iev.wd)) != wmap.end()) {
+      if ((cit = c.find(wit->second)) != c.end()) {
+	__sync_fetch_and_add(&cit->second->invalid, 1);
+	_LOG_INFO("%s invalidated", wit->second.c_str());
+      }
+      else {
+	_LOG_INFO("%s modified on disk, but not found in cache",
+		  (wit->second).c_str());
+      }
+    }
     else {
-      string tmp = wmap[iev.wd];
-      __sync_fetch_and_add(&c[tmp]->invalid, iev.wd);
-      _LOG_INFO("%s invalidated", tmp.c_str());
+      _LOG_INFO("received unknown watch descriptor %d", iev.wd);
     }
   }
   clock.unlock();
   if (errno == EAGAIN || errno == EWOULDBLOCK)
     sch.reschedule(fwork(inotifyfd, Work::read));
-}
-
-char *inotifyFileCache::reserve(string &path, size_t &sz)
-{
-  char *ans;
-  uint32_t watchd;
-  if ((ans = FileCache::reserve(path, sz))!=NULL) {
-    if ((watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))==-1) {
-      _LOG_INFO("inotifyfd: %m, so not watching %s", path.c_str());
-    }
-    else {
-      clock.wrlock();
-      wmap[watchd] = path;
-      clock.unlock();
-    }
-  }
-  return ans;
-}
-
-bool inotifyFileCache::evict()
-{
-  string s;
-  cache::iterator it;
-
- evict_tryagain:
-
-  // Nothing to evict.
-  if (!toevict.nowait_deq(s))
-    return false;
-
-  /* A file is put on the eviction list whenever its reference count falls to
-   * 0; it is not automatically removed from the list when its reference count
-   * increases. Thus, one file may appear more than once on the list, and files
-   * with positive reference counts may appear on the list. Therefore any file
-   * that is already gone from the cache, and any file that has a positive
-   * reference count, should just be ignored. */
-  clock.wrlock();
-  if ((it = c.find(s)) != c.end() && it->second->refcnt == 0) {
-    _LOG_DEBUG("evict %s", s.c_str());
-    __sync_sub_and_fetch(&cur, it->second->sz);
-    if (inotify_rm_watch(inotifyfd, it->second->invalid)==-1)
-      _LOG_INFO("inotify_rm_watch %s: %m, continuing", s.c_str());
-    delete it->second;
-    c.erase(it);
-    clock.unlock();
-    return true;
-  }
   else {
-    clock.unlock();
-    goto evict_tryagain;
+    _LOG_FATAL("read: %m");
+    exit(1);
   }
 }
-

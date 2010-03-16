@@ -1,10 +1,11 @@
-SRC_DIR = src
-DATA_DIR = data
-TEST_DIR = tests
+export BIN_DIR = $(CURDIR)/bin
+export DATA_DIR = $(CURDIR)/data
+export OBJ_DIR = $(CURDIR)/obj
+export SRC_DIR = $(CURDIR)/src
+export TEST_DIR = $(CURDIR)/tests
+export SRC_INC_DIRS = $(SRC_DIR) $(DATA_DIR)
+export OBJ_INC_DIRS = $(OBJ_DIR)
 
-
-export SRC_INC_DIRS = $(CURDIR)/$(SRC_DIR) $(CURDIR)/$(DATA_DIR)
-export OBJ_INC_DIRS = $(CURDIR)/$(SRC_DIR)
 export CPPFLAGS = $(SRC_INC_DIRS:%=-I%) -D _LOG_FATAL
 export CXXFLAGS = -std=c++0x
 export LDFLAGS = $(OBJ_INC_DIRS:%=-L%)
@@ -20,6 +21,5 @@ depend:
 	cd $(SRC_DIR) && $(MAKE) depend
 .PHONY: clean
 clean:
-	rm -f Makefile~
-	cd $(SRC_DIR) && $(MAKE) clean
-	cd $(TEST_DIR) && $(MAKE) clean
+	rm -f *~ $(BIN_DIR)/* $(OBJ_DIR)/* $(SRC_DIR)/*~ $(SRC_DIR)/*\# \
+		$(TEST_DIR)/*~ $(TEST_DIR)/*\#
