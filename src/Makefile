@@ -13,7 +13,6 @@ CGI_SRCS = CGI_main.cpp
 CGI_OBJS = $(CGI_SRCS:.cpp=.o)
 
 http: $(BASE_OBJS) $(HTTP_OBJS)
-	mv *.o $(OBJ_DIR) && cd $(OBJ_DIR) && \
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread \
 	$(BASE_OBJS) $(HTTP_OBJS) -o $(BIN_DIR)/$(HTTP_PROGNAME)
 cgi: $(BASE_OBJS) $(CGI_OBJS)
@@ -22,6 +21,9 @@ cgi: $(BASE_OBJS) $(CGI_OBJS)
 .PHONY: depend
 depend:
 	makedepend $(INCLUDE_DIRS) -Y $(BASE_SRCS) $(HTTP_SRCS) 2> /dev/null
+.PHONY: clean
+clean:
+	rm -f a.out *.o *~ *\#
 
 # DO NOT DELETE
 

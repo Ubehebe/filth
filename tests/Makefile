@@ -8,5 +8,9 @@ LDFLAGS += -Xlinker --allow-multiple-definition
 all: $(TEST_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread $(TEST_OBJS) \
 	$(OBJ_INC_DIRS:%=%/*.o) -o tests
+.PHONY: clean
+clean:
+	rm -f tests
+
 
 

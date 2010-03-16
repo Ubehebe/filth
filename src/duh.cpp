@@ -1,28 +1,20 @@
 #include <iostream>
 
-struct Foo
+struct wow
 {
-  struct foo
-  {
-    int f;
-    virtual ~foo() {}
-  };
-  virtual foo *mkfoo() { return new foo(); }
-  foo *getfoo() { return mkfoo(); }
+  int w;
 };
 
-struct Bar : Foo
-{
-  struct bar : foo
+class Foo {
+public:
+  struct : public wow
   {
-    int b;
-    bar() : b(43) {}
-  };
-  foo *mkfoo() { return new bar(); }
+    int x;
+  } s;
 };
 
 int main()
 {
-  Bar b;
-  std::cout << dynamic_cast<Bar::bar *>(b.getfoo())->b << std::endl;
+  Foo f;
+  f.s.w = 5;
 }

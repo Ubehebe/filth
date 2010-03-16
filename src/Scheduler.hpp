@@ -20,22 +20,44 @@ class Scheduler
   Scheduler(Scheduler const &);
   Scheduler &operator=(Scheduler const &);
 
+  typedef std::unordered_map<int, void (*)(int)> sighandler_map;
+  typedef std::unordered_map<int, Callback *> fdcb_map;
+  sighandler_map sighandlers;
+  fdcb_map fdcbs;
+
+  struct _acceptcb : public Callback
+  {
+    int fd;
+    Scheduler &sch;
+    FindWork &fwork;
+    void operator()();
+    _acceptcb(Scheduler &sch, FindWork &fwork) : sch(sch), fwork(fwork) {}
+  } acceptcb;
+
+  struct _sigcb : public Callback
+  {
+    int fd;
+    Scheduler &sch;
+    FindWork &fwork;
+    bool &dowork;
+    sighandler_map &sighandlers;
+    void operator()();
+    _sigcb(Scheduler &sch, FindWork &fwork, bool &dowork,
+	   sighandler_map &sighandlers)
+      : sch(sch), fwork(fwork), dowork(dowork), sighandlers(sighandlers) {}
+  } sigcb;
+
   bool use_signalfd;
 
-  int listenfd, pollfd, sigfd, maxevents;
+  int pollfd, maxevents;
   sigset_t tohandle;
 
-  void handle_sigs();
-  void handle_accept();
   void handle_sock_err(int fd);
 
   LockedQueue<Work *> &q;
   FindWork &fwork;
 
-  /* Since the amount of signal handling we currently do is tiny,
-   * this could be a vector instead of a hash. w/e */
-  std::unordered_map<int, void (*)(int)> sighandlers;
-  std::unordered_map<int, Callback *> fdcbs;
+
 
   /* Some ready-made signal handlers. The argument and return types
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't

@@ -24,7 +24,8 @@ using namespace std;
 
 Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 		     int pollsz, int maxevents)
-  : q(q), fwork(fwork), maxevents(maxevents)
+  : q(q), fwork(fwork), maxevents(maxevents),
+    acceptcb(*this, fwork), sigcb(*this, fwork, dowork, sighandlers)
 {
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
@@ -62,20 +63,12 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 
 void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
 {
-
   if (fd < 0) {
     _LOG_INFO("invalid file descriptor %d, ignoring", fd);
     return;
-  } else if (fd == listenfd) {
-    _LOG_INFO("%d identical to listening fd, ignoring", fd);
-    return;
-  } else if (fd == pollfd) {
-    _LOG_INFO("%d identical to polling fd, ignoring", fd);
-    return;
-  }
-  // We don't compare against sigfd because that isn't set until poll().
+  } 
 
-  unordered_map<int, Callback *>::iterator it;
+  fdcb_map::iterator it;
   if ((it = fdcbs.find(fd)) != fdcbs.end()) {
     _LOG_INFO("redefining handler for %d", fd);
     it->second = cb;
@@ -126,19 +119,19 @@ void Scheduler::poll()
 {
   if (use_signalfd) {
     sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
-    if ((sigfd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
+    if ((sigcb.fd = signalfd(-1, &tohandle, SFD_NONBLOCK))==-1) {
       _LOG_FATAL("signalfd: %m");
       exit(1);
     }
-    _LOG_DEBUG("signal fd is %d", sigfd);
-    schedule(fwork(sigfd, Work::read), false);
+    _LOG_DEBUG("signal fd is %d", sigcb.fd);
+    registercb(sigcb.fd, &sigcb, Work::read, false);
   }
 
   else {
     sigmasks::sigmask_caller(sigmasks::BLOCK_NONE);
   }
 
-  schedule(fwork(listenfd, Work::read), false);
+  registercb(acceptcb.fd, &acceptcb, Work::read, false);
 
   struct epoll_event fds[maxevents];
   int fd, nchanged, connfd, flags, so_err;
@@ -188,14 +181,10 @@ void Scheduler::poll()
       fd = fds[i].data.fd;
       // If we have a special handler for this fd, use that.
       if ((it = fdcbs.find(fd)) != fdcbs.end())
-	(*(it->second))();
+	(*(it->second))(); // MUST PASS EVENTS!!!
       // epoll_wait always collects these. Do we know what to do with them?
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
 	_LOG_INFO("hangup or error on %d", fd);
-      else if (use_signalfd && fd == sigfd && (fds[i].events & EPOLLIN))
-	handle_sigs();
-      else if (fd == listenfd && (fds[i].events & EPOLLIN))
-	handle_accept();
       // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN)
 	q.enq(fwork(fd, Work::read));
@@ -210,10 +199,10 @@ void Scheduler::poll()
   q.enq(NULL); // Poison pill for the workers
 }
 
-inline void Scheduler::handle_accept()
+void Scheduler::_acceptcb::operator()()
 {
   int acceptfd;
-  if ((acceptfd = accept(listenfd, NULL, NULL))==-1) {
+  if ((acceptfd = accept(fd, NULL, NULL))==-1) {
     // See "Unix Network Programming", 2nd ed., sec. 16.6 for rationale.
     if (errno == EWOULDBLOCK
 	|| errno == ECONNABORTED
@@ -229,14 +218,14 @@ inline void Scheduler::handle_accept()
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
-  schedule(fwork(acceptfd, Work::read), true);
+  sch.schedule(fwork(acceptfd, Work::read), true);
 }
 
-inline void Scheduler::handle_sigs()
+void Scheduler::_sigcb::operator()()
 {
   struct signalfd_siginfo siginfo[sighandlers.size()];
-  unordered_map<int, void (*)(int)>::iterator iter;
-  ssize_t nread = read(sigfd, (void *)&siginfo, sizeof(siginfo));
+  sighandler_map::iterator iter;
+  ssize_t nread = read(fd, (void *)&siginfo, sizeof(siginfo));
   
   // There might be more than one pending signal.
   int i=0;
@@ -302,5 +291,5 @@ inline void Scheduler::handle_sock_err(int fd)
 
 void Scheduler::set_listenfd(int _listenfd)
 {
-  listenfd = _listenfd;
+  acceptcb.fd = _listenfd;
 }
