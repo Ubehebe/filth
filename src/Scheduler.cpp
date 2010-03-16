@@ -176,12 +176,14 @@ void Scheduler::poll()
      * identify the resource, another worker might be enlisted to prepare
      * the resource; but the first worker should ultimately send it back to
      * the client. */
-    unordered_map<int, Callback *>::iterator it;
+    fdcb_map::iterator it;
     for (int i=0; i<nchanged; ++i) {
       fd = fds[i].data.fd;
-      // If we have a special handler for this fd, use that.
+      /* If we have a special handler for this fd, use that.
+       * Note that we don't pass any information to the callback,
+       * in particular the events. Do we need to? */
       if ((it = fdcbs.find(fd)) != fdcbs.end())
-	(*(it->second))(); // MUST PASS EVENTS!!!
+	(*(it->second))();
       // epoll_wait always collects these. Do we know what to do with them?
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
 	_LOG_INFO("hangup or error on %d", fd);

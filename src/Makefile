@@ -20,7 +20,7 @@ cgi: $(BASE_OBJS) $(CGI_OBJS)
 	$(CGI_OBJS:%=$(OBJ_DIR)/%) -o $(BIN_DIR)/$(CGI_PROGNAME)
 .PHONY: depend
 depend:
-	makedepend $(INCLUDE_DIRS) -Y $(BASE_SRCS) $(HTTP_SRCS) 2> /dev/null
+	makedepend -Y $(SRC_INC_DIRS:%=-I%) $(BASE_SRCS) $(HTTP_SRCS) 2> /dev/null
 .PHONY: clean
 clean:
 	rm -f a.out *.o *~ *\#
@@ -38,17 +38,27 @@ Locks.o: Locks.hpp logging.h
 sigmasks.o: logging.h sigmasks.hpp
 FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
 FileCache.o: Callback.hpp logging.h
-HTTP_constants.o: HTTP_constants.hpp HTTP_Parse_Err.hpp ServerErrs.hpp
-HTTP_constants.o: logging.h
-HTTP_cmdline.o: HTTP_cmdline.hpp
-HTTP_main.o: logging.h HTTP_Server.hpp HTTP_cmdline.hpp HTTP_constants.hpp
-HTTP_main.o: HTTP_Statemap.hpp Work.hpp Callback.hpp HTTP_FindWork.hpp
-HTTP_main.o: FileCache.hpp LockedQueue.hpp Locks.hpp FindWork.hpp
-HTTP_main.o: HTTP_Work.hpp Scheduler.hpp inotifyFileCache.hpp Server.hpp
-HTTP_main.o: Thread.hpp sigmasks.hpp Thread.cpp Worker.hpp ServerErrs.hpp
-HTTP_Work.o: HTTP_cmdline.hpp HTTP_Parse_Err.hpp HTTP_constants.hpp
-HTTP_Work.o: ServerErrs.hpp HTTP_Work.hpp FileCache.hpp LockedQueue.hpp
-HTTP_Work.o: Locks.hpp FindWork.hpp Work.hpp Callback.hpp HTTP_Statemap.hpp
+HTTP_constants.o: HTTP_constants.hpp /home/brendan/http/data/HTTP_status.def
+HTTP_constants.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_constants.o: /home/brendan/http/data/HTTP_headers.def HTTP_Parse_Err.hpp
+HTTP_constants.o: ServerErrs.hpp logging.h
+HTTP_cmdline.o: HTTP_cmdline.hpp /home/brendan/http/data/HTTP_cmdline.def
+HTTP_main.o: logging.h HTTP_Server.hpp HTTP_cmdline.hpp
+HTTP_main.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_constants.hpp
+HTTP_main.o: /home/brendan/http/data/HTTP_status.def
+HTTP_main.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_main.o: /home/brendan/http/data/HTTP_headers.def HTTP_Statemap.hpp
+HTTP_main.o: Work.hpp Callback.hpp HTTP_FindWork.hpp FileCache.hpp
+HTTP_main.o: LockedQueue.hpp Locks.hpp FindWork.hpp HTTP_Work.hpp
+HTTP_main.o: Scheduler.hpp inotifyFileCache.hpp Server.hpp Thread.hpp
+HTTP_main.o: sigmasks.hpp Thread.cpp Worker.hpp ServerErrs.hpp
+HTTP_Work.o: HTTP_cmdline.hpp /home/brendan/http/data/HTTP_cmdline.def
+HTTP_Work.o: HTTP_Parse_Err.hpp HTTP_constants.hpp
+HTTP_Work.o: /home/brendan/http/data/HTTP_status.def
+HTTP_Work.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_Work.o: /home/brendan/http/data/HTTP_headers.def ServerErrs.hpp
+HTTP_Work.o: HTTP_Work.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
+HTTP_Work.o: FindWork.hpp Work.hpp Callback.hpp HTTP_Statemap.hpp
 HTTP_Work.o: Scheduler.hpp logging.h
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
 inotifyFileCache.o: LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp

@@ -1,3 +1,6 @@
+#ifndef LOCKED_QUEUE_TEST_HPP
+#define LOCKED_QUEUE_TEST_HPP
+
 #include <iostream>
 #include <stdint.h>
 #include <stdlib.h>
@@ -40,12 +43,14 @@ public:
   }
 };
 
-int main()
+void LockedQueueTest()
 {
   LockedQueue<uint16_t> q;
   uint16_t last = 0;
   Producer p(q);
   Consumer c(q);
-  Thread<Consumer> cthread(&c, &Consumer::consume);
   Thread<Producer> pthread(&p, &Producer::produce);
+  Thread<Consumer> cthread(&c, &Consumer::consume);
 }
+
+#endif // LOCKED_QUEUE_TEST_HPP
