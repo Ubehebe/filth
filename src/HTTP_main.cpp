@@ -25,7 +25,9 @@ int main(int argc, char **argv)
 		HTTP_cmdline::svals[HTTP_cmdline::mount],
 		HTTP_cmdline::ivals[HTTP_cmdline::nworkers],
 		HTTP_cmdline::bvals[HTTP_cmdline::ipv6],
-		HTTP_cmdline::ivals[HTTP_cmdline::cachesz]).serve();
+		HTTP_cmdline::ivals[HTTP_cmdline::cachesz],
+		HTTP_cmdline::ivals[HTTP_cmdline::req_prealloc_sz],
+		HTTP_cmdline::ivals[HTTP_cmdline::listenq]).serve();
   }
   catch (ResourceErr e) {
     _LOG_FATAL("uncaught ResourceErr: %s: %s", e.msg, strerror(e.err));

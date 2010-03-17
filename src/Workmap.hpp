@@ -1,5 +1,5 @@
-#ifndef HTTP_STATEMAP_HPP
-#define HTTP_STATEMAP_HPP
+#ifndef WORKMAP_HPP
+#define WORKMAP_HPP
 
 #include <unordered_map>
 
@@ -8,6 +8,6 @@
 /* This data structure is unsynchronized. I believe this is safe since
  * two workers never have the same file descriptor, but I need to think
  * about it more. */
-typedef std::unordered_map<int, Work *> HTTP_Statemap;
+typedef std::unordered_map<int, Work *> Workmap;
 
-#endif // HTTP_STATEMAP_HPP
+#endif // WORKMAP_HPP

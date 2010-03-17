@@ -20,7 +20,6 @@
  * list. TODO: learn more about lock-free lists! */
 class FileCache
 {
-  // No copying, no assigning.
   FileCache(FileCache const&);
   FileCache &operator=(FileCache const&);
 

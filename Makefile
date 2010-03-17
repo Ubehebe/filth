@@ -12,6 +12,9 @@ export LDFLAGS = $(OBJ_INC_DIRS:%=-L%)
 .PHONY: http
 http:
 	cd $(SRC_DIR) && $(MAKE) http
+.PHONY: standalone-cache
+standalone-cache:
+	cd $(SRC_DIR) && $(MAKE) standalone-cache
 .PHONY: tests
 tests:
 	cd $(TEST_DIR) && $(MAKE)

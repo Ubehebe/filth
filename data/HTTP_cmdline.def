@@ -12,4 +12,6 @@ DEFINE_ME_STR(default_resource, d, default-resource, resource to serve when "/" 
 DEFINE_ME_STR(ifnam, i, interface, network interface to use, lo)
 DEFINE_ME_STR(mount, m, mount, where in the filesystem to mount, /)
 DEFINE_ME_INT(port, p, port, listening port, 80)
+DEFINE_ME_INT(listenq, q, listen-queue, TCP listen queue length, 10)
+DEFINE_ME_INT(req_prealloc_sz, r, req-prealloc-size, space to preallocate for HTTP requests (MB), 10)
 DEFINE_ME_INT(nworkers, w, num-workers, number of worker threads, 10)

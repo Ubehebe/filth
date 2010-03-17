@@ -27,6 +27,7 @@ test_main.o: /home/brendan/http/src/Locks.hpp
 test_main.o: /home/brendan/http/src/FindWork.hpp
 test_main.o: /home/brendan/http/src/Work.hpp
 test_main.o: /home/brendan/http/src/Callback.hpp
+test_main.o: /home/brendan/http/src/Workmap.hpp
 test_main.o: /home/brendan/http/src/Scheduler.hpp
 test_main.o: /home/brendan/http/src/Thread.hpp
 test_main.o: /home/brendan/http/src/sigmasks.hpp

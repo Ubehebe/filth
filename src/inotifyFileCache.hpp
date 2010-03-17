@@ -11,6 +11,8 @@
 
 class inotifyFileCache : public Callback, public FileCache
 {
+  inotifyFileCache(inotifyFileCache const &);
+  inotifyFileCache &operator=(inotifyFileCache const &);
   typedef std::unordered_map<uint32_t, std::string> watchmap;
   struct inotify_cinfo : FileCache::cinfo
   {

@@ -12,7 +12,6 @@
 class Server
 {
 private:
-  // No copying, no assigning.
   Server &operator=(Server const&);
   Server(Server const&);
 
@@ -31,7 +30,7 @@ public:
   /* For network sockets, bindto should be a string of a port number,
    * like "80". For local sockets, bindto should be a filesystem path. */
   Server(int domain, FindWork &fwork, char const *bindto,
-	 char const *ifnam, int nworkers, int listenq=10);
+	 char const *ifnam, int nworkers, int listenq);
   void serve();
 };
 

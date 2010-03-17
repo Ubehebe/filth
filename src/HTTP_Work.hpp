@@ -9,24 +9,27 @@
 #include <unordered_map>
 
 #include "FileCache.hpp"
+#include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
-#include "HTTP_Statemap.hpp"
+#include "Workmap.hpp"
 #include "LockedQueue.hpp"
 #include "Scheduler.hpp"
 #include "Work.hpp"
 
 class HTTP_Work : public Work
 {
+  friend class FindWork_prealloc<HTTP_Work>;
   friend class HTTP_FindWork;
-  // No copying, no assigning.
   HTTP_Work(HTTP_Work const&);
   HTTP_Work &operator=(HTTP_Work const&);
 
+  static LockedQueue<void *> store; // For operator new/delete
   static size_t const rdbufsz = 1<<10;
   static Scheduler *sch;
   static FileCache *cache;
-  static HTTP_Statemap *st;
+  static Workmap *st;
 
+private:
   // Internal state.
   char rdbuf[rdbufsz]; // Buffer to use to read from client...and response??
   std::string path; // Path to resource
@@ -39,13 +42,8 @@ class HTTP_Work : public Work
   size_t statlnsz; // Size of status line
   bool req_line_done, status_line_done;
   char *outgoing_offset;
+  size_t outgoing_offset_sz;
   
-  /* The main internal driver functions to get stuff from the client and
-   * return stuff to the client. */
-  void incoming();
-  void outgoing();
-  void outgoing(size_t &towrite);
-
   void format_status_line();
   bool parse();
   void parse_req_line(std::string &line);
@@ -55,6 +53,8 @@ class HTTP_Work : public Work
   
 public:
   void operator()();
+  void *operator new(size_t sz);
+  void operator delete(void *work);
   HTTP_Work(int fd, Work::mode m);
   ~HTTP_Work();
 };

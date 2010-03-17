@@ -13,9 +13,10 @@
 using namespace std;
 using namespace HTTP_constants;
 
+LockedQueue<void *> HTTP_Work::store;
 Scheduler *HTTP_Work::sch = NULL;
 FileCache *HTTP_Work::cache = NULL;
-HTTP_Statemap *HTTP_Work::st = NULL;
+Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
   : Work(fd, m), req_line_done(false),
@@ -102,90 +103,42 @@ void HTTP_Work::parse_req_line(string &line)
 
 void HTTP_Work::operator()()
 {
+  int err;
   switch(m) {
-  case Work::read: incoming(); break;
-  case Work::write: outgoing(); break;
-  }
-}
-
-inline void HTTP_Work::incoming()
-{
-  ssize_t nread;
-  /* Read until we would block.
-   * My understanding is reading a socket will return 0
-   * iff the peer hangs up. However, the scheduler already
-   * checks the file descriptor for hangups, which is why
-   * we don't check for nread==0 here. ??? */
-  while (true) {
-    if ((nread = ::read(fd, (void *)rdbuf, rdbufsz-1))>0) {
-      rdbuf[nread] = '\0';
-      _LOG_DEBUG("read %d: %s", fd, rdbuf);
-      pbuf << rdbuf;
+  case Work::read:
+    err = rduntil(pbuf, rdbuf, rdbufsz);
+    if (err != 0 && err != EAGAIN && err != EWOULDBLOCK)
+      throw SocketErr("read", err);
+    /* TODO: right now we schedule a write immediately after the reading is
+     * complete. But when we add more asynchronous/nonblocking I/O on
+     * the server side (e.g. wait for a CGI program to return), we would want
+     * the write to be scheduled only when all the resources are ready. */
+    if (parse()) {
+      format_status_line();
+      m = write;
     }
-    /* Interrupted by a system call. I'm currently blocking signals to
-     * workers, but just in case I decide to change that. */
-    else if (nread == -1 && errno == EINTR) {
-      _LOG_DEBUG("read %d: %m, continuing", fd);
-      continue;
-    }
-    else
-      break;
-  }
-  if (nread == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
-    throw SocketErr("read", errno);
-  /* TODO: right now we schedule a write immediately after the reading is
-   * complete. But when we add more asynchronous/nonblocking I/O on
-   * the server side (e.g. wait for a CGI program to return), we would want
-   * the write to be scheduled only when all the resources are ready. */
-  if (parse()) {
-    format_status_line();
-    m = write;
-  }
-  _LOG_DEBUG("rescheduling %d for %s", fd, (m == read) ? "read" : "write");
-  sch->reschedule(this);
-}
-
-inline void HTTP_Work::outgoing()
-{
-  if (!status_line_done) {
-    outgoing(statlnsz);
-    if (statlnsz == 0) {
-      status_line_done = true;
-      outgoing_offset = resource;
+    sch->reschedule(this);
+    break;
+  case Work::write:
+    err = wruntil(outgoing_offset, outgoing_offset_sz);
+    if (err == EAGAIN || err == EWOULDBLOCK) {
       sch->reschedule(this);
     }
-  }
-  else {
-    outgoing(resourcesz);
-    if (resourcesz == 0)
-      deleteme = true;
-  }
-}
-
-inline void HTTP_Work::outgoing(size_t &towrite)
-{
-  ssize_t nwritten;
-  while (true) {
-    if ((nwritten = ::write(fd, (void *) outgoing_offset, towrite))>0) {
-      outgoing_offset += nwritten;
-      towrite -= nwritten;
-    }
-    else if (nwritten == -1 && errno == EINTR) {
-      _LOG_DEBUG("write %d: %m, continuing", fd);
-      continue;
-    }
-    else
-      break;
-  }
-  if (nwritten == -1) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      _LOG_DEBUG("outgoing %d: rescheduling write", fd);
-      sch->reschedule(this);
+    // If we're here, we're guaranteed outgoing_offset_sz == 0...right?
+    else if (err == 0) {
+      if (!status_line_done) {
+	status_line_done = true;
+	outgoing_offset = resource;
+	outgoing_offset_sz = resourcesz;
+	sch->reschedule(this);
+      } else {
+	deleteme = true;
+      }
     }
     else {
-      _LOG_DEBUG("outgoing %d: write: %m", fd);
-      throw SocketErr("write", errno);
+      throw SocketErr("write", err);
     }
+    break;
   }
 }
 
@@ -251,4 +204,17 @@ inline void HTTP_Work::format_status_line()
     resource = rdbuf;
     resourcesz = statlnsz;
   }
+}
+
+void *HTTP_Work::operator new(size_t sz)
+{
+  void *stuff;
+  if (!store.nowait_deq(stuff))
+    stuff = ::operator new(sz);
+  return stuff;
+}
+
+void HTTP_Work::operator delete(void *work)
+{
+  store.enq(work);
 }
