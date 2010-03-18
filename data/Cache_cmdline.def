@@ -1,0 +1,8 @@
+/* See cmdline.hpp for details. */
+DEFINE_ME_STR(mount, m, mount, directory to use as root, /)
+DEFINE_ME_STR(name, n, name, domain socket name, sock_cache)
+DEFINE_ME_INT(listenq, q, listen-queue, TCP listen queue size, 10)
+DEFINE_ME_INT(sz, s, size, cache size (MB), 10)
+DEFINE_ME_INT(nworkers, w, workers, number of worker threads, 10)
+
+

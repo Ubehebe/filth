@@ -1,8 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "Cache_cmdline.hpp"
 
 namespace Cache_cmdline
 {
-  size_t const nopt = 
+  cmdline<
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) +1
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) +1
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) +1
@@ -10,19 +14,13 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-    ;
+    > c;
 
-  char const *names[] = {
-#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_name,
-#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_name,
-#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_name,
-#include "Cache_cmdline.def"
-#undef DEFINE_ME_STR
-#undef DEFINE_ME_INT
-#undef DEFINE_ME_BOOL
-  };
+  void cmdlinesetup(int argc, char **argv)
+  {
+    c.progdesc = "A basic filesystem cache, communicating via domain sockets.";
 
-  char const *shorts[] = {
+    c.shorts = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_short,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_short,
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_short,
@@ -30,9 +28,9 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-  };
+    };
 
-  char const *longs[] = {
+    c.longs = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_long,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_long,
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_long,
@@ -40,9 +38,9 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-  };
+    };
 
-  char const *svals[] = {
+    c.svals = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_default,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_default,
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_default,
@@ -50,9 +48,9 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-  };
+    };
 
-  char const *descs[] = {
+    c.descs = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_desc,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_desc,
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_desc,
@@ -60,9 +58,9 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-  };
+    };
 
-  int ivals[] = {
+    c.ivals = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) 0,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) 1,
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) 0,
@@ -70,9 +68,9 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-  };
+    };
 
-  bool bvals[] = {
+    c.bvals = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) true,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) false,
 #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) false,
@@ -80,5 +78,7 @@ namespace Cache_cmdline
 #undef DEFINE_ME_STR
 #undef DEFINE_ME_INT
 #undef DEFINE_ME_BOOL
-  };
+    };
+    c.parsecmdline(argc, argv);
+  }
 };

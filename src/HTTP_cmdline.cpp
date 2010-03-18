@@ -20,16 +20,6 @@ namespace HTTP_cmdline
   {
     c.progdesc = "A basic web server.";
 
-    c.names = {
-#define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_name,
-#define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_name,
-#define DEFINE_ME_STR(_name, _short, _long, _desc, _default) #_name,
-#include "HTTP_cmdline.def"
-#undef DEFINE_ME_STR
-#undef DEFINE_ME_INT
-#undef DEFINE_ME_BOOL
-    };
-
     c.shorts = {
 #define DEFINE_ME_BOOL(_name, _short, _long, _desc, _default) #_short,
 #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_short,

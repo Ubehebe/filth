@@ -22,20 +22,13 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
   : Work(fd, m), req_line_done(false),
     status_line_done(false), resource(NULL)
 {
-  memset((void *)&rdbuf, 0, rdbufsz);
 }
 
 HTTP_Work::~HTTP_Work()
 {
-  /* Objects allocated through the dummy constructor have fd==-1.*/
-  if (fd >= 0) {
-    _LOG_DEBUG("close %d", fd);
-    close(fd);
-  }
   // If we're using the cache, tell it we're done.
   if (resource != NULL && stat == OK)
     cache->release(path);
-  // If fd==-1, this will fail but that's OK.
   st->erase(fd);
 }
 
@@ -209,12 +202,15 @@ inline void HTTP_Work::format_status_line()
 void *HTTP_Work::operator new(size_t sz)
 {
   void *stuff;
-  if (!store.nowait_deq(stuff))
+  if (!store.nowait_deq(stuff)) {
     stuff = ::operator new(sz);
+  }
   return stuff;
 }
 
 void HTTP_Work::operator delete(void *work)
 {
+  if (work != NULL)
+    _LOG_DEBUG("%d returns to store", reinterpret_cast<Work *>(work)->fd);
   store.enq(work);
 }

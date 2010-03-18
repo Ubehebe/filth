@@ -26,9 +26,17 @@ public:
   }
   ~FindWork_prealloc()
   {
+    /* Send everything still in the work map back to the free store.
+     * Note that the FindWork destructor will also call clear_Workmap(),
+     * but this isn't a problem because by that time the work map is empty. */
+    clear_Workmap();
+
     void *tmp;
-    while (W::store.nowait_deq(tmp))
+    int chunks = 0;
+    while (W::store.nowait_deq(tmp)) {
+      chunks++;
       delete reinterpret_cast<rawbytes<sizeof(W)> *>(tmp);
+    }
   }
 };
 

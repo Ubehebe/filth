@@ -16,7 +16,6 @@ class HTTP_FindWork : public FindWork_prealloc<HTTP_Work>
   HTTP_FindWork &operator=(HTTP_FindWork const&);
 public:
   HTTP_FindWork(size_t req_prealloc, Scheduler &sch, FileCache &cache);
-  ~HTTP_FindWork();
   Work *operator()(int fd, Work::mode m);
 };
 
@@ -27,17 +26,6 @@ HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler &sch,
   HTTP_Work::sch = &sch;
   HTTP_Work::cache = &cache;
   HTTP_Work::st = &st;
-}
-
-HTTP_FindWork::~HTTP_FindWork()
-{
-  /* The reason for this strange pattern is that the HTTP_Work destructor
-   * removes itself from the statemap, which would invalidate our iterator. */
-  std::list<Work *> todel;
-  for (Workmap::iterator it = st.begin(); it != st.end(); ++it)
-    todel.push_back(it->second);
-  for (std::list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
-  delete *it;
 }
 
 Work *HTTP_FindWork::operator()(int fd, Work::mode m)

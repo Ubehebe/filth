@@ -17,10 +17,16 @@
 #include "Server.hpp"
 #include "sigmasks.hpp"
 
-Server::Server(int domain, FindWork &fwork, char const *bindto,
-	       char const *ifnam, int nworkers, int listenq)
-  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, fwork)
+Server::Server(int domain, FindWork &fwork, char const *mount,
+	       char const *bindto, int nworkers, int listenq, char const *ifnam)
+  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, fwork),
+    bindto(bindto)
 {
+  /* A domain socket server needs to remember where it's bound in the
+   * filesystem in order to unlink in the destructor. */
+  if (domain == AF_LOCAL)
+    sockdir = get_current_dir_name();
+
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     _LOG_FATAL("socket: %m");
     exit(1);
@@ -30,9 +36,9 @@ Server::Server(int domain, FindWork &fwork, char const *bindto,
   Worker::q = &q;
 
   switch (domain) {
-  case AF_INET: setup_AF_INET(bindto, ifnam); break;
-  case AF_INET6: setup_AF_INET6(bindto, ifnam); break;
-  case AF_LOCAL: setup_AF_LOCAL(bindto); break;
+  case AF_INET: setup_AF_INET(ifnam); break;
+  case AF_INET6: setup_AF_INET6(ifnam); break;
+  case AF_LOCAL: setup_AF_LOCAL(); break;
   default: 
     _LOG_FATAL("unsupported domain %d", domain);
     exit(1);
@@ -58,6 +64,35 @@ Server::Server(int domain, FindWork &fwork, char const *bindto,
 
   // listenfd was meaningless until we bound it.
   sch.set_listenfd(listenfd);
+
+  // Go to the mount point.
+  if (chdir(mount)==-1) {
+    _LOG_FATAL("chdir: %m");
+    exit(1);
+  }
+}
+
+Server::~Server()
+{
+  /* Typically, a FooServer will inherit from Server and also contain a
+   * FooFindWork object that keeps track of (and maybe allocates/deallocates)
+   * FooWork objects. Thus, in the FooServer destructor, the FooFindWork
+   * destructor is called _before_ the Server destructor, i.e. before now.
+   * Thus, we do not need to worry about winding down still-active
+   * connections; they have already been dealt with, even the listening
+   * socket. */
+
+  if (domain == AF_LOCAL) {
+    if (chdir(sockdir)==-1) {
+      _LOG_INFO("chdir %s: %m, ignoring (so can't unlink socket)", sockdir);
+    }
+    else {
+      _LOG_DEBUG("unlink %s", bindto);
+    if (unlink(bindto)==-1)
+      _LOG_INFO("unlink %s: %m, ignoring", bindto);
+    }
+    free(sockdir);
+  }
 }
 
 void Server::serve()
@@ -79,7 +114,7 @@ void Server::serve()
     delete *it;
 }
 
-void Server::setup_AF_INET(char const *portno, char const *ifnam)
+void Server::setup_AF_INET(char const *ifnam)
 {
   struct ifaddrs *ifap;
 
@@ -102,7 +137,7 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
   struct sockaddr_in sa;
   memset((void *)&sa, 0, sizeof(sa));
   sa.sin_family = AF_INET;
-  sa.sin_port = htons(atoi(portno));
+  sa.sin_port = htons(atoi(bindto));
   sa.sin_addr.s_addr
     = ((struct sockaddr_in *) (tmp->ifa_addr))->sin_addr.s_addr;
 
@@ -128,7 +163,7 @@ void Server::setup_AF_INET(char const *portno, char const *ifnam)
   _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin_port));
 }
 
-void Server::setup_AF_INET6(char const *portno, char const *ifnam)
+void Server::setup_AF_INET6(char const *ifnam)
 {
   struct ifaddrs *ifap;
 
@@ -151,7 +186,7 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
   struct sockaddr_in6 sa;
   memset((void *)&sa, 0, sizeof(sa));
   sa.sin6_family = AF_INET6;
-  sa.sin6_port = htons(atoi(portno));
+  sa.sin6_port = htons(atoi(bindto));
   memcpy((void *) &sa.sin6_addr,
 	 (void *) (&((struct sockaddr_in6*) (tmp->ifa_addr))->sin6_addr),
 	 sizeof(struct in6_addr));
@@ -180,7 +215,7 @@ void Server::setup_AF_INET6(char const *portno, char const *ifnam)
   _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin6_port));
 }
 
-void Server::setup_AF_LOCAL(char const *bindto)
+void Server::setup_AF_LOCAL()
 {
   struct sockaddr_un sa;
   memset((void *)&sa, 0, sizeof(sa));

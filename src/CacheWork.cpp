@@ -1,18 +1,22 @@
+#include <string>
+
 #include "CacheWork.hpp"
 #include "logging.h"
+
+using namespace std;
 
 Scheduler *CacheWork::sch = NULL;
 FileCache *CacheWork::cache = NULL;
 Workmap *CacheWork::st = NULL;
 LockedQueue<void *> CacheWork::store;
 
+CacheWork::CacheWork(int fd, Work::mode m)
+  : Work(fd, m), path_written(false), resource(NULL)
+{
+}
+
 CacheWork::~CacheWork()
 {
-  /* Objects allocated through the dummy constructor have fd==-1.*/
-  if (fd >= 0) {
-    _LOG_DEBUG("close %d", fd);
-    close(fd);
-  }
   // If we're using the cache, tell it we're done.
   if (resource != NULL)
     cache->release(path);
@@ -26,10 +30,14 @@ void CacheWork::operator()()
   switch(m) {
   case Work::read:
     err = rduntil(inbuf, rdbuf, rdbufsz);
-    if (err != 0 && err != EAGAIN && err != EWOULDBLOCK)
+    if (err != EAGAIN && err != EWOULDBLOCK)
       throw SocketErr("read", err);
-    else if (err == 0) {
-      inbuf >> path;
+    getline(inbuf, path, '\r');
+    if (inbuf.peek() != '\n') {
+      inbuf.clear();
+      inbuf.str(path);
+    }
+    else {
       if ((resource = cache->reserve(path, resourcesz))==NULL)
 	resourcesz = 0;
       path += "\r\n";
@@ -60,8 +68,10 @@ void CacheWork::operator()()
 void *CacheWork::operator new(size_t sz)
 {
   void *stuff;
-  if (!store.nowait_deq(stuff))
+  if (!store.nowait_deq(stuff)) {
+    _LOG_DEBUG("why are we here?");
     stuff = ::operator new(sz);
+  }
   return stuff;
 }
 

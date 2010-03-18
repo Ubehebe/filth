@@ -19,7 +19,6 @@
 
 class HTTP_Server : public Server
 {
-  // No copying, no assigning.
   HTTP_Server(HTTP_Server const&);
   HTTP_Server &operator=(HTTP_Server const&);
 
@@ -48,14 +47,11 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 size_t cacheszMB,
 			 size_t req_prealloc_MB,
 			 int listenq)
-  : Server((ipv6) ? AF_INET6 : AF_INET, fwork, portno, ifnam, nworkers, listenq),
+  : Server((ipv6) ? AF_INET6 : AF_INET,
+	   fwork, mount, portno, nworkers, listenq, ifnam),
     fwork(req_prealloc_MB * (1<<20), sch, cache),
     cache(cacheszMB * (1<<20), fwork, sch)
 {
-  if (chdir(mount)==-1) {
-    _LOG_FATAL("chdir: %m");
-    exit(1);
-  }
 }
 
 #endif // HTTP_SERVER_HPP

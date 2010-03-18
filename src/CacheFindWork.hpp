@@ -13,11 +13,12 @@ public:
   Work *operator()(int fd, Work::mode m);
 };
 
-CacheFindWork::CacheFindWork(size_t prealloc_MB, Scheduler &sch, FileCache &cache)
-  : FindWork_prealloc<CacheWork>(prealloc_MB * (1<<20))
+CacheFindWork::CacheFindWork(size_t prealloc_bytes, Scheduler &sch, FileCache &cache)
+  : FindWork_prealloc<CacheWork>(prealloc_bytes)
 {
   CacheWork::sch = &sch;
   CacheWork::cache = &cache;
+  CacheWork::st = &st;
 }
 
 Work *CacheFindWork::operator()(int fd, Work::mode m)

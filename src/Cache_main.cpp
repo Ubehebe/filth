@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "Cache_cmdline.hpp"
 #include "CacheServer.hpp"
 #include "logging.h"
 
@@ -12,16 +13,18 @@ void logatexit()
 
 int main(int argc, char **argv)
 {
-  if (argc != 2) {
-    printf("usage: %s <mountpath>\n", argv[0]);
-    exit(0);
-  }
+
   openlog((argv[0][0] == '.' && argv[0][1] == '/') ? &argv[0][2] : argv[0],
 	  SYSLOG_OPTS, LOG_USER);
   atexit(logatexit);
-
+  Cache_cmdline::cmdlinesetup(argc, argv);
   try {
-    CacheServer(argv[1], 10, 1, 10, 10).serve();
+    CacheServer(Cache_cmdline::c.svals[Cache_cmdline::name],
+		Cache_cmdline::c.svals[Cache_cmdline::mount],
+		Cache_cmdline::c.ivals[Cache_cmdline::nworkers],
+		Cache_cmdline::c.ivals[Cache_cmdline::sz],
+		1, // ?
+		Cache_cmdline::c.ivals[Cache_cmdline::listenq]).serve();
   } catch (ResourceErr e) {
     _LOG_FATAL("uncaught ResourceErr: %s: %s", e.msg, strerror(e.err));
     exit(1);

@@ -30,6 +30,5 @@ test_main.o: /home/brendan/http/src/Callback.hpp
 test_main.o: /home/brendan/http/src/Workmap.hpp
 test_main.o: /home/brendan/http/src/Scheduler.hpp
 test_main.o: /home/brendan/http/src/Thread.hpp
-test_main.o: /home/brendan/http/src/sigmasks.hpp
-test_main.o: /home/brendan/http/src/Thread.cpp
 test_main.o: /home/brendan/http/src/logging.h
+test_main.o: /home/brendan/http/src/sigmasks.hpp

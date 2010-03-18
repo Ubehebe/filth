@@ -19,7 +19,8 @@ public:
   enum mode { read, write } m;
   int fd;
   bool deleteme;
-  Work(int fd, mode m) : fd(fd), m(m), deleteme(false) {}
+  Work(int fd, mode m);
+  virtual ~Work();
   int rduntil(std::stringstream &inbuf, char *rdbuf, size_t rdbufsz);
   int wruntil(char *&outbuf, size_t &towrite);
 };

@@ -32,7 +32,7 @@ class CacheWork : public Work
   bool path_written;
   
 public:
-  CacheWork(int fd, Work::mode m) : Work(fd, m), path_written(false) {}
+  CacheWork(int fd, Work::mode m);
   ~CacheWork();
   void operator()();
   void *operator new(size_t sz);

@@ -1,6 +1,18 @@
 #include <unistd.h>
 
+#include "logging.h"
 #include "Work.hpp"
+
+Work::Work(int fd, mode m)
+  : fd(fd), m(m), deleteme(false)
+{
+}
+
+Work::~Work()
+{
+  _LOG_DEBUG("close %d", fd);
+  close(fd);
+}
 
 /* Read until we would block.
  * My understanding is reading a socket will return 0
