@@ -40,9 +40,9 @@ void CacheWork::operator()()
     else {
       if ((resource = cache->reserve(path, resourcesz))==NULL)
 	resourcesz = 0;
-      path += "\r\n";
-      out = const_cast<char *>(path.c_str());
-      outsz = path.length();
+      statln = path + "\r\n";
+      out = const_cast<char *>(statln.c_str());
+      outsz = statln.length();
       m = Work::write;
     }
     sch->reschedule(this);

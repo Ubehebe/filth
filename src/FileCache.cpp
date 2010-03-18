@@ -215,15 +215,17 @@ char *FileCache::reserve(std::string &path, size_t &sz)
 
 void FileCache::release(std::string &path)
 {
+  _LOG_DEBUG("release %s", path.c_str());
   cache::iterator it;
-  bool doenq;
+  bool doenq = false;
   clock.rdlock();
   // The first half should always be true...right?
-  doenq = ((it = c.find(path)) != c.end()
-	   && __sync_sub_and_fetch(&it->second->refcnt, 1)==0);
+  if ((it = c.find(path)) != c.end()
+      && __sync_sub_and_fetch(&it->second->refcnt, 1)==0)
+    doenq = true;
   clock.unlock();
   if (doenq) {
     _LOG_DEBUG("putting %s on evict list", path.c_str());
-    toevict.enq(it->first);
+    toevict.enq(path);
   }
 }

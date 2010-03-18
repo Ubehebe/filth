@@ -16,7 +16,7 @@ if len(sys.argv) != 2:
 
 os.chdir("/tmp")
 tmp = tempfile.NamedTemporaryFile(delete=False)
-sz = 5 * (1<<20)
+sz =  (1<<19)
 backup = randbytes(sz)
 tmp.write(backup)
 tmp.close()

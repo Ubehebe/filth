@@ -16,13 +16,15 @@ FileCache::cinfo *inotifyFileCache::mkcinfo(string &path, size_t sz)
 {
   // If this fails, it will be caught by base class.
   inotify_cinfo *ans = new inotify_cinfo(sz);
-  if ((ans->watchd = inotify_add_watch(inotifyfd, path.c_str(), IN_MODIFY))
+  if ((ans->watchd = inotify_add_watch(inotifyfd, path.c_str(),
+				       IN_MODIFY|IN_DELETE_SELF|IN_MOVE_SELF))
       ==-1) {
     _LOG_INFO("inotify_add_watch: %m, so not watching %s", path.c_str());
   }
   else {
     clock.wrlock();
     wmap[ans->watchd] = path;
+    _LOG_DEBUG("watch descriptor %d is %s", ans->watchd, path.c_str());
     clock.unlock();
   }
   return ans;
@@ -31,6 +33,9 @@ FileCache::cinfo *inotifyFileCache::mkcinfo(string &path, size_t sz)
 inotifyFileCache::inotify_cinfo::~inotify_cinfo()
 {
   // N.B. we have the writer lock; look at where delete occurs in base class.
+  /* According to the man pages, inotify_rm_watch causes inotifyfd to
+   * become readable, and upon a read we will get watchd back with
+   * the IN_IGNORED bit on. See corresponding code in operator(). */
   if (inotify_rm_watch(inotifyfd, watchd)==-1)
     _LOG_INFO("inotify_rm_watch watchd %d: %m, continuing", watchd);
   wmap->erase(watchd);
@@ -73,21 +78,31 @@ void inotifyFileCache::operator()()
 	break;
     }
     else if ((wit = wmap.find(iev.wd)) != wmap.end()) {
+      // We don't check iev.mask flags here, but we could.
       if ((cit = c.find(wit->second)) != c.end()) {
 	__sync_fetch_and_add(&cit->second->invalid, 1);
 	_LOG_INFO("%s invalidated", wit->second.c_str());
       }
       else {
-	_LOG_INFO("%s modified on disk, but not found in cache",
+	_LOG_INFO("unexpected: %s modified on disk, but not found in cache",
 		  (wit->second).c_str());
       }
     }
+    /* IN_IGNORED is set whenever a watch is explicitly removed
+     * (inotify_rm_watch) or automatically removed (someone did an rm).
+     * The second case is already handled, since we set IN_DELETE_SELF
+     * in the call to inotify_add_watch. The first case happens in the
+     * inotify_cinfo destructor, at which point the watch descriptor is also
+     * removed from the watch map. Thus we just ignore this. */
+    else if (iev.mask & IN_IGNORED) {
+      continue;
+    }
     else {
-      _LOG_INFO("received unknown watch descriptor %d", iev.wd);
+      _LOG_INFO("unexpected: unknown watch descriptor %d, ignoring", iev.wd);
     }
   }
   clock.unlock();
-  if (errno == EAGAIN || errno == EWOULDBLOCK)
+  if (errno == 0 || errno == EAGAIN || errno == EWOULDBLOCK)
     sch.reschedule(fwork(inotifyfd, Work::read));
   else {
     _LOG_FATAL("read: %m");
