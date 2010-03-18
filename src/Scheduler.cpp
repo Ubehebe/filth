@@ -48,7 +48,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
     use_signalfd = true;
     close(dummyfd);
   }
-  _LOG_DEBUG("%s using signalfd", (use_signalfd) ? "" : " not");
+  _LOG_DEBUG("%susing signalfd", (use_signalfd) ? "" : "not ");
 
   // Set up the polling file descriptor.
   if ((pollfd = epoll_create(pollsz))==-1) {
@@ -59,6 +59,12 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 
   // The default behavior of SIGINTs should be halting.
   push_sighandler(SIGINT, Scheduler::halt);
+}
+
+Scheduler::~Scheduler()
+{
+  _LOG_DEBUG("close %d", pollfd);
+  close(pollfd);
 }
 
 void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
@@ -198,6 +204,7 @@ void Scheduler::poll()
     }
   }
   _LOG_INFO("scheduler retiring");
+  
   q.enq(NULL); // Poison pill for the workers
 }
 

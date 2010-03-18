@@ -5,7 +5,9 @@ export TEST_DIR = $(CURDIR)/tests
 export SRC_INC_DIRS = $(SRC_DIR) $(DATA_DIR)
 export OBJ_INC_DIRS = $(SRC_DIR)
 
-export CPPFLAGS = $(SRC_INC_DIRS:%=-I%) -D _LOG_FATAL
+LOG = _LOG_FATAL
+
+export CPPFLAGS = $(SRC_INC_DIRS:%=-I%) -D $(LOG)
 export CXXFLAGS = -std=c++0x
 export LDFLAGS = $(OBJ_INC_DIRS:%=-L%)
 

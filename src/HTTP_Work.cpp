@@ -152,7 +152,7 @@ void HTTP_Work::parse_uri(string &uri)
   // Break the URI into a path and a query.
   string::size_type qpos;
   if (uri == "/") {
-    path = HTTP_cmdline::svals[HTTP_cmdline::default_resource];
+    path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
   }
   else if ((qpos = uri.find('?')) != string::npos) {
     path = uri.substr(1, qpos-1);

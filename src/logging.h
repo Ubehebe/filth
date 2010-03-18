@@ -26,9 +26,9 @@
 #undef _LOG_INFO
 #undef _LOG_FATAL
 #define SYSLOG_OPTS LOG_PERROR
-#define _LOG_DEBUG(...) syslog(LOG_USER|LOG_DEBUG, _SRC __VA_ARGS__)
-#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC __VA_ARGS__)
-#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
+#define _LOG_DEBUG(...) syslog(LOG_USER|LOG_DEBUG, _SRC"debug: "__VA_ARGS__)
+#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC"info: "__VA_ARGS__)
+#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC"fatal: "__VA_ARGS__)
 #warning debug logging enabled; expect the heap to be huge
 #else // #ifdef _LOG_DEBUG
 #ifdef _LOG_INFO
@@ -36,15 +36,15 @@
 #define _LOG_DEBUG(...)
 #undef _LOG_INFO
 #undef _LOG_FATAL
-#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC __VA_ARGS__)
-#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
+#define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, _SRC"info: " __VA_ARGS__)
+#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC"fatal: " __VA_ARGS__)
 #else // #ifdef _LOG_INFO
 #ifdef _LOG_FATAL
 #undef _LOG_FATAL
 #define SYSLOG_OPTS 0
 #define _LOG_DEBUG(...)
 #define _LOG_INFO(...)
-#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC __VA_ARGS__)
+#define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, _SRC"fatal: " __VA_ARGS__)
 #else // #ifdef _LOG_FATAL
 #define SYSLOG_OPTS 0
 #define _LOG_DEBUG(...)

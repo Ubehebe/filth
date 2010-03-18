@@ -16,7 +16,6 @@
  * if you add more, remember to check for errno==EINTRs. */
 class Scheduler
 {
-  // No copying, no assigning.
   Scheduler(Scheduler const &);
   Scheduler &operator=(Scheduler const &);
 
@@ -57,8 +56,6 @@ class Scheduler
   LockedQueue<Work *> &q;
   FindWork &fwork;
 
-
-
   /* Some ready-made signal handlers. The argument and return types
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't
    * have to do this if we didn't support an alternative to signalfd.) */
@@ -71,6 +68,7 @@ class Scheduler
 public:
   Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 	    int pollsz=100, int maxevents=100);
+  ~Scheduler();
   void schedule(Work *w, bool oneshot=true);
   void reschedule(Work *w, bool oneshot=true);
   void push_sighandler(int signo, void (*handler)(int));

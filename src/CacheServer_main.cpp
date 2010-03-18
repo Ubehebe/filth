@@ -20,5 +20,13 @@ int main(int argc, char **argv)
 	  SYSLOG_OPTS, LOG_USER);
   atexit(logatexit);
 
-  CacheServer(argv[1], 10, 1, 10, 10);
+  try {
+    CacheServer(argv[1], 10, 1, 10, 10).serve();
+  } catch (ResourceErr e) {
+    _LOG_FATAL("uncaught ResourceErr: %s: %s", e.msg, strerror(e.err));
+    exit(1);
+  } catch (SocketErr e) {
+    _LOG_FATAL("uncaught SocketErr: %s: %s", e.msg, strerror(e.err));
+    exit(1);
+  }
 }
