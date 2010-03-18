@@ -23,7 +23,9 @@ int Work::rduntil(std::stringstream &inbuf, char *rdbuf, size_t rdbufsz)
 {
   ssize_t nread;
   while (true) {
-    if ((nread = ::read(fd, (void *)rdbuf, rdbufsz))>0) {
+    if ((nread = ::read(fd, (void *)rdbuf, rdbufsz-1))>0) {
+      // Needed because I think operator<< calls strlen on right operand.
+      rdbuf[nread] = '\0';
       inbuf << rdbuf;
     } else if (nread == -1 && errno == EINTR) {
       continue;

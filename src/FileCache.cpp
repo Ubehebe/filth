@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <list>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -8,6 +9,23 @@
 #include "logging.h"
 
 using namespace std;
+
+// Looks like it could cause some headaches.
+void FileCache::flush()
+{
+  list<cinfo *> l;
+
+  clock.wrlock();
+  for (cache::iterator it = c.begin(); it != c.end(); ++it)
+    l.push_back(it->second);
+
+  for (list<cinfo *>::iterator it = l.begin(); it != l.end(); ++it)
+    delete *it;
+
+  cur = 0;
+  c.clear();
+  clock.unlock();
+}
 
 FileCache::cinfo::cinfo(size_t sz)
   : sz(sz), refcnt(1), invalid(0)
@@ -139,7 +157,6 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     close(fd);
     return NULL;
   }
-
   char *ctmp = tmp->buf;
   size_t toread = sz;
   ssize_t nread;
@@ -148,7 +165,6 @@ char *FileCache::reserve(std::string &path, size_t &sz)
    * TODO: replace with asynchronous I/O? */
   while (toread) {
     if ((nread = ::read(fd, (void *) ctmp, toread)) > 0) {
-      //      _LOG_DEBUG("read %s", ctmp);
       toread -= nread;
       ctmp += nread;
     }
@@ -188,7 +204,7 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     ctmp = it->second->buf;
   }
   else {
-    _LOG_DEBUG("%s now in cache", path.c_str());
+    _LOG_DEBUG("%s now in cache, sz %d", path.c_str(), tmp->sz);
     c[path] = tmp;
     ctmp = tmp->buf;
   }

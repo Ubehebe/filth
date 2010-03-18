@@ -5,13 +5,13 @@
 #include <unistd.h>
 
 #include "CacheFindWork.hpp"
-#include "FileCache.hpp"
+#include "inotifyFileCache.hpp"
 #include "Server.hpp"
 
 class CacheServer : public Server
 {
-  FileCache cache;
   CacheFindWork fwork;
+  inotifyFileCache cache;
 public:
   CacheServer(char const *sockname,
 	      char const *mount,
@@ -21,13 +21,7 @@ public:
 	      int listenq)
     : Server(AF_LOCAL, fwork, mount, sockname, nworkers, listenq),
       fwork(req_prealloc_MB * (1<<20), sch, cache),
-      cache(cacheszMB * (1<<20), fwork)
-  {
-    if (chdir(mount)==-1) {
-      _LOG_FATAL("chdir: %m");
-      exit(1);
-    }
-  }
+      cache(cacheszMB * (1<<20), fwork, sch) {}
 };
 
 

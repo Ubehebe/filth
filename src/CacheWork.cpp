@@ -58,6 +58,7 @@ void CacheWork::operator()()
       out = resource;
       outsz = resourcesz;
       sch->reschedule(this);
+      _LOG_DEBUG();
     } else {
       deleteme = true;
     }
@@ -68,10 +69,8 @@ void CacheWork::operator()()
 void *CacheWork::operator new(size_t sz)
 {
   void *stuff;
-  if (!store.nowait_deq(stuff)) {
-    _LOG_DEBUG("why are we here?");
+  if (!store.nowait_deq(stuff))
     stuff = ::operator new(sz);
-  }
   return stuff;
 }
 

@@ -25,6 +25,7 @@ FileCache::cinfo *inotifyFileCache::mkcinfo(string &path, size_t sz)
     wmap[ans->watchd] = path;
     clock.unlock();
   }
+  return ans;
 }
 
 inotifyFileCache::inotify_cinfo::~inotify_cinfo()
@@ -33,7 +34,6 @@ inotifyFileCache::inotify_cinfo::~inotify_cinfo()
   if (inotify_rm_watch(inotifyfd, watchd)==-1)
     _LOG_INFO("inotify_rm_watch watchd %d: %m, continuing", watchd);
   wmap->erase(watchd);
-  // Need to explicitly call base destructor??
 }
 
 inotifyFileCache::inotifyFileCache(size_t max, FindWork &fwork, Scheduler &sch)

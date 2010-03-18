@@ -10,7 +10,7 @@ HTTP_SRCS = FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp HTTP_main.cpp \
 HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 
 STANDALONE_CACHE_SRCS = Cache_cmdline.cpp Cache_main.cpp CacheWork.cpp \
-	FileCache.cpp 
+	FileCache.cpp inotifyFileCache.cpp 
 STANDALONE_CACHE_OBJS = $(STANDALONE_CACHE_SRCS:.cpp=.o)
 
 all: http standalone-cache
@@ -38,7 +38,7 @@ Server.o: Server.hpp FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
 Server.o: LockedQueue.hpp Locks.hpp Scheduler.hpp Thread.hpp logging.h
 Server.o: sigmasks.hpp Worker.hpp
 sigmasks.o: logging.h sigmasks.hpp
-Work.o: Work.hpp Callback.hpp
+Work.o: logging.h Work.hpp Callback.hpp
 Worker.o: logging.h sigmasks.hpp Worker.hpp LockedQueue.hpp Locks.hpp
 Worker.o: Work.hpp Callback.hpp
 FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
@@ -69,13 +69,15 @@ HTTP_Work.o: FindWork_prealloc.hpp Scheduler.hpp logging.h
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
 inotifyFileCache.o: LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
 inotifyFileCache.o: Workmap.hpp Scheduler.hpp logging.h
-Cache_cmdline.o: cmdline.hpp /home/brendan/http/data/Cache_cmdline.def
+Cache_cmdline.o: Cache_cmdline.hpp cmdline.hpp
+Cache_cmdline.o: /home/brendan/http/data/Cache_cmdline.def
 Cache_main.o: Cache_cmdline.hpp cmdline.hpp
 Cache_main.o: /home/brendan/http/data/Cache_cmdline.def CacheServer.hpp
 Cache_main.o: CacheFindWork.hpp CacheWork.hpp FileCache.hpp LockedQueue.hpp
 Cache_main.o: Locks.hpp FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-Cache_main.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp Server.hpp
-Cache_main.o: Thread.hpp logging.h sigmasks.hpp Worker.hpp
+Cache_main.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
+Cache_main.o: inotifyFileCache.hpp Server.hpp Thread.hpp logging.h
+Cache_main.o: sigmasks.hpp Worker.hpp
 CacheWork.o: CacheWork.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
 CacheWork.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
 CacheWork.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp logging.h

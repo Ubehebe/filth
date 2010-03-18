@@ -48,9 +48,11 @@ protected:
 
 public:
   FileCache(size_t max, FindWork &fwork) : cur(0), max(max), fwork(fwork) {}
+  ~FileCache() { flush(); }
   char *reserve(std::string &path, size_t &sz);
   void release(std::string &path);
   size_t getmax() const { return max; }
+  void flush();
 };
 
 #endif // FILECACHE_HPP

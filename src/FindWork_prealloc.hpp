@@ -32,9 +32,7 @@ public:
     clear_Workmap();
 
     void *tmp;
-    int chunks = 0;
     while (W::store.nowait_deq(tmp)) {
-      chunks++;
       delete reinterpret_cast<rawbytes<sizeof(W)> *>(tmp);
     }
   }
