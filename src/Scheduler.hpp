@@ -29,10 +29,14 @@ class Scheduler
   struct _acceptcb : public Callback
   {
     int fd;
+#ifdef _COLLECT_STATS
+    uint32_t naccept;
+#endif // _COLLECT_STATS
     Scheduler &sch;
     FindWork &fwork;
     void operator()();
-    _acceptcb(Scheduler &sch, FindWork &fwork) : sch(sch), fwork(fwork) {}
+    _acceptcb(Scheduler &sch, FindWork &fwork);
+    ~_acceptcb();
   } acceptcb;
 
   struct _sigcb : public Callback
@@ -67,11 +71,6 @@ class Scheduler
   // For use with signal handlers. Ugh...
   static Scheduler *handler_sch;
 
-#ifdef _COLLECT_STATS
-  uint32_t naccepts;
-#endif // _COLLECT_STATS
-
- 
 public:
   Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 	    int pollsz=100, int maxevents=100);
