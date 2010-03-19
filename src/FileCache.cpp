@@ -78,10 +78,19 @@ bool FileCache::evict()
 /* N.B. this function passes path directly to the kernel.
  * If the application requires path to be in a more restrictive form than
  * the kernel does (e.g., no ".." to escape the current directory), it should
- * already have checked for it. */
-char *FileCache::reserve(std::string &path, size_t &sz)
+ * already have checked for it.
+ *
+ * Return values:
+ * 0: success
+ * EINVAL: in cache but invalidated. (Try again soon?)
+ * EISDIR: the resource is a directory
+ * ESPIPE: the resource is a socket or pipe
+ * ENOMEM: couldn't free up enough room in cache for resource, or
+ *	couldn't get enough room for resource from the kernel
+ * Also any of the open or stat errors??
+ */
+int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
 {
-  _LOG_DEBUG("reserve %s", path.c_str());
   cache::iterator it;
   
   clock.rdlock();
@@ -89,37 +98,32 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     if (__sync_fetch_and_add(&it->second->invalid, 0)!=0) {
       _LOG_INFO("%s invalid", path.c_str());
       clock.unlock();
-      return NULL;
+      return EINVAL;
     }
     else {
       __sync_fetch_and_add(&it->second->refcnt, 1);
-      char *ans = it->second->buf;
+      resource = it->second->buf;
+      _LOG_DEBUG("reserve %s hit", path.c_str());
       sz = it->second->sz;
       clock.unlock();
-      return ans;
+      return 0;
     }
   }
   clock.unlock();
 
-  _LOG_DEBUG("%s not in cache", path.c_str());
+  _LOG_DEBUG("reserve %s miss", path.c_str());
 
   struct stat statbuf;
   int fd;
 
-  // Try to stat and open file.
-  if (stat(path.c_str(), &statbuf)==-1) {
-    _LOG_DEBUG("stat %s: %m", path.c_str());
-    return NULL;
-  }
-  else if (!S_ISREG(statbuf.st_mode)) {
-    _LOG_DEBUG("%s not a regular file", path.c_str());
-    return NULL;
-  }
-  // Site of awesomest bug ever: take out the parens around the assignment.
-  else if ((fd = open(path.c_str(), O_RDONLY)) ==-1) {
-    _LOG_DEBUG("open %s: %m", path.c_str());
-    return NULL;
-  }
+  if (stat(path.c_str(), &statbuf)==-1)
+    return errno;
+  else if (S_ISDIR(statbuf.st_mode))
+    return EISDIR;
+  else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode))
+    return ESPIPE;
+  else if ((fd = open(path.c_str(), O_RDONLY)) ==-1)
+    return errno;
 
   sz = statbuf.st_size;
   
@@ -139,9 +143,8 @@ char *FileCache::reserve(std::string &path, size_t &sz)
     }
     // Otherwise just give up.
     else {
-      _LOG_INFO("reserve %s: nothing to evict, giving up", path.c_str());
       close(fd);
-      return NULL;
+      return ENOMEM;
     }
   }
 
@@ -152,10 +155,8 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
     __sync_sub_and_fetch(&cur, sz);
-    _LOG_INFO("reserve %s: allocation of %d bytes failed, giving up",
-	      path.c_str(), sz);
     close(fd);
-    return NULL;
+    return ENOMEM;
   }
   char *ctmp = tmp->buf;
   size_t toread = sz;
@@ -168,24 +169,24 @@ char *FileCache::reserve(std::string &path, size_t &sz)
       toread -= nread;
       ctmp += nread;
     }
-    /* Interrupted by a system call. My current feeling is that the guys who
-     * work with the cache (i.e., workers) should not also be the guys who
-     * handle signals (i.e., schedulers or event managers), so that signals
-     * should be masked here. But let's check anyway in case there is a
-     * reason for such a configuration. */
-    else if (nread == -1 && errno == EINTR) {
-      _LOG_DEBUG("read %s: %m", path.c_str());
+    else if (nread == -1 && errno == EINTR)
       continue;
-    }
     else
       break;
   }
   // Some other kind of error; start over.
   if (nread == -1) {
     _LOG_INFO("read %s: %m, starting read over", path.c_str());
-    clock.wrlock(); // OMG
+
+    /* Every other time in this file we delete a cinfo object, we have the
+     * writer lock, so for consistency we grab it here too. This is important
+     * since the cinfo destructor is virtual and derived cinfo objects could
+     * perform some cleanup that requires the writer lock, for example
+     * removing an inotify watch. */
+    clock.wrlock();
     delete tmp;
-    clock.unlock(); // OMG
+    clock.unlock();
+
     __sync_sub_and_fetch(&cur, sz);
     goto reserve_tryagain;
   }
@@ -195,37 +196,35 @@ char *FileCache::reserve(std::string &path, size_t &sz)
   /* While we were getting the file into memory, someone else put it in cache!
    * So we don't need our copy anymore. Wasteful but simple. */
   if ((it = c.find(path)) != c.end()) {
-    _LOG_DEBUG("%s appeared in cache while we were reading from disk",
-	       path.c_str());
     delete tmp;
     __sync_sub_and_fetch(&cur, sz);
     it->second->refcnt++;
     sz = it->second->sz;
-    ctmp = it->second->buf;
+    resource = it->second->buf;
   }
   else {
-    _LOG_DEBUG("%s now in cache, sz %d", path.c_str(), tmp->sz);
     c[path] = tmp;
-    ctmp = tmp->buf;
+    resource = tmp->buf;
   }
   clock.unlock();
-  _LOG_DEBUG("reserve %s: about to return", path.c_str());
-  return ctmp;
+  return 0;
 }
 
 void FileCache::release(std::string &path)
 {
-  _LOG_DEBUG("release %s", path.c_str());
   cache::iterator it;
-  bool doenq = false;
+  bool doenq, doevict;
   clock.rdlock();
-  // The first half should always be true...right?
-  if ((it = c.find(path)) != c.end()
-      && __sync_sub_and_fetch(&it->second->refcnt, 1)==0)
-    doenq = true;
+  doenq = ((it = c.find(path)) != c.end()
+	   && __sync_sub_and_fetch(&it->second->refcnt, 1)==0);
+  // If the file has been invalidated, we want to evict it ASAP.
+  doevict = (it != c.end() && it->second->invalid == 1);
   clock.unlock();
-  if (doenq) {
-    _LOG_DEBUG("putting %s on evict list", path.c_str());
+  if (doenq)
     toevict.enq(path);
+  // Evicts the invalidated file, but first evicts everything else. Overkill?
+  if (doevict) {
+    while (evict())
+      ;
   }
 }

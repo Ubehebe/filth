@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "logging.h"
+#include "ServerErrs.hpp"
 #include "sigmasks.hpp"
 #include "Worker.hpp"
 
@@ -21,9 +22,19 @@ void Worker::work()
       q->enq(w);
       break;
     } else {
-      (*w)();
-      if (w->deleteme)
+      try {
+	(*w)();
+      }
+      // ?????
+      catch (SocketErr e) {
+	w->deleteme = true;
+      }
+      if (w->deleteme) {
+	/* Purely for debugging with overloaded operator delete. If operator
+	   delete sees deleteme == true, it's already been deleted = a bug. */
+	w->deleteme = false;
 	delete w;
+      }
     }
   }
   _LOG_INFO("worker retiring");

@@ -154,9 +154,28 @@ void HTTP_Work::parse_uri(string &uri)
   else {
     path = uri.substr(1);
   }
-  // Check the cache; for now we don't support dynamic resources
-  if ((resource = cache->reserve(path, resourcesz)) == NULL)
+
+ parse_uri_tryagain:
+  int err = cache->reserve(path, resource, resourcesz);
+
+  switch (err) {
+  case 0: break;
+  case EACCES:
+    throw HTTP_Parse_Err(Forbidden);
+  case EINVAL:
+    sleep(1);
+    goto parse_uri_tryagain;
+  case EISDIR:
+    throw HTTP_Parse_Err(Not_Implemented);
+  case ENOENT:
     throw HTTP_Parse_Err(Not_Found);
+  case ENOMEM:
+    throw HTTP_Parse_Err(Internal_Server_Error);
+  case ESPIPE:
+    throw HTTP_Parse_Err(Not_Implemented);
+  default:
+    throw HTTP_Parse_Err(Internal_Server_Error);
+  }
 }
 
 void HTTP_Work::parse_header(string &line)
@@ -210,7 +229,5 @@ void *HTTP_Work::operator new(size_t sz)
 
 void HTTP_Work::operator delete(void *work)
 {
-  if (work != NULL)
-    _LOG_DEBUG("%d returns to store", reinterpret_cast<Work *>(work)->fd);
   store.enq(work);
 }

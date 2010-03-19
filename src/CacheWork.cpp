@@ -1,4 +1,5 @@
 #include <string>
+#include <unistd.h>
 
 #include "CacheWork.hpp"
 #include "logging.h"
@@ -17,10 +18,8 @@ CacheWork::CacheWork(int fd, Work::mode m)
 
 CacheWork::~CacheWork()
 {
-  // If we're using the cache, tell it we're done.
   if (resource != NULL)
     cache->release(path);
-  // If fd==-1, this will fail but that's OK.
   st->erase(fd);
 }
 
@@ -38,8 +37,25 @@ void CacheWork::operator()()
       inbuf.str(path);
     }
     else {
-      if ((resource = cache->reserve(path, resourcesz))==NULL)
+
+    reserve_tryagain:      
+      err = cache->reserve(path, resource, resourcesz);
+      
+      switch (err) {
+      case 0: break;
+      case EINVAL:
+	sleep(1);
+	goto reserve_tryagain;
+      case EACCES:
+      case EISDIR:
+      case ENOENT:
+      case ENOMEM:
+      case ESPIPE:
+      default:
+	resource = NULL;
 	resourcesz = 0;
+	break;
+      }
       statln = path + "\r\n";
       out = const_cast<char *>(statln.c_str());
       outsz = statln.length();
@@ -52,13 +68,13 @@ void CacheWork::operator()()
     if (err == EAGAIN || err == EWOULDBLOCK) {
       sch->reschedule(this);
     } else if (err != 0) {
+      _LOG_INFO("OMG: %m");
       throw SocketErr("write", err);
     } else if (!path_written) {
       path_written = true;
       out = resource;
       outsz = resourcesz;
       sch->reschedule(this);
-      _LOG_DEBUG();
     } else {
       deleteme = true;
     }
@@ -76,5 +92,11 @@ void *CacheWork::operator new(size_t sz)
 
 void CacheWork::operator delete(void *ptr)
 {
+#ifdef INFO_MODE
+  CacheWork *tmp = reinterpret_cast<CacheWork *>(ptr);
+  if (tmp->deleteme)
+    _LOG_INFO("double free detected! %d", tmp->fd);
+#endif // INFO_MODE
+
   store.enq(ptr);
 }

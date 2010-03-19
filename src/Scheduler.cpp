@@ -185,7 +185,6 @@ void Scheduler::poll()
     fdcb_map::iterator it;
     for (int i=0; i<nchanged; ++i) {
       fd = fds[i].data.fd;
-      _LOG_DEBUG("activity on %d", fd);
       /* If we have a special handler for this fd, use that.
        * Note that we don't pass any information to the callback,
        * in particular the events. Do we need to? */
@@ -218,17 +217,16 @@ void Scheduler::_acceptcb::operator()()
 	|| errno == ECONNABORTED
 	|| errno == EPROTO
 	|| errno == EINTR) {
-      _LOG_DEBUG("accept: %m");
       return;
+    } else {
+      throw SocketErr("accept", errno);
     }
-    else throw SocketErr("accept", errno);
   }
   int flags;
   if ((flags = fcntl(acceptfd, F_GETFL))==-1)
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
-  _LOG_DEBUG("accept %d", acceptfd);
   sch.schedule(fwork(acceptfd, Work::read), true);
 }
 

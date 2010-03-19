@@ -24,7 +24,6 @@ FileCache::cinfo *inotifyFileCache::mkcinfo(string &path, size_t sz)
   else {
     clock.wrlock();
     wmap[ans->watchd] = path;
-    _LOG_DEBUG("watch descriptor %d is %s", ans->watchd, path.c_str());
     clock.unlock();
   }
   return ans;

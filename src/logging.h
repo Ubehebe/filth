@@ -26,6 +26,9 @@
 #undef _LOG_INFO
 #undef _LOG_FATAL
 #define SYSLOG_OPTS LOG_PERROR
+#define DEBUG_MODE
+#define INFO_MODE
+#define FATAL_MODE
 #define _LOG_DEBUG(...) syslog(LOG_USER|LOG_DEBUG, "debug: "_SRC __VA_ARGS__)
 #define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, "info: "_SRC __VA_ARGS__)
 #define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, "fatal: "_SRC __VA_ARGS__)
@@ -36,12 +39,15 @@
 #define _LOG_DEBUG(...)
 #undef _LOG_INFO
 #undef _LOG_FATAL
+#define INFO_MODE
+#define FATAL_MODE
 #define _LOG_INFO(...) syslog(LOG_USER|LOG_INFO, "info: "_SRC __VA_ARGS__)
 #define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, "fatal: "_SRC __VA_ARGS__)
 #else // #ifdef _LOG_INFO
 #ifdef _LOG_FATAL
 #undef _LOG_FATAL
 #define SYSLOG_OPTS 0
+#define FATAL_MODE
 #define _LOG_DEBUG(...)
 #define _LOG_INFO(...)
 #define _LOG_FATAL(...) syslog(LOG_USER|LOG_CRIT, "fatal: "_SRC __VA_ARGS__)

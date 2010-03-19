@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "LockedQueue.hpp"
+#include "logging.h"
 
 template<size_t SZ> class rawbytes
 {
@@ -24,6 +25,10 @@ public:
     for (int i=0; i<prealloc_chunks; ++i)
       W::store.enq(reinterpret_cast<void *>(new rawbytes<sizeof(W)>));
   }
+  /* Occasionally [just for the standalone cache server currently--can I
+   * reproduce this with the web server?], I get a double free/corruption
+   * abort here. It doesn't matter for server performance, since this only
+   * happens during shutdown, but still...what the hell is going on? */
   ~FindWork_prealloc()
   {
     /* Send everything still in the work map back to the free store.
@@ -32,6 +37,7 @@ public:
     clear_Workmap();
 
     void *tmp;
+    int chunks = 0;
     while (W::store.nowait_deq(tmp)) {
       delete reinterpret_cast<rawbytes<sizeof(W)> *>(tmp);
     }
