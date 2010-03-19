@@ -11,7 +11,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "logging.h"
 #include "Scheduler.hpp"
 #include "ServerErrs.hpp"
 #include "sigmasks.hpp"
@@ -27,6 +26,10 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
   : q(q), fwork(fwork), maxevents(maxevents),
     acceptcb(*this, fwork), sigcb(*this, fwork, dowork, sighandlers)
 {
+  #ifdef _COLLECT_STATS
+  naccepts = 0;
+#endif // _COLLECT_STATS
+
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
    * only know about one instance. If we really need support for this,
@@ -64,6 +67,7 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 Scheduler::~Scheduler()
 {
   _LOG_DEBUG("close %d", pollfd);
+  _SHOW_STAT(naccepts);
   close(pollfd);
 }
 
@@ -191,8 +195,10 @@ void Scheduler::poll()
       if ((it = fdcbs.find(fd)) != fdcbs.end())
 	(*(it->second))();
       // epoll_wait always collects these. Do we know what to do with them?
-      else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP))
+      else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP)) {
+	
 	_LOG_INFO("hangup or error on %d", fd);
+      }
       // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN)
 	q.enq(fwork(fd, Work::read));
@@ -228,6 +234,8 @@ void Scheduler::_acceptcb::operator()()
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
   sch.schedule(fwork(acceptfd, Work::read), true);
+
+  // WTF  naccepts++;
 }
 
 void Scheduler::_sigcb::operator()()

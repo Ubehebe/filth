@@ -21,6 +21,16 @@
 #define QUOT(x) QUOT_(x)
 #define _SRC __FILE__"."QUOT(__LINE__)": "
 
+#ifdef _COLLECT_STATS
+#define _INC_STAT(x) (x)++
+#define _SHOW_STAT(x)  syslog(LOG_USER|LOG_DEBUG, _SRC #x"%d", x)
+#define _SYNC_INC_STAT(x)  __sync_fetch_and_add(&x, 1)
+#else // #ifdef _COLLECT_STATS
+#define _SYNC_INC_STAT(x)
+#define _INC_STAT(x)
+#define _SHOW_STAT(x)
+#endif // #ifdef _COLLECT_STATS
+
 #ifdef _LOG_DEBUG
 #undef _LOG_DEBUG
 #undef _LOG_INFO

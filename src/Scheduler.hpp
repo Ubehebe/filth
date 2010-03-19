@@ -3,10 +3,12 @@
 
 #include <functional>
 #include <signal.h>
+#include <stdint.h>
 #include <unordered_map>
 
 #include "Callback.hpp"
 #include "LockedQueue.hpp"
+#include "logging.h"
 #include "FindWork.hpp"
 
 /* N.B. Keep in mind that if the scheduler uses old-fashioned signal
@@ -64,6 +66,11 @@ class Scheduler
 
   // For use with signal handlers. Ugh...
   static Scheduler *handler_sch;
+
+#ifdef _COLLECT_STATS
+  uint32_t naccepts;
+#endif // _COLLECT_STATS
+
  
 public:
   Scheduler(LockedQueue<Work *> &q, FindWork &fwork,

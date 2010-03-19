@@ -38,9 +38,9 @@ protected:
     cinfo(size_t sz);
     virtual ~cinfo();
   };
-#ifdef DEBUG_MODE
+#ifdef _COLLECT_STATS
   uint32_t hits, misses, evictions, invalid_hits, invalidations, failures, flushes;
-#endif // DEBUG_MODE
+#endif // _COLLECT_STATS
   typedef std::unordered_map<std::string, cinfo *> cache;
   cache c;
   RWLock clock;

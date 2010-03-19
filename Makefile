@@ -5,8 +5,9 @@ export SRC_INC_DIRS = $(SRC_DIR) $(DATA_DIR)
 export OBJ_INC_DIRS = $(SRC_DIR)
 
 LOG = _LOG_FATAL
+STATS = _COLLECT_STATS
 
-export CPPFLAGS = $(SRC_INC_DIRS:%=-I%) -D $(LOG)
+export CPPFLAGS = $(SRC_INC_DIRS:%=-I%) -D $(LOG) -D $(STATS)
 export CXXFLAGS = -std=c++0x
 export LDFLAGS = $(OBJ_INC_DIRS:%=-L%)
 
