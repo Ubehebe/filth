@@ -2,6 +2,7 @@
 #define FILECACHE_HPP
 
 #include <list>
+#include <stdint.h>
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -10,6 +11,7 @@
 
 #include "LockedQueue.hpp"
 #include "Locks.hpp"
+#include "logging.h"
 #include "FindWork.hpp"
 
 /* Simple file cache. The biggest inefficiency is that it calls new for
@@ -36,6 +38,9 @@ protected:
     cinfo(size_t sz);
     virtual ~cinfo();
   };
+#ifdef DEBUG_MODE
+  uint32_t hits, misses, evictions, invalid_hits, invalidations, failures, flushes;
+#endif // DEBUG_MODE
   typedef std::unordered_map<std::string, cinfo *> cache;
   cache c;
   RWLock clock;
@@ -47,8 +52,8 @@ protected:
   virtual cinfo *mkcinfo(std::string &path, size_t sz);
 
 public:
-  FileCache(size_t max, FindWork &fwork) : cur(0), max(max), fwork(fwork) {}
-  ~FileCache() { flush(); }
+  FileCache(size_t max, FindWork &fwork);
+  ~FileCache();
   int reserve(std::string &path, char *& resource, size_t &sz);
   void release(std::string &path);
   size_t getmax() const { return max; }

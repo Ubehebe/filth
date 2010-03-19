@@ -10,7 +10,6 @@ Work::Work(int fd, mode m)
 
 Work::~Work()
 {
-  _LOG_DEBUG("close %d", fd);
   close(fd);
 }
 

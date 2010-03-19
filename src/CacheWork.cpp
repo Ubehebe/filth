@@ -68,7 +68,7 @@ void CacheWork::operator()()
     if (err == EAGAIN || err == EWOULDBLOCK) {
       sch->reschedule(this);
     } else if (err != 0) {
-      _LOG_INFO("OMG: %m");
+      // Often get broken pipes here on heavy client testing. Why?
       throw SocketErr("write", err);
     } else if (!path_written) {
       path_written = true;

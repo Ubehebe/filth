@@ -10,9 +10,31 @@
 
 using namespace std;
 
+FileCache::FileCache(size_t max, FindWork &fwork)
+  : cur(0), max(max), fwork(fwork)
+{
+#ifdef DEBUG_MODE
+  hits = misses = evictions = invalidations
+    = invalid_hits = failures = flushes = 0;
+#endif // DEBUG_MODE
+}
+
+FileCache::~FileCache()
+{
+  flush();
+  _LOG_DEBUG("hit rate %f (%d hits/%d misses)\n"
+	     "%d evictions %d invalidations %d invalid hits\n"
+	     "%d failures %d flushes",
+	     ((float) hits) / (hits + misses), hits, misses, evictions,
+	     invalidations, invalid_hits, failures, flushes);
+}
+
 // Looks like it could cause some headaches.
 void FileCache::flush()
 {
+#ifdef DEBUG_MODE
+  __sync_fetch_and_add(&flushes, 1);
+#endif // DEBUG_MODE
   list<cinfo *> l;
 
   clock.wrlock();
@@ -62,7 +84,9 @@ bool FileCache::evict()
    * reference count, should just be ignored. */
   clock.wrlock();
   if ((it = c.find(s)) != c.end() && it->second->refcnt == 0) {
-    _LOG_DEBUG("evict %s", s.c_str());
+#ifdef DEBUG_MODE
+    __sync_add_and_fetch(&evictions, 1);
+#endif // DEBUG_MODE
     __sync_sub_and_fetch(&cur, it->second->sz);
     delete it->second;
     c.erase(it);
@@ -96,34 +120,52 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
   clock.rdlock();
   if ((it = c.find(path)) != c.end()) {
     if (__sync_fetch_and_add(&it->second->invalid, 0)!=0) {
-      _LOG_INFO("%s invalid", path.c_str());
+#ifdef DEBUG_MODE
+      __sync_fetch_and_add(&invalid_hits, 1);
+#endif // DEBUG_MODE
       clock.unlock();
       return EINVAL;
     }
     else {
       __sync_fetch_and_add(&it->second->refcnt, 1);
       resource = it->second->buf;
-      _LOG_DEBUG("reserve %s hit", path.c_str());
       sz = it->second->sz;
+#ifdef DEBUG_MODE
+      __sync_fetch_and_add(&hits, 1);
+#endif // DEBUG_MODE
       clock.unlock();
       return 0;
     }
   }
   clock.unlock();
 
-  _LOG_DEBUG("reserve %s miss", path.c_str());
-
   struct stat statbuf;
   int fd;
 
-  if (stat(path.c_str(), &statbuf)==-1)
+  if (stat(path.c_str(), &statbuf)==-1) {
+#ifdef DEBUG_MODE
+    __sync_fetch_and_add(&failures, 1);
+#endif // DEBUG_MODE
     return errno;
-  else if (S_ISDIR(statbuf.st_mode))
+  }
+  else if (S_ISDIR(statbuf.st_mode)) {
+#ifdef DEBUG_MODE
+    __sync_fetch_and_add(&failures, 1);
+#endif // DEBUG_MODE
     return EISDIR;
-  else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode))
+  }
+  else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode)) {
+#ifdef DEBUG_MODE
+    __sync_fetch_and_add(&failures, 1);
+#endif // DEBUG_MODE
     return ESPIPE;
-  else if ((fd = open(path.c_str(), O_RDONLY)) ==-1)
+  }
+  else if ((fd = open(path.c_str(), O_RDONLY)) ==-1) {
+#ifdef DEBUG_MODE
+    __sync_fetch_and_add(&failures, 1);
+#endif // DEBUG_MODE
     return errno;
+  }
 
   sz = statbuf.st_size;
   
@@ -144,6 +186,9 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     // Otherwise just give up.
     else {
       close(fd);
+#ifdef DEBUG_MODE
+      __sync_fetch_and_add(&failures, 1);
+#endif // DEBUG_MODE
       return ENOMEM;
     }
   }
@@ -156,6 +201,9 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
   catch (bad_alloc) {
     __sync_sub_and_fetch(&cur, sz);
     close(fd);
+#ifdef DEBUG_MODE
+      __sync_fetch_and_add(&failures, 1);
+#endif // DEBUG_MODE
     return ENOMEM;
   }
   char *ctmp = tmp->buf;
@@ -201,10 +249,16 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     it->second->refcnt++;
     sz = it->second->sz;
     resource = it->second->buf;
+#ifdef DEBUG_MODE
+    __sync_fetch_and_add(&hits, 1);
+#endif // DEBUG_MODE
   }
   else {
     c[path] = tmp;
     resource = tmp->buf;
+    #ifdef DEBUG_MODE
+    __sync_fetch_and_add(&misses, 1);
+#endif // DEBUG_MODE
   }
   clock.unlock();
   return 0;

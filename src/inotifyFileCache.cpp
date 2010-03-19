@@ -80,7 +80,9 @@ void inotifyFileCache::operator()()
       // We don't check iev.mask flags here, but we could.
       if ((cit = c.find(wit->second)) != c.end()) {
 	__sync_fetch_and_add(&cit->second->invalid, 1);
-	_LOG_INFO("%s invalidated", wit->second.c_str());
+#ifdef DEBUG_MODE
+	__sync_fetch_and_add(&invalidations, 1);
+#endif // DEBUG_MODE
       }
       else {
 	_LOG_INFO("unexpected: %s modified on disk, but not found in cache",

@@ -12,12 +12,15 @@ import time
 files = {}
 
 class client:
-    def __init__(self):
+    def __init__(self, nreps):
         self.passed = True
+        self.nreps = nreps
     def __call__(self):
         global files
         # I believe iteration over a dictionary is thread-safe in Python
-        for (name, (sz, stuff)) in files.items():
+        for i in range(self.nreps):
+            name = random.choice(list(files.keys()))
+            (sz, stuff) = files[name]
             sock = socket.socket(socket.AF_UNIX)
             sock.connect("./bucket")
             sock.sendall(name + "\r\n")
@@ -32,6 +35,34 @@ class client:
 # this takes hella long
 def randbytes(n):
     return bytearray(map(lambda x: random.randint(0,255), range(n)))
+
+def create_files(cachesz):
+    print("creating random files to fill up " + str(cachesz) + " bytes")
+    free = cachesz
+    while free > 0:
+        sz = random.randint(1, free)
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        content = randbytes(sz)
+        tmp.write(content)
+        tmp.close()
+        files[tmp.name] = (sz, content)
+        free -= sz
+        print("wrote " + tmp.name + " " + str(sz))
+
+def concurrent_test(nclients, nreps):
+    print("simple concurrent test: " + str(nclients) + " clients each read "
+          + str(nreps) + " random files from cache and compare to disk")
+    clients = []
+    threads = []
+    for i in range(nclients):
+        clients.append(client(nreps))
+    for c in clients:
+        threads.append(threading.Thread(target=c))
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    return all(map(lambda c: c.passed, clients))
 
 def bye():
     global files
@@ -54,34 +85,10 @@ else:
     print("waiting for cache to start up")
     time.sleep(5)
     
-    cachesz = int(sys.argv[1]) * (1<<20)
-
-    print("creating some random files...")
-    free = cachesz
-    while free > 0:
-        sz = random.randint(1, free)
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        content = randbytes(sz)
-        tmp.write(content)
-        tmp.close()
-        files[tmp.name] = (sz, content)
-        free -= sz
-        print("wrote " + tmp.name + " " + str(sz))
-
-    print("test: 10 clients, read the files through the cache")
-    clients = []
-    threads = []
-    for i in range(10):
-        clients.append(client())
-    for c in clients:
-        threads.append(threading.Thread(target=c))
-    for th in threads:
-        th.start()
-    for th in threads:
-        th.join()
-    if all(map(lambda c: c.passed, clients)):
+    create_files(int(sys.argv[1]) * (1<<20))
+    if (concurrent_test(10,100)):
         print("passed")
     else:
-        print("failed")
+        print("FAILED")
 
     bye()

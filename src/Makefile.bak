@@ -83,3 +83,6 @@ CacheWork.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
 CacheWork.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp logging.h
 FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
 FileCache.o: Callback.hpp Workmap.hpp logging.h
+inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
+inotifyFileCache.o: LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
+inotifyFileCache.o: Workmap.hpp Scheduler.hpp logging.h
