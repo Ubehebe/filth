@@ -10,8 +10,8 @@ HTTP_SRCS = FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
 			HTTP_Work.cpp inotifyFileCache.cpp
 HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 
-STANDALONE_CACHE_SRCS = Cache_cmdline.cpp Cache_main.cpp CacheWork.cpp \
-	FileCache.cpp inotifyFileCache.cpp 
+STANDALONE_CACHE_SRCS = Cache_cmdline.cpp Cache_main.cpp CacheFindWork.cpp \
+	CacheServer.cpp CacheWork.cpp FileCache.cpp inotifyFileCache.cpp 
 STANDALONE_CACHE_OBJS = $(STANDALONE_CACHE_SRCS:.cpp=.o)
 
 all: http standalone-cache
@@ -50,6 +50,12 @@ HTTP_constants.o: HTTP_constants.hpp /home/brendan/http/data/HTTP_status.def
 HTTP_constants.o: /home/brendan/http/data/HTTP_methods.def
 HTTP_constants.o: /home/brendan/http/data/HTTP_headers.def HTTP_Parse_Err.hpp
 HTTP_constants.o: ServerErrs.hpp logging.h
+HTTP_FindWork.o: HTTP_FindWork.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
+HTTP_FindWork.o: logging.h FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
+HTTP_FindWork.o: FindWork_prealloc.hpp HTTP_Work.hpp HTTP_constants.hpp
+HTTP_FindWork.o: /home/brendan/http/data/HTTP_status.def
+HTTP_FindWork.o: /home/brendan/http/data/HTTP_methods.def
+HTTP_FindWork.o: /home/brendan/http/data/HTTP_headers.def Scheduler.hpp
 HTTP_main.o: logging.h HTTP_cmdline.hpp cmdline.hpp
 HTTP_main.o: /home/brendan/http/data/sigs.def
 HTTP_main.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_Server.hpp
@@ -91,6 +97,15 @@ Cache_main.o: Locks.hpp logging.h FindWork.hpp Work.hpp Callback.hpp
 Cache_main.o: Workmap.hpp FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
 Cache_main.o: inotifyFileCache.hpp Server.hpp Thread.hpp sigmasks.hpp
 Cache_main.o: Worker.hpp
+CacheFindWork.o: CacheFindWork.hpp CacheWork.hpp FileCache.hpp
+CacheFindWork.o: LockedQueue.hpp Locks.hpp logging.h FindWork.hpp Work.hpp
+CacheFindWork.o: Callback.hpp Workmap.hpp FindWork_prealloc.hpp Scheduler.hpp
+CacheFindWork.o: ServerErrs.hpp
+CacheServer.o: CacheServer.hpp CacheFindWork.hpp CacheWork.hpp FileCache.hpp
+CacheServer.o: LockedQueue.hpp Locks.hpp logging.h FindWork.hpp Work.hpp
+CacheServer.o: Callback.hpp Workmap.hpp FindWork_prealloc.hpp Scheduler.hpp
+CacheServer.o: ServerErrs.hpp inotifyFileCache.hpp Server.hpp Thread.hpp
+CacheServer.o: sigmasks.hpp Worker.hpp
 CacheWork.o: CacheWork.hpp FileCache.hpp LockedQueue.hpp Locks.hpp logging.h
 CacheWork.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
 CacheWork.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp

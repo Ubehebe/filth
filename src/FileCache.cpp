@@ -34,6 +34,7 @@ FileCache::~FileCache()
 // Looks like it could cause some headaches.
 void FileCache::flush()
 {
+  _LOG_DEBUG("flush cache");
   _SYNC_INC_STAT(flushes);
   list<cinfo *> l;
 
@@ -47,6 +48,7 @@ void FileCache::flush()
   cur = 0;
   c.clear();
   clock.unlock();
+  _LOG_DEBUG("flush cache complete");
 }
 
 FileCache::cinfo::cinfo(size_t sz)
@@ -84,6 +86,7 @@ bool FileCache::evict()
    * reference count, should just be ignored. */
   clock.wrlock();
   if ((it = c.find(s)) != c.end() && it->second->refcnt == 0) {
+    _LOG_DEBUG("evicting %s", it->first.c_str());
     _SYNC_INC_STAT(evictions);
     __sync_sub_and_fetch(&cur, it->second->sz);
     delete it->second;
@@ -171,6 +174,7 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     }
     // Otherwise just give up.
     else {
+      _LOG_DEBUG("reserve %s: can't evict anything, reporting failure", path.c_str());
       close(fd);
       _SYNC_INC_STAT(failures);
       return ENOMEM;

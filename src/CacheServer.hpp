@@ -1,6 +1,7 @@
 #ifndef CACHE_SERVER_HPP
 #define CACHE_SERVER_HPP
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -19,10 +20,13 @@ public:
 	      size_t cacheszMB,
 	      size_t req_prealloc_MB,
 	      int listenq,
-	      int sigflush)
-    : Server(AF_LOCAL, fwork, mount, sockname, nworkers, listenq, sigflush),
-      fwork(req_prealloc_MB * (1<<20), sch, cache),
-      cache(cacheszMB * (1<<20), fwork, sch) {}
+	      int sigflush);
+  ~CacheServer();
+  static CacheServer *theserver;
+  static void flush(int ignore);
+#ifdef _COLLECT_STATS
+  uint32_t flushes;
+#endif // _COLLECT_STATS
 };
 
 

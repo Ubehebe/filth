@@ -22,13 +22,17 @@
 #define _SRC __FILE__"."QUOT(__LINE__)": "
 
 #ifdef _COLLECT_STATS
+#define _DEC_STAT(x) (x)--
 #define _INC_STAT(x) (x)++
 #define _SHOW_STAT(x)  syslog(LOG_USER|LOG_DEBUG, _SRC #x" %d", x)
+#define _SYNC_DEC_STAT(x) __sync_fetch_and_sub(&x, 1)
 #define _SYNC_INC_STAT(x)  __sync_fetch_and_add(&x, 1)
 #else // #ifdef _COLLECT_STATS
-#define _SYNC_INC_STAT(x)
+#define _DEC_STAT(x)
 #define _INC_STAT(x)
 #define _SHOW_STAT(x)
+#define _SYNC_DEC_STAT(x)
+#define _SYNC_INC_STAT(x)
 #endif // #ifdef _COLLECT_STATS
 
 #ifdef _LOG_DEBUG

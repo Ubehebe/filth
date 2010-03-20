@@ -33,5 +33,5 @@ void HTTP_Server::flush(int ignore)
   // Hmm...
   theserver->cache.flush();
   theserver->sch.poisonpill();
-  _SYNC_INC_STAT(theserver->flushes);
+  _INC_STAT(theserver->flushes);
 }

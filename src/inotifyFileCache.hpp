@@ -29,7 +29,7 @@ class inotifyFileCache : public Callback, public FileCache
   cinfo *mkcinfo(std::string &path, size_t sz);
 public:
   inotifyFileCache(size_t max, FindWork &fwork, Scheduler &sch);
-  ~inotifyFileCache() { flush(); }
+  ~inotifyFileCache();
   char *reserve(std::string &path, size_t &sz);
   void operator()();
 };

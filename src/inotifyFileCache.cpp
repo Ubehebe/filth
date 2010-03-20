@@ -64,6 +64,15 @@ inotifyFileCache::inotifyFileCache(size_t max, FindWork &fwork, Scheduler &sch)
   sch.registercb(inotifyfd, this, Work::read);
 }
 
+inotifyFileCache::~inotifyFileCache()
+{
+  flush();
+  /* flush does a _SYNC_INC_STAT(flushes), but if we're here the next
+   * destructor will be FileCache::~FileCache, which will also do a
+   * _SYNC_INC_STAT(flushes) although the cache has just been flushed. */
+  _SYNC_DEC_STAT(flushes);
+}
+
 void inotifyFileCache::operator()()
 {
   struct inotify_event iev;
@@ -80,9 +89,8 @@ void inotifyFileCache::operator()()
       // We don't check iev.mask flags here, but we could.
       if ((cit = c.find(wit->second)) != c.end()) {
 	__sync_fetch_and_add(&cit->second->invalid, 1);
-#ifdef DEBUG_MODE
-	__sync_fetch_and_add(&invalidations, 1);
-#endif // DEBUG_MODE
+	_SYNC_INC_STAT(invalidations);
+	_LOG_DEBUG("invalidated %s", wit->second.c_str());
       }
       else {
 	_LOG_INFO("unexpected: %s modified on disk, but not found in cache",
