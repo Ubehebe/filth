@@ -15,23 +15,22 @@
 #include "ServerErrs.hpp"
 #include "sigmasks.hpp"
 
-namespace handler_sch {
-  Scheduler *s = NULL;
-}
-
 using namespace std;
+
+
+Scheduler *Scheduler::thescheduler = NULL;
 
 Scheduler::_acceptcb::_acceptcb(Scheduler &sch, FindWork &fwork)
   : sch(sch), fwork(fwork)
 {
 #ifdef _COLLECT_STATS
-  naccept = 0;
+  accepts = 0;
 #endif
 }
 
 Scheduler::_acceptcb::~_acceptcb()
 {
-  _SHOW_STAT(naccept);
+  _SHOW_STAT(accepts);
 }
 
 Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
@@ -39,16 +38,11 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
   : q(q), fwork(fwork), maxevents(maxevents), dowork(true),
     acceptcb(*this, fwork), sigcb(*this, fwork, dowork, sighandlers)
 {
-#ifdef _COLLECT_STATS
-  nflush = 0;
-#endif // _COLLECT_STATS
-
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
    * only know about one instance. If we really need support for this,
    * I guess it wouldn't be too hard to make handler_sch::s a vector/array. */
-  if (handler_sch::s == NULL)
-    handler_sch::s = this;
+  thescheduler = this;
 
   // Set up the signal file descriptor.
   if (sigemptyset(&tohandle)==-1) {
@@ -76,14 +70,11 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
   // Default signal handlers.
   push_sighandler(SIGINT, Scheduler::halt); 
   push_sighandler(SIGTERM, Scheduler::halt);
-  push_sighandler(SIGUSR1, Scheduler::flush);
 }
 
 Scheduler::~Scheduler()
 {
-  _LOG_DEBUG("close %d", pollfd);
   close(pollfd);
-  _SHOW_STAT(nflush);
 }
 
 void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
@@ -239,7 +230,7 @@ void Scheduler::_acceptcb::operator()()
     } else {
       throw SocketErr("accept", errno);
     }
-    naccept++;
+    accepts++;
   }
   int flags;
   if ((flags = fcntl(acceptfd, F_GETFL))==-1)
@@ -310,13 +301,7 @@ void Scheduler::poisonpill()
 void Scheduler::halt(int ignore)
 {
   _LOG_INFO("scheduler halting");
-  handler_sch::s->dowork = false;
-}
-
-void Scheduler::flush(int ignore)
-{
-  handler_sch::s->poisonpill();
-  _SYNC_INC_STAT(handler_sch::s->nflush);
+  thescheduler->dowork = false;
 }
 
 inline void Scheduler::handle_sock_err(int fd)

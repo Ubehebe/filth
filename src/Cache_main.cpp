@@ -19,12 +19,15 @@ int main(int argc, char **argv)
   atexit(logatexit);
   Cache_cmdline::cmdlinesetup(argc, argv);
   try {
-    CacheServer(Cache_cmdline::c.svals[Cache_cmdline::name],
+    CacheServer(
+		Cache_cmdline::c.svals[Cache_cmdline::name],
 		Cache_cmdline::c.svals[Cache_cmdline::mount],
 		Cache_cmdline::c.ivals[Cache_cmdline::nworkers],
 		Cache_cmdline::c.ivals[Cache_cmdline::sz],
 		1, // ?
-		Cache_cmdline::c.ivals[Cache_cmdline::listenq]).serve();
+		Cache_cmdline::c.ivals[Cache_cmdline::listenq],
+		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigflush])
+		).serve();
   } catch (ResourceErr e) {
     _LOG_FATAL("uncaught ResourceErr: %s: %s", e.msg, strerror(e.err));
     exit(1);

@@ -18,8 +18,9 @@ public:
 	      int nworkers, 
 	      size_t cacheszMB,
 	      size_t req_prealloc_MB,
-	      int listenq)
-    : Server(AF_LOCAL, fwork, mount, sockname, nworkers, listenq),
+	      int listenq,
+	      int sigflush)
+    : Server(AF_LOCAL, fwork, mount, sockname, nworkers, listenq, sigflush),
       fwork(req_prealloc_MB * (1<<20), sch, cache),
       cache(cacheszMB * (1<<20), fwork, sch) {}
 };

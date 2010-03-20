@@ -6,7 +6,7 @@ BASE_SRCS = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp
 BASE_OBJS = $(BASE_SRCS:.cpp=.o)
 
 HTTP_SRCS = FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp HTTP_main.cpp \
-			HTTP_Work.cpp inotifyFileCache.cpp
+			HTTP_Server.cpp HTTP_Work.cpp inotifyFileCache.cpp
 HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 
 STANDALONE_CACHE_SRCS = Cache_cmdline.cpp Cache_main.cpp CacheWork.cpp \
@@ -39,10 +39,10 @@ Server.o: LockedQueue.hpp Locks.hpp Scheduler.hpp Thread.hpp logging.h
 Server.o: sigmasks.hpp Worker.hpp
 sigmasks.o: logging.h sigmasks.hpp
 Work.o: logging.h Work.hpp Callback.hpp
-Worker.o: logging.h sigmasks.hpp Worker.hpp LockedQueue.hpp Locks.hpp
-Worker.o: Work.hpp Callback.hpp
-FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
-FileCache.o: Callback.hpp Workmap.hpp logging.h
+Worker.o: logging.h ServerErrs.hpp sigmasks.hpp Worker.hpp LockedQueue.hpp
+Worker.o: Locks.hpp Work.hpp Callback.hpp
+FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp logging.h FindWork.hpp
+FileCache.o: Work.hpp Callback.hpp Workmap.hpp
 HTTP_cmdline.o: HTTP_cmdline.hpp cmdline.hpp
 HTTP_cmdline.o: /home/brendan/http/data/HTTP_cmdline.def
 HTTP_constants.o: HTTP_constants.hpp /home/brendan/http/data/HTTP_status.def
@@ -63,26 +63,26 @@ HTTP_Work.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_Parse_Err.hpp
 HTTP_Work.o: HTTP_constants.hpp /home/brendan/http/data/HTTP_status.def
 HTTP_Work.o: /home/brendan/http/data/HTTP_methods.def
 HTTP_Work.o: /home/brendan/http/data/HTTP_headers.def ServerErrs.hpp
-HTTP_Work.o: HTTP_Work.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
+HTTP_Work.o: HTTP_Work.hpp FileCache.hpp LockedQueue.hpp Locks.hpp logging.h
 HTTP_Work.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-HTTP_Work.o: FindWork_prealloc.hpp Scheduler.hpp logging.h
+HTTP_Work.o: FindWork_prealloc.hpp Scheduler.hpp
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
-inotifyFileCache.o: LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
-inotifyFileCache.o: Workmap.hpp Scheduler.hpp logging.h
+inotifyFileCache.o: LockedQueue.hpp Locks.hpp logging.h FindWork.hpp Work.hpp
+inotifyFileCache.o: Workmap.hpp Scheduler.hpp
 Cache_cmdline.o: Cache_cmdline.hpp cmdline.hpp
 Cache_cmdline.o: /home/brendan/http/data/Cache_cmdline.def
 Cache_main.o: Cache_cmdline.hpp cmdline.hpp
 Cache_main.o: /home/brendan/http/data/Cache_cmdline.def CacheServer.hpp
 Cache_main.o: CacheFindWork.hpp CacheWork.hpp FileCache.hpp LockedQueue.hpp
-Cache_main.o: Locks.hpp FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-Cache_main.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
-Cache_main.o: inotifyFileCache.hpp Server.hpp Thread.hpp logging.h
-Cache_main.o: sigmasks.hpp Worker.hpp
-CacheWork.o: CacheWork.hpp FileCache.hpp LockedQueue.hpp Locks.hpp
+Cache_main.o: Locks.hpp logging.h FindWork.hpp Work.hpp Callback.hpp
+Cache_main.o: Workmap.hpp FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
+Cache_main.o: inotifyFileCache.hpp Server.hpp Thread.hpp sigmasks.hpp
+Cache_main.o: Worker.hpp
+CacheWork.o: CacheWork.hpp FileCache.hpp LockedQueue.hpp Locks.hpp logging.h
 CacheWork.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-CacheWork.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp logging.h
-FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
-FileCache.o: Callback.hpp Workmap.hpp logging.h
+CacheWork.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
+FileCache.o: FileCache.hpp LockedQueue.hpp Locks.hpp logging.h FindWork.hpp
+FileCache.o: Work.hpp Callback.hpp Workmap.hpp
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
-inotifyFileCache.o: LockedQueue.hpp Locks.hpp FindWork.hpp Work.hpp
-inotifyFileCache.o: Workmap.hpp Scheduler.hpp logging.h
+inotifyFileCache.o: LockedQueue.hpp Locks.hpp logging.h FindWork.hpp Work.hpp
+inotifyFileCache.o: Workmap.hpp Scheduler.hpp

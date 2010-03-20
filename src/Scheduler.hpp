@@ -26,15 +26,11 @@ class Scheduler
   sighandler_map sighandlers;
   fdcb_map fdcbs;
 
-#ifdef _COLLECT_STATS
-  uint32_t nflush;
-#endif // _COLLECT_STATS
-
   struct _acceptcb : public Callback
   {
     int fd;
 #ifdef _COLLECT_STATS
-    uint32_t naccept;
+    uint32_t accepts;
 #endif // _COLLECT_STATS
     Scheduler &sch;
     FindWork &fwork;
@@ -66,12 +62,6 @@ class Scheduler
   LockedQueue<Work *> &q;
   FindWork &fwork;
 
-  /* Some ready-made signal handlers. The argument and return types
-   * are dictated by the sa_handler field of struct sigaction. (We wouldn't
-   * have to do this if we didn't support an alternative to signalfd.) */
-  static void flush(int ignore);
-  static void halt(int ignore);
-
   // For use with signal handlers. Ugh...
   static Scheduler *handler_sch;
 
@@ -92,14 +82,11 @@ public:
   void registercb(int fd, Callback *cb, Work::mode m, bool oneshot=true);
   void poll();
   void poisonpill();
-};
-
-/* To support signal handling without the use of signalfd, we need
- * a static scheduler object. I tried creating one inside the scheduler class
- * (the obvious place for it to go), but was stymied by linker errors. */
-namespace handler_sch
-{
-  extern Scheduler *s;
+  /* Some ready-made signal handlers. The argument and return types
+   * are dictated by the sa_handler field of struct sigaction. (We wouldn't
+   * have to do this if we didn't support an alternative to signalfd.) */
+  static void halt(int ignore);
+  static Scheduler *thescheduler; // For non-signalfd-based signal handling
 };
 
 #endif // SCHEDULER_HPP

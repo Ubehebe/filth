@@ -1,6 +1,7 @@
 #ifndef CMDLINE_HPP
 #define CMDLINE_HPP
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,12 +66,40 @@ template<int N> struct cmdline
   int ivals[N]; // integer value of argument, if applicable
   bool bvals[N]; // boolean value of argument, if applicable
 
-  void parsecmdline(int argc, char **argv);
-  void unrecognized_opt(char *argv0, char *opt);
-  void print_help(char *argv0);
   void atoi_opts();
-
+  void parsecmdline(int argc, char **argv);
+  void print_help(char *argv0);
+  int sigconv(char const *sig);
+  void unrecognized_opt(char *argv0, char *opt);
 };
+
+template<int N> int cmdline<N>::sigconv(char const *sig)
+{
+  static int nsig =
+#define DEFINE_ME(x) +1
+#include "sigs.def"
+#undef DEFINE_ME
+    ;
+
+  static int signos[] = {
+#define DEFINE_ME(x) SIG##x,
+#include "sigs.def"
+#undef DEFINE_ME
+  };
+
+  static char const *sigstrs[] = {
+#define DEFINE_ME(x) #x,
+#include "sigs.def"
+#undef DEFINE_ME
+  };
+  
+  for (int i=0; i < nsig; ++i)
+    if (strncmp(sig, sigstrs[i], strlen(sigstrs[i]))==0)
+      return signos[i];
+  
+  printf("unsupported signal %s\n", sig);
+  exit(0);
+}
 
 template<int N> void cmdline<N>::parsecmdline(int argc, char **argv)
 {

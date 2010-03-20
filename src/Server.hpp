@@ -25,8 +25,11 @@ class Server
 
   LockedQueue<Work *> q; // Jobs waiting to be worked on.
 
-public:
+protected:
   Scheduler sch;
+
+public:
+
   /* For network sockets, bindto should be a string of a port number,
    * like "80". For local sockets, bindto should be a filesystem path. */
   Server(int domain, FindWork &fwork, char const *mount, char const *bindto,

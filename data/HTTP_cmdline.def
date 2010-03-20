@@ -2,6 +2,7 @@
 DEFINE_ME_BOOL(ipv6, 6, ipv6, use IPv6, false)
 DEFINE_ME_INT(cachesz, c, cache-size, static resource cache size (MB), 10)
 DEFINE_ME_STR(default_resource, d, default-resource, resource to serve when "/" is requested, index.html)
+DEFINE_ME_STR(sigflush, f, sigflush, signal to use to flush server, USR1)
 DEFINE_ME_STR(ifnam, i, interface, network interface to use, lo)
 DEFINE_ME_STR(mount, m, mount, where in the filesystem to mount, .)
 DEFINE_ME_INT(port, p, port, listening port, 80)

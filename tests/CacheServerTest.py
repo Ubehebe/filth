@@ -10,6 +10,7 @@ import threading
 import time
 
 files = {}
+sigflush = USR1
 
 class client:
     def __init__(self, nreps):
@@ -80,7 +81,7 @@ pid = os.fork()
 if pid == 0:
 #    os.execv("./../bin/cash", ["cash", "-n./bucket", "-m/tmp", "-s" + sys.argv[1]])
     os.execvp("valgrind", ["valgrind", "./../bin/cash", "-n./bucket", "-m/tmp",
-                           "-s" + sys.argv[1]])
+                           "-f"+sigflush, "-s" + sys.argv[1]])
 else:
     print("waiting for cache to start up")
     time.sleep(5)
@@ -90,5 +91,7 @@ else:
         print("passed")
     else:
         print("FAILED")
+
+    create_files(int(sys.argv[1]
 
     bye()

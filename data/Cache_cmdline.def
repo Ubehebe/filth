@@ -1,4 +1,5 @@
 /* See cmdline.hpp for details. */
+DEFINE_ME_STR(sigflush, f, sigflush, signal to use to flush server, USR1)
 DEFINE_ME_STR(mount, m, mount, directory to use as root, .)
 DEFINE_ME_STR(name, n, name, path to domain socket, ./bucket)
 DEFINE_ME_INT(listenq, q, listen-queue, TCP listen queue size, 10)

@@ -2,6 +2,7 @@
 #define HTTP_SERVER_HPP
 
 #include <list>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -36,22 +37,14 @@ public:
 	      bool ipv6,
 	      size_t cacheszMB,
 	      size_t req_prealloc_MB,
-	      int listenq);
+	      int listenq,
+	      int sigflush);
+  ~HTTP_Server();
+  static HTTP_Server *theserver; // For non-signalfd-based signal handling
+  static void flush(int ignore);
+  #ifdef _COLLECT_STATS
+  uint32_t flushes;
+#endif // _COLLECT_STATS
 };
-
-HTTP_Server::HTTP_Server(char const *portno,
-			 char const *ifnam,
-			 char const *mount,
-			 int nworkers,
-			 bool ipv6,
-			 size_t cacheszMB,
-			 size_t req_prealloc_MB,
-			 int listenq)
-  : Server((ipv6) ? AF_INET6 : AF_INET,
-	   fwork, mount, portno, nworkers, listenq, ifnam),
-    fwork(req_prealloc_MB * (1<<20), sch, cache),
-    cache(cacheszMB * (1<<20), fwork, sch)
-{
-}
 
 #endif // HTTP_SERVER_HPP
