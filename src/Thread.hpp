@@ -119,10 +119,11 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 
 template<class C> Thread<C>::~Thread() 
 {
-  if (pthread_join(th, NULL)!=0) {
+  pthread_join(th, NULL);
+  /*  if (pthread_join(th, NULL)!=0) {
     _LOG_FATAL("pthread_join: %m");
     exit(1);
-  }
+    }*/
   if (dodelete) 
     delete _c;
 }

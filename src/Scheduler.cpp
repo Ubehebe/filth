@@ -36,9 +36,13 @@ Scheduler::_acceptcb::~_acceptcb()
 
 Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
 		     int pollsz, int maxevents)
-  : q(q), fwork(fwork), maxevents(maxevents),
+  : q(q), fwork(fwork), maxevents(maxevents), dowork(true),
     acceptcb(*this, fwork), sigcb(*this, fwork, dowork, sighandlers)
 {
+#ifdef _COLLECT_STATS
+  nflush = 0;
+#endif // _COLLECT_STATS
+
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
    * only know about one instance. If we really need support for this,
@@ -69,14 +73,17 @@ Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
   }
   _LOG_DEBUG("polling fd is %d", pollfd);
 
-  // The default behavior of SIGINTs should be halting.
-  push_sighandler(SIGINT, Scheduler::halt);
+  // Default signal handlers.
+  push_sighandler(SIGINT, Scheduler::halt); 
+  push_sighandler(SIGTERM, Scheduler::halt);
+  push_sighandler(SIGUSR1, Scheduler::flush);
 }
 
 Scheduler::~Scheduler()
 {
   _LOG_DEBUG("close %d", pollfd);
   close(pollfd);
+  _SHOW_STAT(nflush);
 }
 
 void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
@@ -155,16 +162,13 @@ void Scheduler::poll()
   int fd, nchanged, connfd, flags, so_err;
   socklen_t so_errlen = static_cast<socklen_t>(sizeof(so_err));
 
-  dowork = true;
-
   while (dowork) {
     /* epoll_wait is a slow system call, meaning that it can be interrupted
      * by a signal. With the signalfd mechanism this cannot happen, since
      * signals are delivered to sigfd. But it can happen when the fallback
      * mechanism of old-fashioned signal handlers. In this case
      * we just continue; a signal attached to the "halt" handler will
-     * set dowork to false, so we'll just fall through the loop.
-     * TODO: what about other signal behavior, e.g. flush? */
+     * set dowork to false, so we'll just fall through the loop. */
     if ((nchanged = epoll_wait(pollfd, fds, maxevents, -1))<0
 	&& errno != EINTR)
 	throw ResourceErr("epoll_wait", errno);
@@ -219,7 +223,7 @@ void Scheduler::poll()
   }
   _LOG_INFO("scheduler retiring");
   
-  q.enq(NULL); // Poison pill for the workers
+  poisonpill();
 }
 
 void Scheduler::_acceptcb::operator()()
@@ -297,6 +301,12 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
   }
 }
 
+// This should cause the workers to break out of their loops.
+void Scheduler::poisonpill()
+{
+  q.enq(NULL);
+}
+
 void Scheduler::halt(int ignore)
 {
   _LOG_INFO("scheduler halting");
@@ -305,7 +315,8 @@ void Scheduler::halt(int ignore)
 
 void Scheduler::flush(int ignore)
 {
-  // TODO
+  handler_sch::s->poisonpill();
+  _SYNC_INC_STAT(handler_sch::s->nflush);
 }
 
 inline void Scheduler::handle_sock_err(int fd)

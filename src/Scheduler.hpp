@@ -26,6 +26,10 @@ class Scheduler
   sighandler_map sighandlers;
   fdcb_map fdcbs;
 
+#ifdef _COLLECT_STATS
+  uint32_t nflush;
+#endif // _COLLECT_STATS
+
   struct _acceptcb : public Callback
   {
     int fd;
@@ -87,6 +91,7 @@ public:
    * cache changes on disk. */
   void registercb(int fd, Callback *cb, Work::mode m, bool oneshot=true);
   void poll();
+  void poisonpill();
 };
 
 /* To support signal handling without the use of signalfd, we need

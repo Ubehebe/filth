@@ -22,6 +22,8 @@ Server::Server(int domain, FindWork &fwork, char const *mount,
   : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, fwork),
     bindto(bindto)
 {
+  _LOG_DEBUG("pid %d", getpid());
+
   /* A domain socket server needs to remember where it's bound in the
    * filesystem in order to unlink in the destructor. */
   if (domain == AF_LOCAL)
@@ -100,18 +102,20 @@ void Server::serve()
 
   // All signals go to the scheduler...
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
-  /* ...what I really mean is they go to the signal fd IN the scheduler.
-   * This guy has to be named in order not to go out of scope immediately. */
+
   Thread<Scheduler> _blah(&sch, &Scheduler::poll);
 
-  std::list<Thread<Worker> *> workers;
-  /* The Thread destructor calls pthread_join, so this should block until
-   * all the workers and the scheduler are done. */
-  for (int i=0; i<nworkers; ++i)
-    workers.push_back(new Thread<Worker>(&Worker::work));
-  for (std::list<Thread<Worker> *>::iterator it = workers.begin();
-       it != workers.end(); ++it)
-    delete *it;
+  while (sch.dowork) {
+    std::list<Thread<Worker> *> workers;
+    for (int i=0; i<nworkers; ++i)
+      workers.push_back(new Thread<Worker>(&Worker::work));
+    for (std::list<Thread<Worker> *>::iterator it = workers.begin();
+	 it != workers.end(); ++it)
+      delete *it;
+    Work *tmp;
+    while (q.nowait_deq(tmp))
+      delete tmp;
+  }
 }
 
 void Server::setup_AF_INET(char const *ifnam)
