@@ -12,9 +12,10 @@ import time
 files = {}
 
 class client:
-    def __init__(self, nreps):
-        self.passed = True
+    def __init__(self, clid, nreps):
+        self.clid = clid
         self.nreps = nreps
+        self.passed = True
     def __call__(self):
         global files
         # I believe iteration over a dictionary is thread-safe in Python
@@ -26,31 +27,39 @@ class client:
             sock.sendall(name + "\r\n")
             torecv = sz + 2 + len(name)
             recvd = bytearray()
+            print("client " + str(self.clid) + ": requesting " + name
+                  + "[" + str(i+1) + "/" + str(self.nreps) + "]")
             while len(recvd) < torecv:
                 recvd += sock.recv(1<<12)
+                # failure from cache server
+                if len(recvd) == 3+len(name) and recvd[-1] == 0:
+                    print("client " + str(self.clid) + " [" + str(i+1) + "/"
+                          + str(self.nreps) + "]: failure detected, starting over")
+                    recvd = bytearray()
+                    sock = socket.socket(socket.AF_UNIX)
+                    sock.connect("./bucket")
+                    sock.sendall(name + "\r\n")
             if recvd[(2+len(name)):] != stuff:
                 self.passed = False
                 break
-
-# this takes hella long
-def randbytes(n):
-    return bytearray(map(lambda x: random.randint(0,255), range(n)))
 
 def create_files(cachesz, singlefilemax=None):
     if singlefilemax == None:
         singlefilemax = cachesz
     global files
     print("creating random files to fill up " + str(cachesz) + " bytes")
+    randbytes = open("/dev/urandom", "rb")
     free = cachesz
     while free > 0:
         sz = min(random.randint(1, free), singlefilemax)
         tmp = tempfile.NamedTemporaryFile(delete=False)
-        content = randbytes(sz)
+        content = randbytes.read(sz)
         tmp.write(content)
         tmp.close()
         files[tmp.name] = (sz, content)
         free -= sz
         print("wrote " + tmp.name + " " + str(sz))
+    randbytes.close()
 
 def clear_files():
     global files
@@ -63,7 +72,7 @@ def concurrent_test(nclients, nreps):
     clients = []
     threads = []
     for i in range(nclients):
-        clients.append(client(nreps))
+        clients.append(client(i, nreps))
     for c in clients:
         threads.append(threading.Thread(target=c))
     for th in threads:
@@ -97,7 +106,7 @@ else:
 #    clear_files()
 
     create_files(2*cacheszmb, cacheszmb)
-    if (concurrent_test(1,10)):
+    if (concurrent_test(10,100)):
         print("passed")
     else:
         print("FAILED")

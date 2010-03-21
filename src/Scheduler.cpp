@@ -230,7 +230,6 @@ void Scheduler::_acceptcb::operator()()
     } else {
       throw SocketErr("accept", errno);
     }
-    accepts++;
   }
   int flags;
   if ((flags = fcntl(acceptfd, F_GETFL))==-1)
@@ -238,6 +237,7 @@ void Scheduler::_acceptcb::operator()()
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
   sch.schedule(fwork(acceptfd, Work::read), true);
+  _INC_STAT(accepts);
 }
 
 void Scheduler::_sigcb::operator()()

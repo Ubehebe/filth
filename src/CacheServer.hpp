@@ -6,13 +6,13 @@
 #include <unistd.h>
 
 #include "CacheFindWork.hpp"
-#include "inotifyFileCache.hpp"
+#include "FileCache.hpp"
 #include "Server.hpp"
 
 class CacheServer : public Server
 {
   CacheFindWork fwork;
-  inotifyFileCache cache;
+  FileCache cache;
 public:
   CacheServer(char const *sockname,
 	      char const *mount,

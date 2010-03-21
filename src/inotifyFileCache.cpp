@@ -85,6 +85,15 @@ void inotifyFileCache::operator()()
       if (errno != EINTR)
 	break;
     }
+    /* IN_IGNORED is set whenever a watch is explicitly removed
+     * (inotify_rm_watch) or automatically removed (someone did an rm).
+     * The second case is already handled, since we set IN_DELETE_SELF
+     * in the call to inotify_add_watch. The first case happens in the
+     * inotify_cinfo destructor, at which point the watch descriptor is also
+     * removed from the watch map. Thus we just ignore this. */
+    else if (iev.mask & IN_IGNORED) {
+      continue;
+    }
     else if ((wit = wmap.find(iev.wd)) != wmap.end()) {
       // We don't check iev.mask flags here, but we could.
       if ((cit = c.find(wit->second)) != c.end()) {
@@ -97,15 +106,6 @@ void inotifyFileCache::operator()()
 		  (wit->second).c_str());
       }
     }
-    /* IN_IGNORED is set whenever a watch is explicitly removed
-     * (inotify_rm_watch) or automatically removed (someone did an rm).
-     * The second case is already handled, since we set IN_DELETE_SELF
-     * in the call to inotify_add_watch. The first case happens in the
-     * inotify_cinfo destructor, at which point the watch descriptor is also
-     * removed from the watch map. Thus we just ignore this. */
-    else if (iev.mask & IN_IGNORED) {
-      continue;
-    }
     else {
       _LOG_INFO("unexpected: unknown watch descriptor %d, ignoring", iev.wd);
     }
@@ -114,7 +114,7 @@ void inotifyFileCache::operator()()
   if (errno == 0 || errno == EAGAIN || errno == EWOULDBLOCK)
     sch.reschedule(fwork(inotifyfd, Work::read));
   else {
-    _LOG_FATAL("read: %m");
+    _LOG_FATAL("read: %m"); // Seems like a bad idea for this to be fatal
     exit(1);
   }
 }

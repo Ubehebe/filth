@@ -18,7 +18,7 @@ CacheWork::CacheWork(int fd, Work::mode m)
 
 CacheWork::~CacheWork()
 {
-  if (resource != NULL)
+  if (resource != NULL && resource[0] != '\0') // yikes
     cache->release(path);
   st->erase(fd);
 }
@@ -43,17 +43,15 @@ void CacheWork::operator()()
       
       switch (err) {
       case 0: break;
+      case ENOMEM:
       case EINVAL:
-	sleep(1);
-	goto reserve_tryagain;
       case EACCES:
       case EISDIR:
       case ENOENT:
-      case ENOMEM:
       case ESPIPE:
       default:
-	resource = NULL;
-	resourcesz = 0;
+	resource = "\0";
+	resourcesz = 1;
 	break;
       }
       statln = path + "\r\n";
