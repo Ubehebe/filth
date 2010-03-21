@@ -10,7 +10,7 @@ CacheServer::CacheServer(char const *sockname, char const *mount,
 			 int listenq, int sigflush)
   : Server(AF_LOCAL, fwork, mount, sockname, nworkers, listenq),
     fwork(req_prealloc_MB * (1<<20), sch, cache),
-    cache(cacheszMB * (1<<20), fwork)
+    cache(cacheszMB * (1<<20), fwork, sch)
 {
 #ifdef _COLLECT_STATS
   flushes = 0;

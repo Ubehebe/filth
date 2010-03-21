@@ -18,7 +18,7 @@ CacheWork::CacheWork(int fd, Work::mode m)
 
 CacheWork::~CacheWork()
 {
-  if (resource != NULL && resource[0] != '\0') // yikes
+  if (resource != NULL && resource[0] != '\0')
     cache->release(path);
   st->erase(fd);
 }
@@ -50,6 +50,7 @@ void CacheWork::operator()()
       case ENOENT:
       case ESPIPE:
       default:
+	/* In case of error, the client will see "(pathname)\r\n\0". */
 	resource = "\0";
 	resourcesz = 1;
 	break;

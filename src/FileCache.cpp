@@ -33,7 +33,6 @@ FileCache::~FileCache()
 // Looks like it could cause some headaches.
 void FileCache::flush()
 {
-  _LOG_DEBUG("flush cache");
   _SYNC_INC_STAT(flushes);
   list<cinfo *> l;
 
@@ -47,7 +46,6 @@ void FileCache::flush()
   cur = 0;
   c.clear();
   clock.unlock();
-  _LOG_DEBUG("flush cache complete");
 }
 
 FileCache::cinfo::cinfo(size_t sz)
@@ -84,26 +82,15 @@ bool FileCache::evict()
    * that is already gone from the cache, and any file that has a positive
    * reference count, should just be ignored. */
   clock.wrlock();
-  if ((it = c.find(s)) != c.end()) {
-    if (it->second->refcnt == 0) {
-      _LOG_DEBUG("evicting %s", it->first.c_str());
-      _SYNC_INC_STAT(evictions);
-      int curbefore = __sync_sub_and_fetch(&cur, 0);
-      int curafter = __sync_sub_and_fetch(&cur, it->second->sz);
-      _LOG_DEBUG("cur %d -> %d", curbefore, curafter);
-      delete it->second;
-      c.erase(it);
-      clock.unlock();
-      return true;
-    }
-    else {
-      _LOG_DEBUG("found %s in cache, but nonzero refcnt", s.c_str());
-      clock.unlock();
-      goto evict_tryagain;
-    }
+  if ((it = c.find(s)) != c.end() && it->second->refcnt == 0) {
+    _SYNC_INC_STAT(evictions);
+    __sync_sub_and_fetch(&cur, it->second->sz);
+    delete it->second;
+    c.erase(it);
+    clock.unlock();
+    return true;
   }
   else {
-    _LOG_DEBUG("did not find %s in cache, ignoring", s.c_str());
     clock.unlock();
     goto evict_tryagain;
   }
@@ -131,7 +118,6 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
   if ((it = c.find(path)) != c.end()) {
     if (__sync_fetch_and_add(&it->second->invalid, 0)!=0) {
       _SYNC_INC_STAT(invalid_hits);
-      _LOG_DEBUG("reserve %s: found but invalid", path.c_str());
       clock.unlock();
       return EINVAL;
     }
@@ -167,22 +153,25 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
   }
 
   sz = statbuf.st_size;
+
+  // Don't even try if it can't physically fit in cache.
+  if (sz > max) {
+      close(fd);
+      _SYNC_INC_STAT(failures);
+      return ENOMEM;
+  }
   
  reserve_tryagain:
   
   // Not enough room in the cache?
   if (__sync_add_and_fetch(&cur, sz) > max) {
-    int curnow = __sync_sub_and_fetch(&cur, sz);
-    _LOG_DEBUG("reserve %s: %d needed, %d cur, %d available",
-	       path.c_str(), sz, curnow, max-curnow);
+    __sync_sub_and_fetch(&cur, sz);
     // If we were able to evict something try again.
     if (evict()) {
       goto reserve_tryagain;
     }
     // Otherwise just give up.
     else {
-      _LOG_DEBUG("reserve %s: can't evict anything (%d in cache), reporting failure",
-		 path.c_str(), c.size());
       close(fd);
       _SYNC_INC_STAT(failures);
       return ENOMEM;
@@ -249,7 +238,6 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     c[path] = tmp;
     resource = tmp->buf;
     _SYNC_INC_STAT(misses);
-    _LOG_DEBUG("%s enters cache", path.c_str());
   }
   clock.unlock();
   return 0;
@@ -268,7 +256,6 @@ void FileCache::release(std::string &path)
   clock.unlock();
   if (doenq) {
     toevict.enq(path);
-    _LOG_DEBUG("%s goes on evict list", path.c_str());
   }
   // Evicts the invalidated file, but first evicts everything else. Overkill?
   if (doevict) {

@@ -1,12 +1,23 @@
 #include <iostream>
 
-class Foo
+#include "Locks.hpp"
+#include "sigmasks.hpp"
+#include "Thread.hpp"
+
+class Deadlock
 {
+  Mutex m;
 public:
-  static int x = 5;
+  Deadlock() { m.lock(); }
+  ~Deadlock() { m.unlock(); }
+  void deadlock() { m.lock(); }
 };
 
 int main()
 {
+  Deadlock d;
+  Thread<Deadlock> th(&d, &Deadlock::deadlock,
+		      PTHREAD_CANCEL_ENABLE, PTHREAD_CANCEL_ASYNCHRONOUS);
+  th.cancel();
 }
 

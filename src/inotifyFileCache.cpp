@@ -114,7 +114,6 @@ void inotifyFileCache::operator()()
   if (errno == 0 || errno == EAGAIN || errno == EWOULDBLOCK)
     sch.reschedule(fwork(inotifyfd, Work::read));
   else {
-    _LOG_FATAL("read: %m"); // Seems like a bad idea for this to be fatal
-    exit(1);
+    _LOG_INFO("read: %m, continuing");
   }
 }

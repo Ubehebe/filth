@@ -31,22 +31,31 @@
  * should know how to set it. */
 template<class C> class Thread
 {
-  // No copying, no assigning.
   Thread(Thread const&);
   Thread &operator=(Thread const&);
 
 public:
-  Thread(void (C::*p)());
-  Thread(void (C::*p)(), sigmasks::builtin b);
-  Thread(C *c, void (C::*p)());
-  Thread(C *c, void (C::*p)(), sigmasks::builtin b);
+  Thread(void (C::*p)(),
+	 int cancelstate=PTHREAD_CANCEL_ENABLE,
+	 int canceltype=PTHREAD_CANCEL_DEFERRED);
+  Thread(void (C::*p)(), sigmasks::builtin b,
+	 int cancelstate=PTHREAD_CANCEL_ENABLE,
+	 int canceltype=PTHREAD_CANCEL_DEFERRED);
+  Thread(C *c, void (C::*p)(),
+	 int cancelstate=PTHREAD_CANCEL_ENABLE,
+	 int canceltype=PTHREAD_CANCEL_DEFERRED);
+  Thread(C *c, void (C::*p)(), sigmasks::builtin b,
+	 int cancelstate=PTHREAD_CANCEL_ENABLE,
+	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   ~Thread();
+  void cancel();
 private:
   C *_c;
   void (C::*_p)();
 
   bool dodelete;
   pthread_t th;
+  int cancelstate, canceltype;
 
   static void *pthread_create_wrapper(void *_Th);
 
@@ -57,40 +66,51 @@ private:
     C *_c;
     void (C::*_p)();
     sigmasks::builtin *_b;
-    _Thread(C *_c, void (C::*_p)(), sigmasks::builtin *_b)
-      : _c(_c), _p(_p), _b(_b) {}
+    int _cancelstate, _canceltype;
+    _Thread(C *_c, void (C::*_p)(), sigmasks::builtin *_b,
+	    int _cancelstate, int _canceltype)
+      : _c(_c), _p(_p), _b(_b),  _cancelstate(_cancelstate),
+	_canceltype(_canceltype) {}
   };
 };
 
 
 
-template<class C> Thread<C>::Thread(void (C::*p)())
-  : _c(new C()), _p(p), dodelete(true)
+template<class C> Thread<C>::Thread(void (C::*p)(),
+				    int cancelstate, int canceltype)
+  : _c(new C()), _p(p), dodelete(true),
+    cancelstate(cancelstate), canceltype(canceltype)
 {
   _init(NULL);
 }
 
-template<class C> Thread<C>::Thread(C *c, void (C::*p)())
-  : _c(c), _p(p), dodelete(false)
+template<class C> Thread<C>::Thread(C *c, void (C::*p)(),
+				    int cancelstate, int canceltype)
+  : _c(c), _p(p), dodelete(false),
+    cancelstate(cancelstate), canceltype(canceltype)
 {
   _init(NULL);
 }
 
-template<class C> Thread<C>::Thread(void (C::*p)(), sigmasks::builtin b)
-  : _c(new C()), _p(p), dodelete(true)
+template<class C> Thread<C>::Thread(void (C::*p)(), sigmasks::builtin b,
+				    int cancelstate, int canceltype)
+  : _c(new C()), _p(p), dodelete(true),
+    cancelstate(cancelstate), canceltype(canceltype)
 {
   _init(&b);
 }
 
-template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin b)
-  : _c(c), _p(p), dodelete(false)
+template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin b,
+				    int cancelstate, int canceltype)
+  : _c(c), _p(p), dodelete(false),
+    cancelstate(cancelstate), canceltype(canceltype)
 {
   _init(&b);
 }
 
 template<class C> void Thread<C>::_init(sigmasks::builtin *b)
 {
-  _Thread *tmp = new _Thread(_c, _p, b);
+  _Thread *tmp = new _Thread(_c, _p, b, cancelstate, canceltype);
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
     _LOG_FATAL("pthread_create: %m");
@@ -112,6 +132,15 @@ template<class C> void *Thread<C>::pthread_create_wrapper
    * sigmask, the signal could be lost. */
   if (tmp->_b != NULL)
     sigmasks::sigmask_caller(*(tmp->_b));
+
+  if ((errno = pthread_setcancelstate(tmp->_cancelstate, NULL))!=0) {
+    _LOG_FATAL("pthread_setcancelstate: %m");
+    exit(1);
+  }
+  if ((errno = pthread_setcanceltype(tmp->_canceltype, NULL))!=0) {
+    _LOG_FATAL("pthread_setcanceltype: %m");
+    exit(1);
+  }
   
   (std::mem_fun(tmp->_p))(tmp->_c);
   delete tmp;
@@ -119,13 +148,18 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 
 template<class C> Thread<C>::~Thread() 
 {
-  pthread_join(th, NULL);
-  /*  if (pthread_join(th, NULL)!=0) {
+  if ((errno = pthread_join(th, NULL))!=0) {
     _LOG_FATAL("pthread_join: %m");
     exit(1);
-    }*/
+  }
   if (dodelete) 
     delete _c;
+}
+
+template<class C> void Thread<C>::cancel()
+{
+  if ((errno = pthread_cancel(th))!=0)
+    _LOG_INFO("pthread_cancel: %m, continuing");
 }
 
 #endif // THREAD_HPP
