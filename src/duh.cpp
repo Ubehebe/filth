@@ -23,16 +23,6 @@ public:
   void deadlock() { m.lock(); }
 };
 
-void hopeful(int ignore)
-{
-  Thread<Deadlock>::sigall(0);
-}
-
-void hopeful2(int ignore)
-{
-  pthread_exit(NULL);
-}
-
 int main()
 {
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
@@ -40,10 +30,9 @@ int main()
   Thread<Deadlock>::setup_emerg_exitall(SIGCONT);
   struct sigaction act;
   memset((void *)&act, 0, sizeof(act));
-  act.sa_handler = hopeful;
+  act.sa_handler = Thread<Deadlock>::sigall;
   if (sigaction(SIGINT, &act, NULL)==-1)
     _LOG_DEBUG("sigaction: %m");
-
   openlog("duh", LOG_PERROR, LOG_USER);
   while (true)  {
     list<Thread<Deadlock> *> l;

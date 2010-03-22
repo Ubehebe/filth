@@ -106,6 +106,7 @@ void Server::serve()
   Thread<Scheduler> _blah(&sch, &Scheduler::poll);
 
   while (sch.dowork) {
+    Thread<Worker>::dojoin = true;
     std::list<Thread<Worker> *> workers;
     for (int i=0; i<nworkers; ++i)
       workers.push_back(new Thread<Worker>(&Worker::work));
@@ -114,9 +115,11 @@ void Server::serve()
       workers.pop_front();
       delete th;
     }
-    Work *tmp;
-    while (q.nowait_deq(tmp))
-      delete tmp;
+    // Why do these cause a block? Investigate Work destructors.
+    //    Work *tmp;
+    //    while (q.nowait_deq(tmp))
+    //      delete tmp;
+    _LOG_DEBUG("?");
   }
 }
 

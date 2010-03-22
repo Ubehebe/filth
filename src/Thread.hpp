@@ -57,16 +57,23 @@ public:
   static int sigth;
   static void setup_emerg_exitall(int sigtouse);
   static void sigall(int ignore);
+  pthread_t th;
+  static bool dojoin; // just for now!
 
 private:
   C *_c;
   void (C::*_p)();
   bool dodelete;
-  pthread_t th;
+
   int cancelstate, canceltype; // pthreads cancel
 
-  static std::list<pthread_t> ths;
-  static void emerg_exit(int ignore) { pthread_exit(NULL); }
+  static std::list<Thread<C> *> ths;
+  static void emerg_exit(int ignore)
+  {
+    _LOG_DEBUG("emergency exit!");
+    dojoin = false;
+    pthread_exit(NULL);
+  }
   static void *pthread_create_wrapper(void *_Th);
 
   void _init(sigmasks::builtin *b);
@@ -87,7 +94,9 @@ private:
 
 template<class C> int Thread<C>::sigth= -1;
 
-template<class C> std::list<pthread_t> Thread<C>::ths;
+template<class C> std::list<Thread<C> *> Thread<C>::ths;
+
+template<class C> bool Thread<C>::dojoin = true;
 
 template<class C> void Thread<C>::setup_emerg_exitall(int sigtouse)
 {
@@ -108,8 +117,13 @@ template<class C> void Thread<C>::setup_emerg_exitall(int sigtouse)
 
 template<class C> void Thread<C>::sigall(int ignore)
 {
-  for (std::list<pthread_t>::iterator it = ths.begin(); it != ths.end(); ++it) {
-    if ((errno=pthread_kill(*it, sigth))!=0)
+  // WTF parsing
+  typename std::list<Thread<C> *>::iterator it;
+  for (it = ths.begin(); it != ths.end(); ++it) {
+    (*it)->dojoin = false;
+  }
+  for (it = ths.begin(); it != ths.end(); ++it) {
+    if ((errno=pthread_kill((*it)->th, sigth))!=0)
       _LOG_INFO("pthread_kill: %m, continuing");
   }
   ths.clear();
@@ -149,6 +163,8 @@ template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin b,
 
 template<class C> void Thread<C>::_init(sigmasks::builtin *b)
 {
+  ths.push_back(this);
+
   _Thread *tmp = new _Thread(_c, _p, b, cancelstate, canceltype);
 
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
@@ -173,12 +189,8 @@ template<class C> void *Thread<C>::pthread_create_wrapper
   if (tmp->_b != NULL)
     sigmasks::sigmask_caller(*(tmp->_b));
 
-  if (sigth != -1) {
+  if (sigth != -1)
     sigmasks::sigmask_caller(SIG_UNBLOCK, sigth);
-    ths.push_back(pthread_self());
-  }
-
-  _LOG_DEBUG("%ld", syscall(SYS_gettid));
 
   if ((errno = pthread_setcancelstate(tmp->_cancelstate, NULL))!=0) {
     _LOG_FATAL("pthread_setcancelstate: %m");
@@ -196,12 +208,21 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 
 template<class C> Thread<C>::~Thread() 
 {
-  _LOG_DEBUG("blocking at pthread_join");
-  if ((errno = pthread_join(th, NULL))!=0) {
-    _LOG_FATAL("pthread_join: %m");
-    exit(1);
+  if (dojoin) {
+    _LOG_DEBUG("blocking at pthread_join");
+    if ((errno = pthread_join(th, NULL))!=0) {
+      _LOG_FATAL("pthread_join: %m");
+      exit(1);
+    }
+    _LOG_DEBUG("finished pthread_join");
   }
-  _LOG_DEBUG("finished pthread_join");
+  else {
+    if ((errno = pthread_detach(th))!=0) {
+      _LOG_FATAL("pthread_detach: %m");
+      exit(1);
+    }
+    _LOG_DEBUG("advised not to do pthread_join");
+  }
   if (dodelete) 
     delete _c;
 }
