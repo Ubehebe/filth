@@ -7,13 +7,12 @@
 #include "sigmasks.hpp"
 #include "Worker.hpp"
 
+using namespace std;
+
 LockedQueue<Work *> *Worker::q = NULL;
 
 void Worker::work()
 {
-  // A worker should never have to deal with signal handling...right?
-  sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
-
   _LOG_INFO("worker commencing");
 
   while (true) {

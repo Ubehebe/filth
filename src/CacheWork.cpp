@@ -51,7 +51,7 @@ void CacheWork::operator()()
       case ESPIPE:
       default:
 	/* In case of error, the client will see "(pathname)\r\n\0". */
-	resource = "\0";
+	resource = const_cast<char *>("\0"); // This cast ok?
 	resourcesz = 1;
 	break;
       }

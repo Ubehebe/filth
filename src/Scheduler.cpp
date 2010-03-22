@@ -250,8 +250,8 @@ void Scheduler::_sigcb::operator()()
   int i=0;
   while (nread > 0) {
     if ((iter = sighandlers.find(siginfo[i].ssi_signo)) != sighandlers.end()) {
-      ((*iter).second)(0);
       _LOG_INFO("got signal %s", strsignal(siginfo[i].ssi_signo));
+      ((*iter).second)(0);
     } else {
       _LOG_INFO("got signal %s but have no handler for it, ignoring",
 		strsignal(siginfo[i].ssi_signo));

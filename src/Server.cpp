@@ -14,6 +14,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "logging.h"
 #include "Server.hpp"
 #include "sigmasks.hpp"
 
@@ -97,10 +98,9 @@ Server::~Server()
   }
 }
 
+// The main loop.
 void Server::serve()
 {
-
-  // All signals go to the scheduler...
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
 
   Thread<Scheduler> _blah(&sch, &Scheduler::poll);
@@ -109,9 +109,11 @@ void Server::serve()
     std::list<Thread<Worker> *> workers;
     for (int i=0; i<nworkers; ++i)
       workers.push_back(new Thread<Worker>(&Worker::work));
-    for (std::list<Thread<Worker> *>::iterator it = workers.begin();
-	 it != workers.end(); ++it)
-      delete *it;
+    while (!workers.empty()) {
+      Thread<Worker> *th = workers.front();
+      workers.pop_front();
+      delete th;
+    }
     Work *tmp;
     while (q.nowait_deq(tmp))
       delete tmp;

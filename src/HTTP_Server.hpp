@@ -38,7 +38,9 @@ public:
 	      size_t cacheszMB,
 	      size_t req_prealloc_MB,
 	      int listenq,
-	      int sigflush);
+	      int sigdeadlock,
+	      int sigflush,
+	      int sigthinternal);
   ~HTTP_Server();
   static HTTP_Server *theserver; // For non-signalfd-based signal handling
   static void flush(int ignore);

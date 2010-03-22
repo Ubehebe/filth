@@ -27,7 +27,9 @@ int main(int argc, char **argv)
 		HTTP_cmdline::c.ivals[HTTP_cmdline::cachesz],
 		HTTP_cmdline::c.ivals[HTTP_cmdline::req_prealloc_sz],
 		HTTP_cmdline::c.ivals[HTTP_cmdline::listenq],
-		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigflush])
+		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigdeadlock]),
+		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigflush]),
+		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigth])
 		).serve();
   }
   catch (ResourceErr e) {

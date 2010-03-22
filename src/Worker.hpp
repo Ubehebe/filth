@@ -1,6 +1,8 @@
 #ifndef WORKER_HPP
 #define WORKER_HPP
 
+#include <list>
+
 #include "LockedQueue.hpp"
 #include "Work.hpp"
 

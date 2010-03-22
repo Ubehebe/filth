@@ -26,6 +26,7 @@ int main(int argc, char **argv)
 		Cache_cmdline::c.ivals[Cache_cmdline::sz],
 		1, // ?
 		Cache_cmdline::c.ivals[Cache_cmdline::listenq],
+		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigdeadlock]),
 		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigflush])
 		).serve();
   } catch (ResourceErr e) {

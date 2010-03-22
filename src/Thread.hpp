@@ -1,11 +1,15 @@
 #ifndef THREAD_HPP
 #define THREAD_HPP
 
-#include <pthread.h>
-#include <signal.h>
+#include <algorithm>
 #include <errno.h>
 #include <functional>
+#include <list>
+#include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "logging.h"
@@ -49,14 +53,20 @@ public:
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   ~Thread();
   void cancel();
+
+  static int sigth;
+  static void setup_emerg_exitall(int sigtouse);
+  static void sigall(int ignore);
+
 private:
   C *_c;
   void (C::*_p)();
-
   bool dodelete;
   pthread_t th;
-  int cancelstate, canceltype;
+  int cancelstate, canceltype; // pthreads cancel
 
+  static std::list<pthread_t> ths;
+  static void emerg_exit(int ignore) { pthread_exit(NULL); }
   static void *pthread_create_wrapper(void *_Th);
 
   void _init(sigmasks::builtin *b);
@@ -70,16 +80,45 @@ private:
     _Thread(C *_c, void (C::*_p)(), sigmasks::builtin *_b,
 	    int _cancelstate, int _canceltype)
       : _c(_c), _p(_p), _b(_b),  _cancelstate(_cancelstate),
-	_canceltype(_canceltype) {}
+	_canceltype(_canceltype)
+    {}
   };
 };
 
+template<class C> int Thread<C>::sigth= -1;
 
+template<class C> std::list<pthread_t> Thread<C>::ths;
+
+template<class C> void Thread<C>::setup_emerg_exitall(int sigtouse)
+{
+  if (sigth != -1) {
+    _LOG_INFO("redefining internal-use pthread_kill signal from %d to %d; "
+	      "expect chaos", sigth, sigtouse);
+  }
+  sigth = sigtouse;
+
+  struct sigaction act;
+  memset((void *)&act, 0, sizeof(act));
+  act.sa_handler = emerg_exit;
+  if (sigaction(sigth, &act, NULL)==-1) {
+    _LOG_FATAL("sigaction: %m");
+    exit(1);
+  }
+}
+
+template<class C> void Thread<C>::sigall(int ignore)
+{
+  for (std::list<pthread_t>::iterator it = ths.begin(); it != ths.end(); ++it) {
+    if ((errno=pthread_kill(*it, sigth))!=0)
+      _LOG_INFO("pthread_kill: %m, continuing");
+  }
+  ths.clear();
+}
 
 template<class C> Thread<C>::Thread(void (C::*p)(),
 				    int cancelstate, int canceltype)
   : _c(new C()), _p(p), dodelete(true),
-    cancelstate(cancelstate), canceltype(canceltype)
+      cancelstate(cancelstate), canceltype(canceltype)
 {
   _init(NULL);
 }
@@ -111,6 +150,7 @@ template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin b,
 template<class C> void Thread<C>::_init(sigmasks::builtin *b)
 {
   _Thread *tmp = new _Thread(_c, _p, b, cancelstate, canceltype);
+
   if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
     _LOG_FATAL("pthread_create: %m");
@@ -133,6 +173,13 @@ template<class C> void *Thread<C>::pthread_create_wrapper
   if (tmp->_b != NULL)
     sigmasks::sigmask_caller(*(tmp->_b));
 
+  if (sigth != -1) {
+    sigmasks::sigmask_caller(SIG_UNBLOCK, sigth);
+    ths.push_back(pthread_self());
+  }
+
+  _LOG_DEBUG("%ld", syscall(SYS_gettid));
+
   if ((errno = pthread_setcancelstate(tmp->_cancelstate, NULL))!=0) {
     _LOG_FATAL("pthread_setcancelstate: %m");
     exit(1);
@@ -141,17 +188,20 @@ template<class C> void *Thread<C>::pthread_create_wrapper
     _LOG_FATAL("pthread_setcanceltype: %m");
     exit(1);
   }
-  
+
   (std::mem_fun(tmp->_p))(tmp->_c);
+
   delete tmp;
 }
 
 template<class C> Thread<C>::~Thread() 
 {
+  _LOG_DEBUG("blocking at pthread_join");
   if ((errno = pthread_join(th, NULL))!=0) {
     _LOG_FATAL("pthread_join: %m");
     exit(1);
   }
+  _LOG_DEBUG("finished pthread_join");
   if (dodelete) 
     delete _c;
 }
