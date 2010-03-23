@@ -1,5 +1,5 @@
 #include "HTTP_Server.hpp"
-#include "Thread.hpp"
+#include "SigThread.hpp"
 
 HTTP_Server *HTTP_Server::theserver = NULL;
 
@@ -11,11 +11,11 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 size_t cacheszMB,
 			 size_t req_prealloc_MB,
 			 int listenq,
-			 int sigdeadlock,
 			 int sigflush,
-			 int sigthinternal)
-  : Server((ipv6) ? AF_INET6 : AF_INET,
-	   fwork, mount, portno, nworkers, listenq, ifnam),
+			 int sigdeadlock_internal,
+			 int sigdeadlock_external)
+  : Server((ipv6) ? AF_INET6 : AF_INET, fwork, mount, portno, nworkers, listenq,
+	   sigdeadlock_internal, sigdeadlock_external, ifnam),
     fwork(req_prealloc_MB * (1<<20), sch, cache),
     cache(cacheszMB * (1<<20), fwork, sch)
 {
@@ -24,8 +24,6 @@ HTTP_Server::HTTP_Server(char const *portno,
 #endif // _COLLECT_STATS
   theserver = this;
   sch.push_sighandler(sigflush, flush);
-  Thread<Worker>::setup_emerg_exitall(sigthinternal);
-  sch.push_sighandler(sigdeadlock, Thread<Worker>::sigall);
 }
 
 HTTP_Server::~HTTP_Server()

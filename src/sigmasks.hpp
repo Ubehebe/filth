@@ -13,6 +13,7 @@ namespace sigmasks
   void sigmask_caller(builtin b);
   void sigmask_caller(int how, std::vector<int>&sigs);
   void sigmask_caller(int how, int sig);
+  void sigmask_caller(int how, sigset_t *sigset);
 };
 
 #endif // SIGMASKS_HPP

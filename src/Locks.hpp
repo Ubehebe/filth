@@ -24,7 +24,6 @@ class Mutex
 
 class CondVar
 {
-  // No copying, no assigning.
   CondVar(CondVar const &);
   CondVar &operator=(CondVar const &);
 

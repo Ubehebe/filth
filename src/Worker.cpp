@@ -4,7 +4,6 @@
 
 #include "logging.h"
 #include "ServerErrs.hpp"
-#include "sigmasks.hpp"
 #include "Worker.hpp"
 
 using namespace std;

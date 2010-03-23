@@ -1,10 +1,8 @@
 #ifndef THREAD_HPP
 #define THREAD_HPP
 
-#include <algorithm>
 #include <errno.h>
 #include <functional>
-#include <list>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -12,162 +10,125 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "Locks.hpp"
 #include "logging.h"
-#include "sigmasks.hpp"
+
+// TODO: add push at exit handlers
+// Direction: condition variables to signal deallocation...works better than join?
 
 /* Wrapper around posix threads to do the most common thing:
  * set up a thread to execute a nullary member function.
  * 
  * Notes:
  *
- * The destructor performs the pthread_wait; I think this is reasonable,
- * but it means you have to be careful about when your Thread objects
- * go out of scope.
- *
- * Two of the constructors take a sigmasks::builtin argument, which
- * receive the interpretation of "block these"; e.g. the constructor
- * interprets sigmasks::ALL to mean "block all signals". If a constructor
- * is called without a sigmasks::builtin argument, we assume the
- * object is going to set its own signal mask, perhaps as the first thing
- * in the nullary function. We didn't provide more flexibility in the
- * constructor on purpose; if a thread is going to have an elaborate
- * signal mask, it is natural that the object that becomes the thread
- * should know how to set it. */
+ * UPDATE NOTES! */
 template<class C> class Thread
 {
-  Thread(Thread const&);
-  Thread &operator=(Thread const&);
-
+  static void cleanup_default(void *) {}
 public:
   Thread(void (C::*p)(),
+	 sigset_t *_sigmask=NULL,
+	 bool detached=false,
+	 void (*cleanup)(void *)=cleanup_default,
+	 bool cleanup_on_normal_exit=true,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
-  Thread(void (C::*p)(), sigmasks::builtin b,
-	 int cancelstate=PTHREAD_CANCEL_ENABLE,
-	 int canceltype=PTHREAD_CANCEL_DEFERRED);
-  Thread(C *c, void (C::*p)(),
-	 int cancelstate=PTHREAD_CANCEL_ENABLE,
-	 int canceltype=PTHREAD_CANCEL_DEFERRED);
-  Thread(C *c, void (C::*p)(), sigmasks::builtin b,
+  Thread(C *c,
+	 void (C::*p)(),
+	 sigset_t *_sigmask=NULL,
+	 bool detached=false,
+	 void (*cleanup)(void *)=cleanup_default,
+	 bool cleanup_on_normal_exit=true,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   ~Thread();
-  void cancel();
+  void cancel(); // Found no use for this yet
 
-  static int sigth;
-  static void setup_emerg_exitall(int sigtouse);
-  static void sigall(int ignore);
+protected:
   pthread_t th;
-  static bool dojoin; // just for now!
+  sigset_t *_sigmask;
 
 private:
+  Thread(Thread const&);
+  Thread &operator=(Thread const&);
   C *_c;
   void (C::*_p)();
-  bool dodelete;
+  bool dodelete, detached, cleanup_on_normal_exit;
+  int cancelstate, canceltype;
+  void (*cleanup)(void *);
 
-  int cancelstate, canceltype; // pthreads cancel
-
-  static std::list<Thread<C> *> ths;
-  static void emerg_exit(int ignore)
-  {
-    _LOG_DEBUG("emergency exit!");
-    dojoin = false;
-    pthread_exit(NULL);
-  }
   static void *pthread_create_wrapper(void *_Th);
 
-  void _init(sigmasks::builtin *b);
+  void _init();
+
   // Just to pack and unpack stuff across the call to pthread_create_wrapper.
   struct _Thread
   {
     C *_c;
     void (C::*_p)();
-    sigmasks::builtin *_b;
-    int _cancelstate, _canceltype;
-    _Thread(C *_c, void (C::*_p)(), sigmasks::builtin *_b,
+    sigset_t *_sigmask;
+    int _cancelstate, _canceltype, _cleanup_on_normal_exit;
+    void (*_cleanup)(void *);
+    _Thread(C *_c, void (C::*_p)(), sigset_t *_sigmask,
+	    void (*_cleanup)(void *), bool _cleanup_on_normal_exit,
 	    int _cancelstate, int _canceltype)
-      : _c(_c), _p(_p), _b(_b),  _cancelstate(_cancelstate),
-	_canceltype(_canceltype)
+      : _c(_c), _p(_p), _sigmask(_sigmask),  _cleanup(_cleanup),
+	_cleanup_on_normal_exit(static_cast<int>(_cleanup_on_normal_exit)),
+	_cancelstate(_cancelstate), _canceltype(_canceltype)
     {}
   };
 };
 
-template<class C> int Thread<C>::sigth= -1;
-
-template<class C> std::list<Thread<C> *> Thread<C>::ths;
-
-template<class C> bool Thread<C>::dojoin = true;
-
-template<class C> void Thread<C>::setup_emerg_exitall(int sigtouse)
+template<class C> Thread<C>::Thread(
+				    void (C::*p)(),
+				    sigset_t *_sigmask,
+				    bool detached,
+				    void (*cleanup)(void *),
+				    bool cleanup_on_normal_exit,
+				    int cancelstate,
+				    int canceltype)
+  : _c(new C()), _p(p), _sigmask(_sigmask), detached(detached),
+    cleanup(cleanup), cleanup_on_normal_exit(cleanup_on_normal_exit),
+    cancelstate(cancelstate), canceltype(canceltype), dodelete(true)
 {
-  if (sigth != -1) {
-    _LOG_INFO("redefining internal-use pthread_kill signal from %d to %d; "
-	      "expect chaos", sigth, sigtouse);
-  }
-  sigth = sigtouse;
+  _init();
+}
 
-  struct sigaction act;
-  memset((void *)&act, 0, sizeof(act));
-  act.sa_handler = emerg_exit;
-  if (sigaction(sigth, &act, NULL)==-1) {
-    _LOG_FATAL("sigaction: %m");
+template<class C> Thread<C>::Thread(
+				    C *c,
+				    void (C::*p)(),
+				    sigset_t *_sigmask,
+				    bool detached,
+				    void (*cleanup)(void *),
+				    bool cleanup_on_normal_exit,
+				    int cancelstate,
+				    int canceltype)
+  : _c(c), _p(p), _sigmask(_sigmask), detached(detached), cleanup(cleanup),
+    cleanup_on_normal_exit(cleanup_on_normal_exit),
+    cancelstate(cancelstate), canceltype(canceltype), dodelete(false)
+{
+  _init();
+}
+
+template<class C> void Thread<C>::_init()
+{
+  _Thread *tmp = new _Thread(_c, _p, _sigmask, cleanup,
+			     cleanup_on_normal_exit, cancelstate, canceltype);
+
+  pthread_attr_t attr;
+  if ((errno = pthread_attr_init(&attr))!=0) {
+    _LOG_FATAL("pthread_attr_init: %m");
     exit(1);
   }
-}
-
-template<class C> void Thread<C>::sigall(int ignore)
-{
-  // WTF parsing
-  typename std::list<Thread<C> *>::iterator it;
-  for (it = ths.begin(); it != ths.end(); ++it) {
-    (*it)->dojoin = false;
+  if ((errno = pthread_attr_setdetachstate(&attr,
+					   (detached)
+					   ? PTHREAD_CREATE_DETACHED
+					   : PTHREAD_CREATE_JOINABLE))!=0) {
+    _LOG_FATAL("pthread_attr_setdetachstate: %m");
+    exit(1);
   }
-  for (it = ths.begin(); it != ths.end(); ++it) {
-    if ((errno=pthread_kill((*it)->th, sigth))!=0)
-      _LOG_INFO("pthread_kill: %m, continuing");
-  }
-  ths.clear();
-}
 
-template<class C> Thread<C>::Thread(void (C::*p)(),
-				    int cancelstate, int canceltype)
-  : _c(new C()), _p(p), dodelete(true),
-      cancelstate(cancelstate), canceltype(canceltype)
-{
-  _init(NULL);
-}
-
-template<class C> Thread<C>::Thread(C *c, void (C::*p)(),
-				    int cancelstate, int canceltype)
-  : _c(c), _p(p), dodelete(false),
-    cancelstate(cancelstate), canceltype(canceltype)
-{
-  _init(NULL);
-}
-
-template<class C> Thread<C>::Thread(void (C::*p)(), sigmasks::builtin b,
-				    int cancelstate, int canceltype)
-  : _c(new C()), _p(p), dodelete(true),
-    cancelstate(cancelstate), canceltype(canceltype)
-{
-  _init(&b);
-}
-
-template<class C> Thread<C>::Thread(C *c, void (C::*p)(), sigmasks::builtin b,
-				    int cancelstate, int canceltype)
-  : _c(c), _p(p), dodelete(false),
-    cancelstate(cancelstate), canceltype(canceltype)
-{
-  _init(&b);
-}
-
-template<class C> void Thread<C>::_init(sigmasks::builtin *b)
-{
-  ths.push_back(this);
-
-  _Thread *tmp = new _Thread(_c, _p, b, cancelstate, canceltype);
-
-  if ((errno = pthread_create(&th, NULL, Thread<C>::pthread_create_wrapper,
+  if ((errno = pthread_create(&th, &attr, Thread<C>::pthread_create_wrapper,
 			      reinterpret_cast<void *>(tmp))) != 0) {
     _LOG_FATAL("pthread_create: %m");
     exit(1);
@@ -186,12 +147,11 @@ template<class C> void *Thread<C>::pthread_create_wrapper
    * before setting its sigmask. Equally, if the caller blocks signal X,
    * this thread doesn't, but signal X is generated before setting its
    * sigmask, the signal could be lost. */
-  if (tmp->_b != NULL)
-    sigmasks::sigmask_caller(*(tmp->_b));
-
-  if (sigth != -1)
-    sigmasks::sigmask_caller(SIG_UNBLOCK, sigth);
-
+  if (tmp->_sigmask != NULL
+      && ((errno = pthread_sigmask(SIG_SETMASK, tmp->_sigmask, NULL))!=0)) {
+    _LOG_FATAL("pthread_sigmask: %m");
+    exit(1);
+  }
   if ((errno = pthread_setcancelstate(tmp->_cancelstate, NULL))!=0) {
     _LOG_FATAL("pthread_setcancelstate: %m");
     exit(1);
@@ -201,27 +161,26 @@ template<class C> void *Thread<C>::pthread_create_wrapper
     exit(1);
   }
 
-  (std::mem_fun(tmp->_p))(tmp->_c);
-
+  void (*cleanup)(void *) = tmp->_cleanup;
+  bool cleanup_on_normal_exit = tmp->_cleanup_on_normal_exit;
+  void (C::*p)() = tmp->_p;
+  C *c = tmp->_c;
+  
   delete tmp;
+
+  pthread_cleanup_push(cleanup, NULL);
+
+  (std::mem_fun(p))(c);
+
+  pthread_cleanup_pop(cleanup_on_normal_exit);
+
 }
 
 template<class C> Thread<C>::~Thread() 
 {
-  if (dojoin) {
-    _LOG_DEBUG("blocking at pthread_join");
-    if ((errno = pthread_join(th, NULL))!=0) {
-      _LOG_FATAL("pthread_join: %m");
-      exit(1);
-    }
-    _LOG_DEBUG("finished pthread_join");
-  }
-  else {
-    if ((errno = pthread_detach(th))!=0) {
-      _LOG_FATAL("pthread_detach: %m");
-      exit(1);
-    }
-    _LOG_DEBUG("advised not to do pthread_join");
+  if (!detached && (errno = pthread_join(th, NULL))!=0) {
+    _LOG_FATAL("pthread_join: %m");
+    exit(1);
   }
   if (dodelete) 
     delete _c;

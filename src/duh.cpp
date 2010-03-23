@@ -8,9 +8,7 @@
 
 #define _LOG_DEBUG
 
-#include "Locks.hpp"
-#include "sigmasks.hpp"
-#include "Thread.hpp"
+#include "SigThread.hpp"
 
 using namespace std;
 
@@ -25,25 +23,13 @@ public:
 
 int main()
 {
-  sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
-  sigmasks::sigmask_caller(SIG_UNBLOCK, SIGINT);
-  Thread<Deadlock>::setup_emerg_exitall(SIGCONT);
-  struct sigaction act;
-  memset((void *)&act, 0, sizeof(act));
-  act.sa_handler = Thread<Deadlock>::sigall;
-  if (sigaction(SIGINT, &act, NULL)==-1)
-    _LOG_DEBUG("sigaction: %m");
   openlog("duh", LOG_PERROR, LOG_USER);
+  SigThread<Deadlock>::setup(SIGINT, SIGUSR1);
   while (true)  {
-    list<Thread<Deadlock> *> l;
+    Deadlock d[10];
     for (int i=0; i<10; ++i)
-      l.push_back(new Thread<Deadlock>(&Deadlock::deadlock));
-    Thread<Deadlock> *th;
-    while (!l.empty()) {
-      th = l.front();
-      l.pop_front();
-      delete th;
-    }
+      SigThread<Deadlock>(&d[i], &Deadlock::deadlock);
+    SigThread<Deadlock>::wait();
   }
 }
 

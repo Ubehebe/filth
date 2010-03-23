@@ -24,6 +24,7 @@ class Server
   char *sockdir;
 
   LockedQueue<Work *> q; // Jobs waiting to be worked on.
+  int sigdeadlock_internal, sigdeadlock_external;
 
 protected:
   Scheduler sch;
@@ -32,8 +33,16 @@ public:
 
   /* For network sockets, bindto should be a string of a port number,
    * like "80". For local sockets, bindto should be a filesystem path. */
-  Server(int domain, FindWork &fwork, char const *mount, char const *bindto,
-	 int nworkers, int listenq, char const *ifname=NULL);
+  Server(
+	 int domain,
+	 FindWork &fwork,
+	 char const *mount,
+	 char const *bindto,
+	 int nworkers,
+	 int listenq,
+	 int sigdeadlock_internal,
+	 int sigdeadlock_external,
+	 char const *ifname=NULL);
   ~Server();
   void serve();
 };

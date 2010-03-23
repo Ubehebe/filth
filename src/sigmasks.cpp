@@ -43,6 +43,16 @@ void sigmasks::sigmask_caller(int how, vector<int> &sigs)
   }
 }
 
+void sigmasks::sigmask_caller(int how, sigset_t *sigset)
+{
+  if (sigset == NULL)
+    return;
+  if (pthread_sigmask(how, sigset, NULL) != 0) {
+    _LOG_FATAL("pthread_sigmask: %m");
+    exit(1);
+  }
+}
+
 void sigmasks::sigmask_caller(builtin b)
 {
   sigset_t s;

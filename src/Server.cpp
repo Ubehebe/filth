@@ -17,11 +17,21 @@
 #include "logging.h"
 #include "Server.hpp"
 #include "sigmasks.hpp"
+#include "SigThread.hpp"
 
-Server::Server(int domain, FindWork &fwork, char const *mount,
-	       char const *bindto, int nworkers, int listenq, char const *ifnam)
+Server::Server(
+	       int domain,
+	       FindWork &fwork,
+	       char const *mount,
+	       char const *bindto,
+	       int nworkers,
+	       int listenq,
+	       int sigdeadlock_internal,
+	       int sigdeadlock_external,
+	       char const *ifnam)
   : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, fwork),
-    bindto(bindto)
+    bindto(bindto), sigdeadlock_internal(sigdeadlock_internal),
+    sigdeadlock_external(sigdeadlock_external)
 {
   _LOG_DEBUG("pid %d", getpid());
 
@@ -105,21 +115,18 @@ void Server::serve()
 
   Thread<Scheduler> _blah(&sch, &Scheduler::poll);
 
+  sch.push_sighandler(sigdeadlock_external, SigThread<Worker>::sigall);
+  SigThread<Worker>::setup(sigdeadlock_internal);
+
   while (sch.dowork) {
-    Thread<Worker>::dojoin = true;
-    std::list<Thread<Worker> *> workers;
+    Worker workers[nworkers];
     for (int i=0; i<nworkers; ++i)
-      workers.push_back(new Thread<Worker>(&Worker::work));
-    while (!workers.empty()) {
-      Thread<Worker> *th = workers.front();
-      workers.pop_front();
-      delete th;
-    }
-    // Why do these cause a block? Investigate Work destructors.
-    //    Work *tmp;
-    //    while (q.nowait_deq(tmp))
-    //      delete tmp;
-    _LOG_DEBUG("?");
+      SigThread<Worker>(&workers[i], &Worker::work);
+    SigThread<Worker>::wait();
+    Work *tmp;
+    while (q.nowait_deq(tmp))
+      delete tmp;
+    _LOG_DEBUG("looping");
   }
 }
 
