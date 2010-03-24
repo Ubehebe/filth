@@ -123,18 +123,22 @@ template<class C> void SigThread<C>::sigall(int ignore)
 // TODO: a mini-treatise on how really to kill threads asynchronously =)
 template<class C> void SigThread<C>::cleanup(void *ignore)
 {
-  _LOG_DEBUG("cleanup on exit");
   std::list<pthread_t>::iterator it;
   pthread_t me = pthread_self();
   m.lock();
   for (it = ths.begin(); it != ths.end(); ++it) {
-    if (pthread_equal(me, *it))
+    if (pthread_equal(me, *it)) {
+      _LOG_DEBUG("looks like I found myself");
       break;
+    }
   }
   if (it != ths.end()) {
     ths.erase(it);
     if (ths.empty())
       c.signal();
+  }
+  else {
+    _LOG_DEBUG("did NOT find myself. wtf?");
   }
   m.unlock();
 }

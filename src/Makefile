@@ -96,8 +96,8 @@ inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp Locks.hpp
 inotifyFileCache.o: logging.h FindWork.hpp Work.hpp Workmap.hpp Scheduler.hpp
 inotifyFileCache.o: ConcurrentQueue.hpp
 ConcurrentQueueTest.o: ConcurrentQueue.hpp SingleLockedQueue.hpp Locks.hpp
-ConcurrentQueueTest.o: DoubleLockedQueue.hpp LockFreeQueue.hpp SigThread.hpp
-ConcurrentQueueTest.o: logging.h Thread.hpp
+ConcurrentQueueTest.o: DoubleLockedQueue.hpp LockFreeQueue.hpp logging.h
+ConcurrentQueueTest.o: SigThread.hpp Thread.hpp
 Locks.o: Locks.hpp logging.h
 Cache_cmdline.o: Cache_cmdline.hpp cmdline.hpp
 Cache_cmdline.o: /home/brendan/http/data/sigs.def

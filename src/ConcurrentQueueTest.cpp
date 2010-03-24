@@ -8,6 +8,7 @@
 #include "DoubleLockedQueue.hpp"
 #include "LockFreeQueue.hpp"
 #include "Locks.hpp"
+#include "logging.h"
 #include "SigThread.hpp"
 
 using namespace std;
@@ -34,16 +35,14 @@ public:
 
 class testproducer
 {
-  int n;
+  int nreps;
 public:
   static ConcurrentQueue<testobj *> *q;
-  testproducer(int n=100)
-    : n(n) {}
+  testproducer(int nreps=100) : nreps(nreps) {}
   void produce()
   {
-    for (int i=0; i<n; ++i)
+    for (int i=0; i<nreps; ++i)
       q->enq(new testobj());
-    q->enq(NULL);
   }
 };
 
@@ -84,6 +83,7 @@ void test(ConcurrentQueue<testobj *> &q, int nproducers, int nconsumers)
   for (int i=0; i<nconsumers; ++i)
     SigThread<testconsumer>(&cs[i], &testconsumer::consume);
   SigThread<testproducer>::wait();
+  q.enq(NULL);
   SigThread<testconsumer>::wait();
   testobj *last;
   //  assert(q.nowait_deq(last));
@@ -92,8 +92,9 @@ void test(ConcurrentQueue<testobj *> &q, int nproducers, int nconsumers)
   testobj::cleanup();
 }
 
-int main()
+int main(int argc, char **argv)
 {
+  openlog(argv[0], LOG_PERROR, LOG_USER);
   SingleLockedQueue<testobj *> q1;
   DoubleLockedQueue<testobj *> q2;
   LockFreeQueue<testobj *> q3;
