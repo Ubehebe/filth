@@ -8,7 +8,7 @@
 
 using namespace std;
 
-LockedQueue<Work *> *Worker::q = NULL;
+ConcurrentQueue<Work *> *Worker::q = NULL;
 
 void Worker::work()
 {

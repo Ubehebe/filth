@@ -113,3 +113,39 @@ void RWLock::unlock()
     exit(1);
   }
 }
+
+Semaphore::Semaphore(unsigned int init_val)
+{
+  if (sem_init(&sem, 0, init_val)==-1) {
+    _LOG_FATAL("sem_init: %m");
+    exit(1);
+  }
+}
+
+void Semaphore::up()
+{
+  if (sem_post(&sem)==-1) {
+    _LOG_FATAL("sem_post: %m");
+    exit(1);
+  }
+}
+
+void Semaphore::down()
+{
+  while (sem_wait(&sem)==-1) {
+    if (errno == EINTR)
+      continue;
+    else {
+      _LOG_FATAL("sem_wait: %m");
+      exit(1);
+    }
+  }
+}
+
+Semaphore::~Semaphore()
+{
+  if (sem_destroy(&sem)==-1) {
+    _LOG_FATAL("sem_destroy: %m");
+    exit(1);
+  }
+}

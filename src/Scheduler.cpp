@@ -33,7 +33,7 @@ Scheduler::_acceptcb::~_acceptcb()
   _SHOW_STAT(accepts);
 }
 
-Scheduler::Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
+Scheduler::Scheduler(ConcurrentQueue<Work *> &q, FindWork &fwork,
 		     int pollsz, int maxevents)
   : q(q), fwork(fwork), maxevents(maxevents), dowork(true),
     acceptcb(*this, fwork), sigcb(*this, fwork, dowork, sighandlers)

@@ -2,17 +2,16 @@
 #define LOCKS_HPP
 
 #include <pthread.h>
+#include <semaphore.h>
 
-class CondVar;
+// Fwd declaration needed? class CondVar;
 
 class Mutex
 {
-  // No copying, no assigning.
   Mutex(Mutex const &);
   Mutex &operator=(Mutex const &);
 
   friend class CondVar;
-
 
   pthread_mutex_t _m;
  public:
@@ -39,7 +38,6 @@ public:
 
 class RWLock
 {
-  // No copying, no assigning.
   RWLock(RWLock const &);
   RWLock &operator=(RWLock const &);
   pthread_rwlock_t _l;
@@ -49,6 +47,16 @@ public:
   void wrlock();
   void unlock();
   ~RWLock();
+};
+
+class Semaphore
+{
+  sem_t sem;
+public:
+  Semaphore(unsigned int init_val=0);
+  void up();
+  void down();
+  ~Semaphore();
 };
 
 #endif // LOCKS_HPP

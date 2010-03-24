@@ -8,29 +8,29 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include "ConcurrentQueue.hpp"
 #include "Locks.hpp"
 
 /* Simple locked queue, with a lock for the front and a lock for the back.
  * The interface is a bit different from the STL interfaces; in particular,
  * since I don't know enough about the invalidation of iterators,
  * we don't expose iterators at all. */
-template<class T> class LockedQueue
+template<class T> class DoubleLockedQueue : public ConcurrentQueue<T>
 {
-  // No copying, no assigning.
-  LockedQueue(LockedQueue const&);
-  LockedQueue &operator=(LockedQueue const&);
+  DoubleLockedQueue(DoubleLockedQueue const&);
+  DoubleLockedQueue &operator=(DoubleLockedQueue const&);
 
   std::queue<T> q;
   Mutex front, back;
   CondVar nonempty;
  public:
-  LockedQueue() : nonempty(front) {}
+  DoubleLockedQueue() : nonempty(front) {}
   void enq(T t);
   T wait_deq();
   bool nowait_deq(T &t);
 };
 
-template<class T> void LockedQueue<T>::enq(T t)
+template<class T> void DoubleLockedQueue<T>::enq(T t)
 {
   back.lock();
   bool dosignal = q.empty();
@@ -40,7 +40,7 @@ template<class T> void LockedQueue<T>::enq(T t)
   back.unlock();
 }
 
-template<class T> T LockedQueue<T>::wait_deq()
+template<class T> T DoubleLockedQueue<T>::wait_deq()
 {
   front.lock();
   while (q.empty())
@@ -51,7 +51,7 @@ template<class T> T LockedQueue<T>::wait_deq()
   return ans;
 }
 
-template<class T> bool LockedQueue<T>::nowait_deq(T &ans)
+template<class T> bool DoubleLockedQueue<T>::nowait_deq(T &ans)
 {
   front.lock();
   if (q.empty()) {

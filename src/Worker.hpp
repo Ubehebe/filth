@@ -3,7 +3,7 @@
 
 #include <list>
 
-#include "LockedQueue.hpp"
+#include "ConcurrentQueue.hpp"
 #include "Work.hpp"
 
 class Worker
@@ -15,7 +15,7 @@ class Worker
 public:
   /* The intent is to set the static q before calling any constructors. */
   Worker() {}
-  static LockedQueue<Work *> *q; // where to go to get work
+  static ConcurrentQueue<Work *> *q; // where to go to get work
   void work();
 };
 

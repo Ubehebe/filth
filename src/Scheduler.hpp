@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 #include "Callback.hpp"
-#include "LockedQueue.hpp"
+#include "ConcurrentQueue.hpp"
 #include "logging.h"
 #include "FindWork.hpp"
 
@@ -59,14 +59,14 @@ class Scheduler
 
   void handle_sock_err(int fd);
 
-  LockedQueue<Work *> &q;
+  ConcurrentQueue<Work *> &q;
   FindWork &fwork;
 
   // For use with signal handlers. Ugh...
   static Scheduler *handler_sch;
 
 public:
-  Scheduler(LockedQueue<Work *> &q, FindWork &fwork,
+  Scheduler(ConcurrentQueue<Work *> &q, FindWork &fwork,
 	    int pollsz=100, int maxevents=100);
   ~Scheduler();
   void schedule(Work *w, bool oneshot=true);
