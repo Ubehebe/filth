@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "Callback.hpp"
 #include "Locks.hpp"
 #include "logging.h"
 
@@ -25,6 +26,7 @@
 template<class C> class Thread
 {
   static void cleanup_default(void *) {}
+  
 public:
   Thread(void (C::*p)(),
 	 sigset_t *_sigmask=NULL,
@@ -42,11 +44,14 @@ public:
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   ~Thread();
+  void start();
   void cancel(); // Found no use for this yet
 
 protected:
   pthread_t th;
   sigset_t *_sigmask;
+  // For use by derived classes that need to keep track of pthread_t's.
+  static Callback *thcb;
 
 private:
   Thread(Thread const&);
@@ -58,8 +63,6 @@ private:
   void (*cleanup)(void *);
 
   static void *pthread_create_wrapper(void *_Th);
-
-  void _init();
 
   // Just to pack and unpack stuff across the call to pthread_create_wrapper.
   struct _Thread
@@ -79,6 +82,8 @@ private:
   };
 };
 
+template<class C> Callback *Thread<C>::thcb = NULL;
+
 template<class C> Thread<C>::Thread(
 				    void (C::*p)(),
 				    sigset_t *_sigmask,
@@ -91,7 +96,7 @@ template<class C> Thread<C>::Thread(
     cleanup(cleanup), cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(true)
 {
-  _init();
+  start();
 }
 
 template<class C> Thread<C>::Thread(
@@ -107,10 +112,10 @@ template<class C> Thread<C>::Thread(
     cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(false)
 {
-  _init();
+  start();
 }
 
-template<class C> void Thread<C>::_init()
+template<class C> void Thread<C>::start()
 {
   _Thread *tmp = new _Thread(_c, _p, _sigmask, cleanup,
 			     cleanup_on_normal_exit, cancelstate, canceltype);
@@ -167,6 +172,9 @@ template<class C> void *Thread<C>::pthread_create_wrapper
   C *c = tmp->_c;
   
   delete tmp;
+
+  if (thcb != NULL)
+    (*thcb)();
 
   pthread_cleanup_push(cleanup, NULL);
 
