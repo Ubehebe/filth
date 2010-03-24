@@ -2,7 +2,7 @@
 #define LOCK_FREE_QUEUE_HPP
 
 #include <stdint.h>
-#include <iostream>
+#include <iostream> // just for NULL
 
 #include "ConcurrentQueue.hpp"
 
@@ -22,10 +22,22 @@ template<class T> class LockFreeQueue : public ConcurrentQueue<T>
   Semaphore sz;
 public:
   LockFreeQueue() : head(new node()), tail(head) {}
+  ~LockFreeQueue();
   void enq(T t);
   T wait_deq();
   bool nowait_deq(T &t);
 };
+
+// OK THIS is not thread-safe.
+template<class T> LockFreeQueue<T>::~LockFreeQueue()
+{
+  node *cur = head, *next;
+  while (cur != NULL) {
+    next = cur->next;
+    delete cur;
+    cur = next;
+  }
+}
 
 template<class T> void LockFreeQueue<T>::enq(T t)
 {
@@ -77,6 +89,7 @@ template<class T> bool LockFreeQueue<T>::nowait_deq(T &t)
 	 * next and extracted its value. */
 	if (__sync_bool_compare_and_swap(&head, first, next)) {
 	  sz.down();
+	  delete first; // how do we know someone's not using this???
 	  return true;
 	}
       }
@@ -110,6 +123,7 @@ template<class T> T LockFreeQueue<T>::wait_deq()
 	 * next and extracted its value. */
 	if (__sync_bool_compare_and_swap(&head, first, next)) {
 	  sz.down();
+	  delete first; // how do we know someone's not using this???
 	  return ans;
 	}
       }
