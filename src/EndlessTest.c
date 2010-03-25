@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     // Parent
     if (fork()) {
       wait(&status);
-      fprintf(stderr, "%s\n", (status) ? "FAILED" : "passed");
+      fprintf(stderr, "%s\n", strerror(status));
       sleep(10);
     }
     // Child

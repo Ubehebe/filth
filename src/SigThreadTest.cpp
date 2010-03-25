@@ -25,6 +25,7 @@ int counter::nreps;
 
 int main(int argc, char **argv)
 {
+  openlog(argv[0], LOG_PERROR, LOG_USER);
   if (argc != 3) {
     cerr << "usage: " << argv[0] << " <nthreads> <nreps>\n";
     return 1;
@@ -46,6 +47,6 @@ int main(int argc, char **argv)
     SigThread<counter>(cs[i], &counter::count);
   }
   SigThread<counter>::wait();
-  cerr << "got " << sem.val() << "expected " << nthreads * counter::nreps << endl;
-  return (sem.val() == nthreads * counter::nreps);
+  cerr << "got " << sem.val() << " expected " << nthreads * counter::nreps << endl;
+  return 1-(sem.val() == nthreads * counter::nreps);
 }

@@ -1,35 +1,23 @@
 #include <iostream>
-#include <list>
-#include <pthread.h>
-#include <signal.h>
-#include <string.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#define _LOG_DEBUG
-
-#include "SigThread.hpp"
+#include <string>
 
 using namespace std;
 
-class Deadlock
+template<class T> class Factory
 {
-  Mutex m;
 public:
-  Deadlock() { m.lock(); }
-  ~Deadlock() { m.unlock(); }
-  void deadlock() { m.lock(); }
+  T *operator()();
+};
+
+template<> class Factory<string>
+{
+public:
+  string *operator()() { return new string("hello"); }
 };
 
 int main()
 {
-  openlog("duh", LOG_PERROR, LOG_USER);
-  SigThread<Deadlock>::setup(SIGINT, SIGUSR1);
-  while (true)  {
-    Deadlock d[10];
-    for (int i=0; i<10; ++i)
-      SigThread<Deadlock>(&d[i], &Deadlock::deadlock);
-    SigThread<Deadlock>::wait();
-  }
+  Factory<string> f;
+  cout << *(f()) << endl;
 }
 

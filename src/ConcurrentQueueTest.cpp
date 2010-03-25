@@ -1,12 +1,12 @@
 #include <algorithm>
-#include <assert.h>
 #include <iostream>
 #include <list>
 #include <stdlib.h>
 
-#include "SingleLockedQueue.hpp"
-#include "DoubleLockedQueue.hpp"
+#include "Factory.hpp"
 #include "Locks.hpp"
+#include "logging.h"
+#include "DoubleLockedQueue.hpp"
 #include "Thread.hpp"
 
 using namespace std;
@@ -18,8 +18,21 @@ class testobj
   bool touched;
 public:
   testobj() : touched(false) { m.lock(); objs.push_back(this); m.unlock(); }
-  void touch() { assert(!touched); touched = true; }
-  void verify() { assert(touched); }
+  void touch()
+  {
+    if (touched) {
+      cerr << _SRC"FAILED" << endl;
+      abort();
+    }
+    touched = true;
+  }
+  void verify()
+  {
+    if(!touched) {
+      cerr << _SRC"FAILED" << endl;
+      abort();
+    }
+  }
   void deleteme() { delete this; }
   static void cleanup()
   {
@@ -43,6 +56,12 @@ public:
   }
 };
 
+template<> class Factory<testproducer>
+{
+public:
+  testproducer *operator()() { return new testproducer; }
+};
+
 class testconsumer
 {
 public:
@@ -61,6 +80,12 @@ public:
   }
 };
 
+template<> class Factory<testconsumer>
+{
+public:
+  testconsumer *operator()() { return new testconsumer; }
+};
+
 Mutex testobj::m;
 list<testobj *> testobj::objs;
 ConcurrentQueue<testobj *> *testconsumer::q = NULL;
@@ -74,16 +99,16 @@ void test(ConcurrentQueue<testobj *> *q,
   testproducer::nreps = nreps;
   testconsumer::q = q;
 
-  testproducer ps[nproducers];
-  testconsumer cs[nconsumers];
 
+  Factory<testproducer> pfact;
+  Factory<testconsumer> cfact;
   list<Thread<testproducer> *> pths;
   list<Thread<testconsumer> *> cths;
 
   for (int i=0; i<nproducers; ++i)
-    pths.push_back(new Thread<testproducer>(&ps[i], &testproducer::produce));
+    pths.push_back(new Thread<testproducer>(pfact, &testproducer::produce));
   for (int i=0; i<nconsumers; ++i)
-    cths.push_back(new Thread<testconsumer>(&cs[i], &testconsumer::consume));
+    cths.push_back(new Thread<testconsumer>(cfact, &testconsumer::consume));
 
   cerr << "\twaiting for producers to finish\n";
   for (list<Thread<testproducer> *>::iterator it = pths.begin(); it != pths.end(); ++it)
@@ -95,9 +120,18 @@ void test(ConcurrentQueue<testobj *> *q,
     delete *it;
   testobj *last;
   cerr << "\tverifying that the null item is the only thing in the queue\n";
-  assert(q->nowait_deq(last));
-  assert(last == NULL);
-  assert(!q->nowait_deq(last));
+  if (!q->nowait_deq(last)) {
+    cerr << _SRC"FAILED" << endl;
+    abort();
+  }
+  if (!(last == NULL)) {
+    cerr << _SRC"FAILED" << endl;
+    abort();
+  }
+  if (q->nowait_deq(last)) {
+    cerr << _SRC"FAILED" << endl;
+    abort();
+  }
   cerr << "\tverifying that every item enqueued was dequeued exactly once\n";
   testobj::cleanup();
 }

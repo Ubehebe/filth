@@ -55,6 +55,7 @@ void registerth::operator()()
 {
   m.lock();
   ths.push_back(pthread_self());
+  _LOG_DEBUG("push_back: sz now %d", ths.size());
   m.unlock();
 }
 
@@ -140,9 +141,12 @@ template<class C> void SigThread<C>::cleanup(void *ignore)
       break;
   }
   if (it != thcb.ths.end()) {
+    _LOG_DEBUG("erasing (%d cur)", thcb.ths.size());
     thcb.ths.erase(it);
-    if (thcb.ths.empty())
+    if (thcb.ths.empty()) {
+      _LOG_DEBUG("empty, signaling");
       thcb.c.signal();
+    }
   }
   else {
     _LOG_FATAL("inconsistency in thread cleanup");

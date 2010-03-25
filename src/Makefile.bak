@@ -43,7 +43,8 @@ SigThreadTest: $(SIGTHREAD_TEST_OBJS)
 .PHONY: depend
 depend:
 	makedepend -Y $(SRC_INC_DIRS:%=-I%) $(BASE_SRCS) $(HTTP_SRCS) \
-	$(CONCURRENT_QUEUE_TEST_SRCS) $(STANDALONE_CACHE_SRCS) 2> /dev/null
+	$(CONCURRENT_QUEUE_TEST_SRCS) $(STANDALONE_CACHE_SRCS) \
+	$(ENDLESS_TEST_SRCS) $(SIGTHREAD_TEST_SRCS) 2> /dev/null
 .PHONY: clean
 clean:
 	rm -f a.out *.o *~ *\#
@@ -107,8 +108,8 @@ inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp Locks.hpp
 inotifyFileCache.o: logging.h FindWork.hpp Work.hpp Workmap.hpp Scheduler.hpp
 inotifyFileCache.o: ConcurrentQueue.hpp
 ConcurrentQueueTest.o: SingleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp
-ConcurrentQueueTest.o: DoubleLockedQueue.hpp logging.h Thread.hpp
-ConcurrentQueueTest.o: Callback.hpp
+ConcurrentQueueTest.o: DoubleLockedQueue.hpp Thread.hpp Callback.hpp
+ConcurrentQueueTest.o: logging.h
 Locks.o: Locks.hpp logging.h
 Cache_cmdline.o: Cache_cmdline.hpp cmdline.hpp
 Cache_cmdline.o: /home/brendan/http/data/sigs.def

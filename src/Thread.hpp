@@ -10,25 +10,20 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "Callback.hpp"
+#include "Factory.hpp"
 #include "Locks.hpp"
 #include "logging.h"
 
-// TODO: add push at exit handlers
-// Direction: condition variables to signal deallocation...works better than join?
-
 /* Wrapper around posix threads to do the most common thing:
  * set up a thread to execute a nullary member function.
- * 
- * Notes:
- *
- * UPDATE NOTES! */
+ * The constructors provide most of the common thread options. */
 template<class C> class Thread
 {
   static void cleanup_default(void *) {}
   
 public:
-  Thread(void (C::*p)(),
+  Thread(Factory<C> &f,
+	 void (C::*p)(),
 	 sigset_t *_sigmask=NULL,
 	 bool detached=false,
 	 void (*cleanup)(void *)=cleanup_default,
@@ -44,16 +39,12 @@ public:
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   ~Thread();
-  void start();
   void cancel(); // Found no use for this yet
-
-protected:
+  void start(); // Called from the constructor
   pthread_t th;
-  sigset_t *_sigmask;
-  // For use by derived classes that need to keep track of pthread_t's.
-  static Callback *thcb;
 
 private:
+  sigset_t *_sigmask;
   Thread(Thread const&);
   Thread &operator=(Thread const&);
   C *_c;
@@ -82,9 +73,7 @@ private:
   };
 };
 
-template<class C> Callback *Thread<C>::thcb = NULL;
-
-template<class C> Thread<C>::Thread(
+template<class C> Thread<C>::Thread(Factory<C> &f,
 				    void (C::*p)(),
 				    sigset_t *_sigmask,
 				    bool detached,
@@ -92,11 +81,10 @@ template<class C> Thread<C>::Thread(
 				    bool cleanup_on_normal_exit,
 				    int cancelstate,
 				    int canceltype)
-  : _c(new C()), _p(p), _sigmask(_sigmask), detached(detached),
+  : _c(f()), _p(p), _sigmask(_sigmask), detached(detached),
     cleanup(cleanup), cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(true)
 {
-  start();
 }
 
 template<class C> Thread<C>::Thread(
@@ -112,7 +100,6 @@ template<class C> Thread<C>::Thread(
     cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(false)
 {
-  start();
 }
 
 template<class C> void Thread<C>::start()
@@ -172,9 +159,6 @@ template<class C> void *Thread<C>::pthread_create_wrapper
   C *c = tmp->_c;
   
   delete tmp;
-
-  if (thcb != NULL)
-    (*thcb)();
 
   pthread_cleanup_push(cleanup, NULL);
 
