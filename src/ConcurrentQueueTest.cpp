@@ -105,10 +105,17 @@ void test(ConcurrentQueue<testobj *> *q,
   list<Thread<testproducer> *> pths;
   list<Thread<testconsumer> *> cths;
 
-  for (int i=0; i<nproducers; ++i)
-    pths.push_back(new Thread<testproducer>(pfact, &testproducer::produce));
-  for (int i=0; i<nconsumers; ++i)
-    cths.push_back(new Thread<testconsumer>(cfact, &testconsumer::consume));
+  Thread<testproducer> *pth;
+  Thread<testconsumer> *cth;
+
+  for (int i=0; i<nproducers; ++i) {
+    pths.push_back(pth = new Thread<testproducer>(pfact, &testproducer::produce));
+    pth->start();
+  }
+  for (int i=0; i<nconsumers; ++i) {
+    cths.push_back(cth = new Thread<testconsumer>(cfact, &testconsumer::consume));
+    cth->start();
+  }
 
   cerr << "\twaiting for producers to finish\n";
   for (list<Thread<testproducer> *>::iterator it = pths.begin(); it != pths.end(); ++it)
