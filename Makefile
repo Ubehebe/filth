@@ -1,7 +1,6 @@
 export BIN_DIR = $(CURDIR)/bin
 export DATA_DIR = $(CURDIR)/data
 export SRC_DIR = $(CURDIR)/src
-export TEST_DIR = $(CURDIR)/tests
 export SRC_INC_DIRS = $(SRC_DIR) $(DATA_DIR)
 export OBJ_INC_DIRS = $(SRC_DIR)
 
@@ -18,6 +17,12 @@ http:
 .PHONY: concurrent-queue-test
 concurrent-queue-test:
 	cd $(SRC_DIR) && $(MAKE) concurrent-queue-test
+.PHONY: endless-test
+endless-test:
+	cd $(SRC_DIR) && $(MAKE) endless-test
+.PHONY: SigThreadTest
+SigThreadTest:
+	cd $(SRC_DIR) && $(MAKE) SigThreadTest	
 .PHONY: standalone-cache
 standalone-cache:
 	cd $(SRC_DIR) && $(MAKE) standalone-cache

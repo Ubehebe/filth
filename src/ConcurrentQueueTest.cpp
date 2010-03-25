@@ -4,14 +4,10 @@
 #include <list>
 #include <stdlib.h>
 
-#include "ConcurrentQueue.hpp"
 #include "SingleLockedQueue.hpp"
 #include "DoubleLockedQueue.hpp"
-#include "LockFreeQueue.hpp"
 #include "Locks.hpp"
-#include "logging.h"
-#include "NonThreadSafeQueue.hpp"
-#include "SigThread.hpp"
+#include "Thread.hpp"
 
 using namespace std;
 
@@ -81,64 +77,54 @@ void test(ConcurrentQueue<testobj *> *q,
   testproducer ps[nproducers];
   testconsumer cs[nconsumers];
 
-  SigThread<testproducer>::setup();
-  SigThread<testconsumer>::setup();
+  list<Thread<testproducer> *> pths;
+  list<Thread<testconsumer> *> cths;
 
-  /* Start the consumers before the producers so we don't miss a
-   * signal on a condition variable, depending on the implementation. */
-  for (int i=0; i<nconsumers; ++i)
-    SigThread<testconsumer>(&cs[i], &testconsumer::consume);
   for (int i=0; i<nproducers; ++i)
-    SigThread<testproducer>(&ps[i], &testproducer::produce);
-  cout << "\twaiting for producers to finish\n";
-  SigThread<testproducer>::wait();
+    pths.push_back(new Thread<testproducer>(&ps[i], &testproducer::produce));
+  for (int i=0; i<nconsumers; ++i)
+    cths.push_back(new Thread<testconsumer>(&cs[i], &testconsumer::consume));
+
+  cerr << "\twaiting for producers to finish\n";
+  for (list<Thread<testproducer> *>::iterator it = pths.begin(); it != pths.end(); ++it)
+    delete *it;
+  cerr << "\tenqueuing null item to stop consumers\n";
   q->enq(NULL);
-  cout << "\twaiting for consumers to finish\n";
-  SigThread<testconsumer>::wait();
+  cerr << "\twaiting for consumers to finish\n";
+  for (list<Thread<testconsumer> *>::iterator it = cths.begin(); it != cths.end(); ++it)
+    delete *it;
   testobj *last;
+  cerr << "\tverifying that the null item is the only thing in the queue\n";
   assert(q->nowait_deq(last));
   assert(last == NULL);
   assert(!q->nowait_deq(last));
+  cerr << "\tverifying that every item enqueued was dequeued exactly once\n";
   testobj::cleanup();
 }
 
 int main(int argc, char **argv)
 {
   if (argc !=4) {
-    cout << "usage: " << argv[0] << " <num-producers> <num-consumers> "
+    cerr << "usage: " << argv[0] << " <num-producers> <num-consumers> "
       "<items per producer>\n";
-    return 0;
+    return 1;
   }
-  openlog(argv[0], LOG_PERROR, LOG_USER);
   int nproducers, nconsumers, nreps;
   if ((nproducers = atoi(argv[1]))<=0) {
-    cout << "invalid argument " << argv[1] << endl;
+    cerr << "invalid argument " << argv[1] << endl;
     return 1;
   }
   if ((nconsumers = atoi(argv[2]))<=0) {
-    cout << "invalid argument " << argv[2] << endl;
+    cerr << "invalid argument " << argv[2] << endl;
     return 1;
   }
   if ((nreps = atoi(argv[3]))<=0) {
-    cout << "invalid argument " << argv[3] << endl;
+    cerr << "invalid argument " << argv[3] << endl;
     return 1;
   }
 
-  SingleLockedQueue<testobj *> q1;
-  DoubleLockedQueue<testobj *> q2;
-  LockFreeQueue<testobj *> q3;
-  NonThreadSafeQueue<testobj *> q4;
-
-  list<pair<ConcurrentQueue<testobj *> *, string> > qs;
-  qs.push_back(make_pair(&q1, "single locked queue"));
-  qs.push_back(make_pair(&q2, "double locked queue"));
-  qs.push_back(make_pair(&q3, "lock-free queue"));
-  qs.push_back(make_pair(&q4, "plain old STL queue (should assert/segfault)"));
-  list<pair<ConcurrentQueue<testobj *> *, string> >::iterator it;
-  
-  for (it = qs.begin(); it != qs.end(); ++it) {
-    cout << it->second << ":\n";
-    test(it->first, nproducers, nconsumers, nreps);
-    cout << "passed\n";
-  }
+  DoubleLockedQueue<testobj *> q;
+  cerr << "double-locked queue:\n";
+  test(&q, nproducers, nconsumers, nreps);
+  cerr << "passed\n";
 }

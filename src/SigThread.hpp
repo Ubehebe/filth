@@ -9,6 +9,9 @@
 #include "logging.h"
 #include "Thread.hpp"
 
+/* There is something seriously wrong with the rendezvous
+ * mechanism in this class. Do not use until further notice. */
+
 struct registerth : public Callback
 {
   std::list<pthread_t> ths;

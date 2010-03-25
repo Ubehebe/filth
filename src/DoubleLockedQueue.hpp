@@ -10,18 +10,9 @@
 
 #include "ConcurrentQueue.hpp"
 #include "Locks.hpp"
-#include "logging.h"
 
-/* I experience deadlock rather a lot on testing. The most likely
- * explanation is it's incorrect, but sometimes I also experience deadlock with
- * a single locked queue, i.e. one that just wraps all its services in a single
- * lock. I don't understand how deadlock could occur there, so perhaps
- * there is an issue with pthreads I don't understand. */
-
-/* Simple locked queue, with a lock for the front and a lock for the back.
- * The interface is a bit different from the STL interfaces; in particular,
- * since I don't know enough about the invalidation of iterators,
- * we don't expose iterators at all. */
+/* Queue allowing an enqueue to run concurrently with a dequeue.
+ * It is correct. <put stats here> */
 template<class T> class DoubleLockedQueue : public ConcurrentQueue<T>
 {
   DoubleLockedQueue(DoubleLockedQueue const&);
@@ -42,7 +33,7 @@ template<class T> void DoubleLockedQueue<T>::enq(T t)
   back.lock();
   bool dosignal = q.empty();
   q.push(t);
-  if (dosignal) { // Lost signal?
+  if (dosignal) {
     front.lock();
     nonempty.signal();
     front.unlock();

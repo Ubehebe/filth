@@ -13,11 +13,17 @@ HTTP_OBJS = $(HTTP_SRCS:.cpp=.o)
 CONCURRENT_QUEUE_TEST_SRCS = ConcurrentQueueTest.cpp Locks.cpp
 CONCURRENT_QUEUE_TEST_OBJS = $(CONCURRENT_QUEUE_TEST_SRCS:.cpp=.o)
 
+ENDLESS_TEST_SRCS = EndlessTest.c
+ENDLESS_TEST_OBJS = $(ENDLESS_TEST_SRCS:.c=.o)
+
+SIGTHREAD_TEST_SRCS = SigThreadTest.cpp Locks.cpp
+SIGTHREAD_TEST_OBJS = $(SIGTHREAD_TEST_SRCS:.cpp=.o)
+
 STANDALONE_CACHE_SRCS = Cache_cmdline.cpp Cache_main.cpp CacheFindWork.cpp \
 	CacheServer.cpp CacheWork.cpp FileCache.cpp inotifyFileCache.cpp 
 STANDALONE_CACHE_OBJS = $(STANDALONE_CACHE_SRCS:.cpp=.o)
 
-all: http concurrent-queue-test
+all: http concurrent-queue-test endless-test
 http: $(BASE_OBJS) $(HTTP_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread \
 	$(BASE_OBJS) $(HTTP_OBJS) -o $(BIN_DIR)/$(HTTP_PROGNAME)
@@ -25,9 +31,14 @@ standalone-cache: $(BASE_OBJS) $(STANDALONE_CACHE_OBJS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread \
 	$(BASE_OBJS) $(STANDALONE_CACHE_OBJS) \
 	-o $(BIN_DIR)/$(STANDALONE_CACHE_PROGNAME)
-concurrent-queue-test: $(CONCURRENT_QUEUE_TEST_OBJS)
+concurrent-queue-test: $(CONCURRENT_QUEUE_TEST_OBJS) 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread \
-	$(CONCURRENT_QUEUE_TEST_OBJS) -o $(TEST_DIR)/concurrent-queue-test
+	$(CONCURRENT_QUEUE_TEST_OBJS) -o $(BIN_DIR)/concurrent-queue-test
+endless-test: $(ENDLESS_TEST_OBJS)
+	$(CC) $(ENDLESS_TEST_OBJS) -o $(BIN_DIR)/endless-test
+SigThreadTest: $(SIGTHREAD_TEST_OBJS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -lpthread \
+	$(SIGTHREAD_TEST_OBJS) -o $(BIN_DIR)/SigThreadTest
 
 .PHONY: depend
 depend:
@@ -95,9 +106,9 @@ HTTP_Work.o: Scheduler.hpp ConcurrentQueue.hpp
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp Locks.hpp
 inotifyFileCache.o: logging.h FindWork.hpp Work.hpp Workmap.hpp Scheduler.hpp
 inotifyFileCache.o: ConcurrentQueue.hpp
-ConcurrentQueueTest.o: ConcurrentQueue.hpp SingleLockedQueue.hpp Locks.hpp
-ConcurrentQueueTest.o: DoubleLockedQueue.hpp LockFreeQueue.hpp SigThread.hpp
-ConcurrentQueueTest.o: logging.h Thread.hpp
+ConcurrentQueueTest.o: SingleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp
+ConcurrentQueueTest.o: DoubleLockedQueue.hpp logging.h Thread.hpp
+ConcurrentQueueTest.o: Callback.hpp
 Locks.o: Locks.hpp logging.h
 Cache_cmdline.o: Cache_cmdline.hpp cmdline.hpp
 Cache_cmdline.o: /home/brendan/http/data/sigs.def

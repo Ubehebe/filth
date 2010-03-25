@@ -56,6 +56,7 @@ public:
   Semaphore(unsigned int init_val=0);
   void up();
   void down();
+  int val();
   ~Semaphore();
 };
 

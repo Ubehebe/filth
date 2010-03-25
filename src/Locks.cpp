@@ -142,6 +142,16 @@ void Semaphore::down()
   }
 }
 
+int Semaphore::val()
+{
+  int ans;
+  if (sem_getvalue(&sem, &ans)==-1) {
+    _LOG_FATAL("sem_getvalue: %m");
+    exit(1);
+  }
+  return ans;
+}
+
 Semaphore::~Semaphore()
 {
   if (sem_destroy(&sem)==-1) {
