@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 
+// Just a git test!
+
 using namespace std;
 
 template<class T> class Factory
