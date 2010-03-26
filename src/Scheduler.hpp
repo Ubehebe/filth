@@ -9,6 +9,7 @@
 #include "Callback.hpp"
 #include "ConcurrentQueue.hpp"
 #include "logging.h"
+#include "Factory.hpp"
 #include "FindWork.hpp"
 
 /* N.B. Keep in mind that if the scheduler uses old-fashioned signal
@@ -33,9 +34,9 @@ class Scheduler
     uint32_t accepts;
 #endif // _COLLECT_STATS
     Scheduler &sch;
-    FindWork &fwork;
+    FindWork *fwork;
     void operator()();
-    _acceptcb(Scheduler &sch, FindWork &fwork);
+    _acceptcb(Scheduler &sch, int listenfd);
     ~_acceptcb();
   } acceptcb;
 
@@ -43,13 +44,13 @@ class Scheduler
   {
     int fd;
     Scheduler &sch;
-    FindWork &fwork;
+    FindWork *fwork;
     bool &dowork;
     sighandler_map &sighandlers;
     void operator()();
-    _sigcb(Scheduler &sch, FindWork &fwork, bool &dowork,
+    _sigcb(Scheduler &sch, bool &dowork,
 	   sighandler_map &sighandlers)
-      : sch(sch), fwork(fwork), dowork(dowork), sighandlers(sighandlers) {}
+      : sch(sch), dowork(dowork), sighandlers(sighandlers) {}
   } sigcb;
 
   bool use_signalfd;
@@ -60,20 +61,19 @@ class Scheduler
   void handle_sock_err(int fd);
 
   ConcurrentQueue<Work *> &q;
-  FindWork &fwork;
 
-  // For use with signal handlers. Ugh...
-  static Scheduler *handler_sch;
+  /* The scheduler needs to know about this to make new work, but
+     the find work object also needs to know about the  */
+  FindWork *fwork;
 
 public:
-  Scheduler(ConcurrentQueue<Work *> &q, FindWork &fwork,
+  Scheduler(ConcurrentQueue<Work *> &q, int listenfd, 
 	    int pollsz=100, int maxevents=100);
   ~Scheduler();
   void schedule(Work *w, bool oneshot=true);
   void reschedule(Work *w, bool oneshot=true);
   void push_sighandler(int signo, void (*handler)(int));
   bool dowork;
-  void set_listenfd(int _listenfd);
   /* Other modules can request that the scheduler pay attention
    * to certain file descriptors without the scheduler having to know
    * how to handle them. For example, a cache module can register
@@ -85,8 +85,10 @@ public:
   /* Some ready-made signal handlers. The argument and return types
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't
    * have to do this if we didn't support an alternative to signalfd.) */
-  static void halt(int ignore);
+  static void halt(int ignore=-1);
   static Scheduler *thescheduler; // For non-signalfd-based signal handling
+  void setfwork(FindWork *fwork);
+
 };
 
 #endif // SCHEDULER_HPP

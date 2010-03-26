@@ -17,11 +17,10 @@
 
 using namespace std;
 
-
 Scheduler *Scheduler::thescheduler = NULL;
 
-Scheduler::_acceptcb::_acceptcb(Scheduler &sch, FindWork &fwork)
-  : sch(sch), fwork(fwork)
+Scheduler::_acceptcb::_acceptcb(Scheduler &sch, int listenfd)
+  : sch(sch), fd(listenfd)
 {
 #ifdef _COLLECT_STATS
   accepts = 0;
@@ -33,10 +32,10 @@ Scheduler::_acceptcb::~_acceptcb()
   _SHOW_STAT(accepts);
 }
 
-Scheduler::Scheduler(ConcurrentQueue<Work *> &q, FindWork &fwork,
-		     int pollsz, int maxevents)
-  : q(q), fwork(fwork), maxevents(maxevents), dowork(true),
-    acceptcb(*this, fwork), sigcb(*this, fwork, dowork, sighandlers)
+Scheduler::Scheduler(ConcurrentQueue<Work *> &q, int listenfd, int pollsz, 
+		     int maxevents)
+  : q(q), maxevents(maxevents), dowork(true),
+    acceptcb(*this, listenfd), sigcb(*this, dowork, sighandlers)
 {
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
@@ -67,13 +66,11 @@ Scheduler::Scheduler(ConcurrentQueue<Work *> &q, FindWork &fwork,
   }
   _LOG_DEBUG("polling fd is %d", pollfd);
 
-  // Default signal handlers.
-  push_sighandler(SIGINT, Scheduler::halt); 
-  push_sighandler(SIGTERM, Scheduler::halt);
 }
 
 Scheduler::~Scheduler()
 {
+  _LOG_DEBUG("close %d", pollfd);
   close(pollfd);
 }
 
@@ -92,7 +89,7 @@ void Scheduler::registercb(int fd, Callback *cb, Work::mode m, bool oneshot)
   else { 
     fdcbs[fd] = cb;
   }
-  schedule(fwork(fd, m), oneshot);
+  schedule((*fwork)(fd, m), oneshot);
 }
 
 void Scheduler::schedule(Work *w, bool oneshot)
@@ -109,6 +106,7 @@ void Scheduler::schedule(Work *w, bool oneshot)
     e.events |= EPOLLOUT;
     break;
   }
+  // Somehow, after flushes, we get an EINVAL here b/c pollfd == w->fd. ???
   if (epoll_ctl(pollfd, EPOLL_CTL_ADD, w->fd, &e)==-1)
     throw ResourceErr("epoll_ctl (EPOLL_CTL_ADD)", errno);
 }
@@ -162,7 +160,7 @@ void Scheduler::poll()
      * set dowork to false, so we'll just fall through the loop. */
     if ((nchanged = epoll_wait(pollfd, fds, maxevents, -1))<0
 	&& errno != EINTR)
-	throw ResourceErr("epoll_wait", errno);
+      throw ResourceErr("epoll_wait", errno);
 
     /* Stream sockets are full-duplex, so it is reasonable to expect
      * that they could be simultaneously readable and writable. But
@@ -204,9 +202,9 @@ void Scheduler::poll()
       }
       // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN)
-	q.enq(fwork(fd, Work::read));
+	q.enq((*fwork)(fd, Work::read));
       else if (fds[i].events & EPOLLOUT)
-	q.enq(fwork(fd, Work::write));
+	q.enq((*fwork)(fd, Work::write));
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
       if (!dowork) break;
@@ -236,7 +234,7 @@ void Scheduler::_acceptcb::operator()()
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
-  sch.schedule(fwork(acceptfd, Work::read), true);
+  sch.schedule((*fwork)(acceptfd, Work::read), true);
   _INC_STAT(accepts);
 }
 
@@ -309,7 +307,7 @@ inline void Scheduler::handle_sock_err(int fd)
   // What's this for?
 }
 
-void Scheduler::set_listenfd(int _listenfd)
+void Scheduler::setfwork(FindWork *fwork)
 {
-  acceptcb.fd = _listenfd;
+  this->fwork = this->acceptcb.fwork = this->sigcb.fwork = fwork;
 }

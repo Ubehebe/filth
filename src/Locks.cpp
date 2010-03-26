@@ -11,6 +11,9 @@
  * move on; ideally the lock will be destroyed and reconstructed in the next
  * iteration of a containing loop. */
 
+/* TODO: Once I get the emergency yank working "properly", decide
+ * which of these (if any) should really be fatal errors. */
+
 Mutex::Mutex()
 {
   pthread_mutex_init(&_m, NULL);
@@ -24,50 +27,38 @@ Mutex::~Mutex()
 
 void Mutex::lock()
 {
-  if ((errno = pthread_mutex_lock(&_m))!=0) {
-    _LOG_FATAL("pthread_mutex_lock: %m");
-    exit(1);
-  }
+  if ((errno = pthread_mutex_lock(&_m))!=0)
+    _LOG_INFO("pthread_mutex_lock: %m");
 }
 
 void Mutex::unlock()
 {
-  if ((errno = pthread_mutex_unlock(&_m))!=0) {
-    _LOG_FATAL("pthread_mutex_unlock: %m");
-    exit(1);
-  }
+  if ((errno = pthread_mutex_unlock(&_m))!=0)
+    _LOG_INFO("pthread_mutex_unlock: %m");
 }
 
 CondVar::CondVar(Mutex &m) : _m(m._m)
 {
-  if ((errno = pthread_cond_init(&_c, NULL))!=0) {
-    _LOG_FATAL("pthread_cond_init: %m");
-    exit(1);
-  }
+  if ((errno = pthread_cond_init(&_c, NULL))!=0)
+    _LOG_INFO("pthread_cond_init: %m");
 }
 
 void CondVar::wait()
 {
-  if ((errno = pthread_cond_wait(&_c, &_m))!=0) {
-    _LOG_FATAL("pthread_cond_wait: %m");
-    exit(1);
-  }
+  if ((errno = pthread_cond_wait(&_c, &_m))!=0)
+    _LOG_INFO("pthread_cond_wait: %m");
 }
 
 void CondVar::signal()
 {
-  if ((errno = pthread_cond_signal(&_c))!=0) {
-    _LOG_FATAL("pthread_cond_signal: %m");
-    exit(1);
-  }
+  if ((errno = pthread_cond_signal(&_c))!=0)
+    _LOG_INFO("pthread_cond_signal: %m");
 }
 
 void CondVar::broadcast()
 {
-  if ((errno = pthread_cond_broadcast(&_c))!=0) {
-    _LOG_FATAL("pthread_cond_broadcast: %m");
-    exit(1);
-  }
+  if ((errno = pthread_cond_broadcast(&_c))!=0)
+    _LOG_INFO("pthread_cond_broadcast: %m");
 }
 
 CondVar::~CondVar()
@@ -78,10 +69,8 @@ CondVar::~CondVar()
 
 RWLock::RWLock()
 {
-  if ((errno = pthread_rwlock_init(&_l, NULL))!=0) {
-    _LOG_FATAL("pthread_rwlock_init: %m");
-    exit(1);
-  }
+  if ((errno = pthread_rwlock_init(&_l, NULL))!=0)
+    _LOG_INFO("pthread_rwlock_init: %m");
 }
 
 RWLock::~RWLock()
@@ -92,42 +81,32 @@ RWLock::~RWLock()
 
 void RWLock::rdlock()
 {
-  if ((errno = pthread_rwlock_rdlock(&_l))!=0) {
-    _LOG_FATAL("pthread_rwlock_rdlock: %m");
-    exit(1);
-  }
+  if ((errno = pthread_rwlock_rdlock(&_l))!=0)
+    _LOG_INFO("pthread_rwlock_rdlock: %m");
 }
 
 void RWLock::wrlock()
 {
-  if ((errno = pthread_rwlock_wrlock(&_l))!=0) {
-    _LOG_FATAL("pthread_rwlock_wrlock: %m");
-    exit(1);
-  }
+  if ((errno = pthread_rwlock_wrlock(&_l))!=0)
+    _LOG_INFO("pthread_rwlock_wrlock: %m");
 }
 
 void RWLock::unlock()
 {
-  if ((errno = pthread_rwlock_unlock(&_l))!=0) {
-    _LOG_FATAL("pthread_rwlock_unlock: %m");
-    exit(1);
-  }
+  if ((errno = pthread_rwlock_unlock(&_l))!=0)
+    _LOG_INFO("pthread_rwlock_unlock: %m");
 }
 
 Semaphore::Semaphore(unsigned int init_val)
 {
-  if (sem_init(&sem, 0, init_val)==-1) {
-    _LOG_FATAL("sem_init: %m");
-    exit(1);
-  }
+  if (sem_init(&sem, 0, init_val)==-1)
+    _LOG_INFO("sem_init: %m");
 }
 
 void Semaphore::up()
 {
-  if (sem_post(&sem)==-1) {
-    _LOG_FATAL("sem_post: %m");
-    exit(1);
-  }
+  if (sem_post(&sem)==-1)
+    _LOG_INFO("sem_post: %m");
 }
 
 void Semaphore::down()
@@ -135,27 +114,21 @@ void Semaphore::down()
   while (sem_wait(&sem)==-1) {
     if (errno == EINTR)
       continue;
-    else {
-      _LOG_FATAL("sem_wait: %m");
-      exit(1);
-    }
+    else
+      _LOG_INFO("sem_wait: %m");
   }
 }
 
 int Semaphore::val()
 {
   int ans;
-  if (sem_getvalue(&sem, &ans)==-1) {
-    _LOG_FATAL("sem_getvalue: %m");
-    exit(1);
-  }
+  if (sem_getvalue(&sem, &ans)==-1)
+    _LOG_INFO("sem_getvalue: %m");
   return ans;
 }
 
 Semaphore::~Semaphore()
 {
-  if (sem_destroy(&sem)==-1) {
-    _LOG_FATAL("sem_destroy: %m");
-    exit(1);
-  }
+  if (sem_destroy(&sem)==-1)
+    _LOG_INFO("sem_destroy: %m");
 }

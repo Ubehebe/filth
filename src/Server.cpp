@@ -14,43 +14,51 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "Factory.hpp"
 #include "logging.h"
 #include "Server.hpp"
 #include "sigmasks.hpp"
-#include "SigThread.hpp"
+#include "ThreadPool.hpp"
 
 Server::Server(
 	       int domain,
-	       FindWork &fwork,
+	       FindWork *fwork,
 	       char const *mount,
 	       char const *bindto,
 	       int nworkers,
 	       int listenq,
-	       int sigdeadlock_internal,
-	       int sigdeadlock_external,
-	       char const *ifnam)
-  : domain(domain), listenq(listenq), nworkers(nworkers), q(), sch(q, fwork),
-    bindto(bindto), sigdeadlock_internal(sigdeadlock_internal),
-    sigdeadlock_external(sigdeadlock_external)
+	       int sigdl_int,
+	       int sigdl_ext,
+	       char const *ifnam,
+	       Callback *onstartup,
+	       Callback *onshutdown)
+  : domain(domain), fwork(fwork), bindto(bindto),
+    nworkers(nworkers), listenq(listenq), sigdl_int(sigdl_int),
+    sigdl_ext(sigdl_ext), ifnam(ifnam), onstartup(onstartup),
+    onshutdown(onshutdown), doserve(true)
 {
-  _LOG_DEBUG("pid %d", getpid());
-
   /* A domain socket server needs to remember where it's bound in the
    * filesystem in order to unlink in the destructor. */
   if (domain == AF_LOCAL)
     sockdir = get_current_dir_name();
 
+  // Go to the mount point.
+  if (chdir(mount)==-1) {
+    _LOG_FATAL("chdir: %m");
+    exit(1);
+  }
+}
+
+void Server::socket_bind_listen()
+{
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     _LOG_FATAL("socket: %m");
     exit(1);
   }
 
-  // So the workers know where to get work.
-  Worker::q = &q;
-
   switch (domain) {
-  case AF_INET: setup_AF_INET(ifnam); break;
-  case AF_INET6: setup_AF_INET6(ifnam); break;
+  case AF_INET: setup_AF_INET(); break;
+  case AF_INET6: setup_AF_INET6(); break;
   case AF_LOCAL: setup_AF_LOCAL(); break;
   default: 
     _LOG_FATAL("unsupported domain %d", domain);
@@ -75,14 +83,6 @@ Server::Server(
   }
   _LOG_DEBUG("listen fd is %d", listenfd);
 
-  // listenfd was meaningless until we bound it.
-  sch.set_listenfd(listenfd);
-
-  // Go to the mount point.
-  if (chdir(mount)==-1) {
-    _LOG_FATAL("chdir: %m");
-    exit(1);
-  }
 }
 
 Server::~Server()
@@ -113,24 +113,43 @@ void Server::serve()
 {
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
 
-  Thread<Scheduler> _blah(&sch, &Scheduler::poll);
+  while (doserve) {
+    socket_bind_listen();
+    q = new DoubleLockedQueue<Work *>();
+    sch = new Scheduler(*q, listenfd);
 
-  sch.push_sighandler(sigdeadlock_external, SigThread<Worker>::sigall);
-  SigThread<Worker>::setup(sigdeadlock_internal);
+    /* This callback should create a FindWork object and let the scheduler 
+     * know about it. */
+    if (onstartup != NULL)
+      (*onstartup)();
 
-  while (sch.dowork) {
-    Worker workers[nworkers];
-    for (int i=0; i<nworkers; ++i)
-      SigThread<Worker>(&workers[i], &Worker::work);
-    SigThread<Worker>::wait();
-    Work *tmp;
-    while (q.nowait_deq(tmp))
-      delete tmp;
+    {
+      
+      Thread<Scheduler> schedth(sch, &Scheduler::poll);
+      Factory<Worker> wfact(q);
+      ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int);
+      schedth.start();
+      wths.start();
+      /* The Thread and ThreadPool destructors wait for their threads 
+       * to go out of scope.
+       *
+       * BUG
+       * The emergency yank still does not work correctly. I get a segfault at
+       * what looks to around the Thread destructor for the scheduler.
+       * Suggestively, when I run it under valgrind, there is no segfault and
+       * not even any warning. What could be the difference? */
+    }
+    _LOG_DEBUG("Thread and ThreadPool went out of scope");
+
+    if (onshutdown != NULL)
+      (*onshutdown)();
+    delete sch;
+    delete q;
     _LOG_DEBUG("looping");
   }
 }
 
-void Server::setup_AF_INET(char const *ifnam)
+void Server::setup_AF_INET()
 {
   struct ifaddrs *ifap;
 
@@ -179,7 +198,7 @@ void Server::setup_AF_INET(char const *ifnam)
   _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin_port));
 }
 
-void Server::setup_AF_INET6(char const *ifnam)
+void Server::setup_AF_INET6()
 {
   struct ifaddrs *ifap;
 

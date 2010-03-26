@@ -57,9 +57,9 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
       _LOG_FATAL("sigaction: %m");
       exit(1);
     }
-    _LOG_INFO("redefined the disposition of signal %s. "
-	      "this affects every thread in the process, "
-	      "including ones we know nothing about. beware.",
+    _LOG_INFO("Redefined the disposition of signal %s. "
+	      "This affects every thread in the process, "
+	      "including ones we know nothing about. Beware.",
 	      strsignal(sigkill));
   }
 
@@ -71,6 +71,9 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
 
 template<class T> void ThreadPool<T>::cleanup(void *ignore)
 {
+  if (thethreadpool == NULL)
+    return;
+  
   std::list<Thread<T> *> &threads = thethreadpool->threads;
   typename std::list<Thread<T> *>::iterator it;
   pthread_t me = pthread_self();
@@ -95,6 +98,7 @@ template<class T> ThreadPool<T>::~ThreadPool()
   while (!threads.empty())
     done.wait();
   m.unlock();
+  _LOG_DEBUG("ThreadPool destructor complete");
 }
 
 template<class T> void ThreadPool<T>::start()
@@ -114,12 +118,15 @@ template<class T> void ThreadPool<T>::UNSAFE_emerg_yank(int ignore)
   if (thethreadpool->sigkill != -1) {
     thethreadpool->m.lock();
     for (it = threads.begin(); it != threads.end(); ++it) {
+      _LOG_DEBUG("kill sent");
       if ((errno = pthread_kill((*it)->th, thethreadpool->sigkill))!=0)
 	_LOG_INFO("pthread_kill: %m, continuing");
       delete *it; // Is this safe?
     }
     threads.clear();
+    thethreadpool->done.signal(); // ???
     thethreadpool->m.unlock();
+    thethreadpool = NULL;
   }
 }
 

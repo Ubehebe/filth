@@ -3,10 +3,10 @@
 
 #include <unordered_map>
 
+#include "Callback.hpp"
 #include "FindWork.hpp"
-#include "LockedQueue.hpp"
+#include "DoubleLockedQueue.hpp"
 #include "Scheduler.hpp"
-#include "Thread.hpp"
 #include "Worker.hpp"
 
 class Server
@@ -15,19 +15,31 @@ class Server
   Server(Server const&);
 
   // Internal setup functions for supported domains.
-  void setup_AF_INET(char const *ifnam);
-  void setup_AF_INET6(char const *ifnam);
+  void setup_AF_INET();
+  void setup_AF_INET6();
   void setup_AF_LOCAL();
+  void socket_bind_listen();
 
   int domain, listenfd, listenq, nworkers;
-  char const *bindto;
+  char const *bindto, *ifnam;
   char *sockdir;
 
-  LockedQueue<Work *> q; // Jobs waiting to be worked on.
-  int sigdeadlock_internal, sigdeadlock_external;
+
+  /* These are hooks into beginning and end of the server's main loop. The idea
+   * is that the server should tear down and rebuild all its resources
+   * for each loop, because a loop corresponds to a call to ThreadPool's
+   * UNSAFE_emerg_yank routine, which can leave data in really bad shape.
+   * Classes derived from Server that add new resources (e.g. a cache)
+   * should use these callbacks to tear down and rebuild those resources. */
+  Callback *onstartup, *onshutdown;
+
+  DoubleLockedQueue<Work *> *q; // Jobs waiting to be worked on.
+  int sigdl_int, sigdl_ext;
+  FindWork *fwork;
 
 protected:
-  Scheduler sch;
+  Scheduler *sch;
+  bool doserve;
 
 public:
 
@@ -35,14 +47,16 @@ public:
    * like "80". For local sockets, bindto should be a filesystem path. */
   Server(
 	 int domain,
-	 FindWork &fwork,
+	 FindWork *fwork,
 	 char const *mount,
 	 char const *bindto,
 	 int nworkers,
 	 int listenq,
-	 int sigdeadlock_internal,
-	 int sigdeadlock_external,
-	 char const *ifname=NULL);
+	 int sigdl_int,
+	 int sigdl_ext,
+	 char const *ifname=NULL,
+	 Callback *onstartup=NULL,
+	 Callback *onshutdown=NULL);
   ~Server();
   void serve();
 };

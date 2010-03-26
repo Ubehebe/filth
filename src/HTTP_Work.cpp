@@ -13,7 +13,7 @@
 using namespace std;
 using namespace HTTP_constants;
 
-LockedQueue<void *> HTTP_Work::store;
+DoubleLockedQueue<void *> HTTP_Work::store;
 Scheduler *HTTP_Work::sch = NULL;
 FileCache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;

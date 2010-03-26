@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "LockedQueue.hpp"
+#include "DoubleLockedQueue.hpp"
 #include "logging.h"
 
 template<size_t SZ> class rawbytes
@@ -11,9 +11,8 @@ template<size_t SZ> class rawbytes
   uint8_t bytes[SZ];
 };
 
-/* W is assumed to be a class that has the following declaration:
- * static LockedQueue<void *> store;
- */
+/* W is assumed to be a class that has a static ConcurrentQueue-derived
+ * object named store. */
 template<class W> class FindWork_prealloc : public FindWork
 {
 public:

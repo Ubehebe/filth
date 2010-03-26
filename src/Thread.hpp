@@ -19,8 +19,8 @@
  * The constructors provide most of the common thread options. */
 template<class C> class Thread
 {
-  static void cleanup_default(void *) {}
 public:
+  static void cleanup_default(void *) { _LOG_DEBUG("default!"); }
   Thread(Factory<C> &f,
 	 void (C::*p)(),
 	 sigset_t *_sigmask=NULL,
@@ -174,6 +174,7 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 
 template<class C> Thread<C>::~Thread() 
 {
+  _LOG_DEBUG("Thread destructor");
   delete _sigmask;
   if (!detached && (errno = pthread_join(th, NULL))!=0) {
     _LOG_FATAL("pthread_join: %m");
@@ -181,6 +182,7 @@ template<class C> Thread<C>::~Thread()
   }
   if (dodelete) 
     delete _c;
+  _LOG_DEBUG("Thread destructor done");
 }
 
 template<class C> void Thread<C>::cancel()

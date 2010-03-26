@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "Callback.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_constants.hpp"
 #include "Workmap.hpp"
@@ -18,16 +19,27 @@
 #include "Server.hpp"
 #include "ServerErrs.hpp"
 
-class HTTP_Server : public Server
+class HTTP_Server : public Server, Callback
 {
   HTTP_Server(HTTP_Server const&);
   HTTP_Server &operator=(HTTP_Server const&);
 
-  /* The cache constructor registers its inotify fd with the scheduler using
-   * fwork. fwork checks st to see if such a work object already exists, so
-   * st needs to have been initialized already. */
-  HTTP_FindWork fwork;
-  inotifyFileCache cache;
+  // These are pointers because they can get torn down and rebuilt.
+  HTTP_FindWork *fwork;
+  inotifyFileCache *cache;
+
+  static HTTP_Server *theserver; // For non-signalfd-based signal handling
+  static void halt(int ignore=-1);
+  static void flush(int ignore=-1);
+  static void UNSAFE_emerg_yank_wrapper(int ignore=-1);
+
+  /* Multiplex callbacks: the server wants one for startup and one for shutdown,
+   * but since we're building operator() right into the server object, we can
+   * have only one. Use this bit to tell which one we're supposed to do. */
+  bool perform_startup;
+
+  size_t req_prealloc_MB, cacheszMB;
+  int sigflush, sigdl_ext;
 
 public:
   HTTP_Server(char const *portno,
@@ -42,8 +54,7 @@ public:
 	      int sigflush,
 	      int sigthinternal);
   ~HTTP_Server();
-  static HTTP_Server *theserver; // For non-signalfd-based signal handling
-  static void flush(int ignore);
+  void operator()(); // Callback into Server's main loop.
   #ifdef _COLLECT_STATS
   uint32_t flushes;
 #endif // _COLLECT_STATS

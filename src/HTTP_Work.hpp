@@ -12,7 +12,7 @@
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
 #include "Workmap.hpp"
-#include "LockedQueue.hpp"
+#include "DoubleLockedQueue.hpp"
 #include "Scheduler.hpp"
 #include "Work.hpp"
 
@@ -23,7 +23,7 @@ class HTTP_Work : public Work
   HTTP_Work(HTTP_Work const&);
   HTTP_Work &operator=(HTTP_Work const&);
 
-  static LockedQueue<void *> store; // For operator new/delete
+  static DoubleLockedQueue<void *> store; // For operator new/delete
   static size_t const rdbufsz = 1<<10;
   static Scheduler *sch;
   static FileCache *cache;
@@ -58,5 +58,6 @@ public:
   HTTP_Work(int fd, Work::mode m);
   ~HTTP_Work();
 };
+
 
 #endif // HTTP_WORK_HPP
