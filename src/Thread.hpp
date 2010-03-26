@@ -20,7 +20,6 @@
 template<class C> class Thread
 {
   static void cleanup_default(void *) {}
-  
 public:
   Thread(Factory<C> &f,
 	 void (C::*p)(),
@@ -75,16 +74,21 @@ private:
 
 template<class C> Thread<C>::Thread(Factory<C> &f,
 				    void (C::*p)(),
-				    sigset_t *_sigmask,
+				    sigset_t *_sigm,
 				    bool detached,
 				    void (*cleanup)(void *),
 				    bool cleanup_on_normal_exit,
 				    int cancelstate,
 				    int canceltype)
-  : _c(f()), _p(p), _sigmask(_sigmask), detached(detached),
+  : _c(f()), _p(p), detached(detached),
     cleanup(cleanup), cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(true)
 {
+  if (_sigm != NULL) {
+    _sigmask = new sigset_t();
+    memcpy((void *)_sigmask, (void *)_sigm, sizeof(sigset_t));
+  }
+  else _sigmask = NULL;
 }
 
 template<class C> Thread<C>::Thread(
@@ -170,6 +174,7 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 
 template<class C> Thread<C>::~Thread() 
 {
+  delete _sigmask;
   if (!detached && (errno = pthread_join(th, NULL))!=0) {
     _LOG_FATAL("pthread_join: %m");
     exit(1);

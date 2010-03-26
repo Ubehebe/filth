@@ -11,13 +11,15 @@ public:
 
 template<> class Factory<string>
 {
+  string touse;
 public:
-  string *operator()() { return new string("hello"); }
+  Factory(char const *s) : touse(s) {}
+  string *operator()() { return new string(touse); }
 };
 
 int main()
 {
-  Factory<string> f;
+  Factory<string> f("hi!");
   cout << *(f()) << endl;
 }
 

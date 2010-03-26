@@ -2,12 +2,13 @@
 #include <iostream>
 #include <list>
 #include <stdlib.h>
+#include <syslog.h>
 
 #include "Factory.hpp"
 #include "Locks.hpp"
 #include "logging.h"
 #include "DoubleLockedQueue.hpp"
-#include "Thread.hpp"
+#include "ThreadPool.hpp"
 
 using namespace std;
 
@@ -102,29 +103,19 @@ void test(ConcurrentQueue<testobj *> *q,
 
   Factory<testproducer> pfact;
   Factory<testconsumer> cfact;
-  list<Thread<testproducer> *> pths;
-  list<Thread<testconsumer> *> cths;
 
-  Thread<testproducer> *pth;
-  Thread<testconsumer> *cth;
-
-  for (int i=0; i<nproducers; ++i) {
-    pths.push_back(pth = new Thread<testproducer>(pfact, &testproducer::produce));
-    pth->start();
-  }
-  for (int i=0; i<nconsumers; ++i) {
-    cths.push_back(cth = new Thread<testconsumer>(cfact, &testconsumer::consume));
-    cth->start();
-  }
-
+  ThreadPool<testproducer> *ppool
+    = new ThreadPool<testproducer>(pfact, &testproducer::produce, nproducers);
+  ThreadPool<testconsumer> *cpool
+    = new ThreadPool<testconsumer>(cfact, &testconsumer::consume, nconsumers);
+  ppool->start();
+  cpool->start();
   cerr << "\twaiting for producers to finish\n";
-  for (list<Thread<testproducer> *>::iterator it = pths.begin(); it != pths.end(); ++it)
-    delete *it;
+  delete ppool;
   cerr << "\tenqueuing null item to stop consumers\n";
   q->enq(NULL);
   cerr << "\twaiting for consumers to finish\n";
-  for (list<Thread<testconsumer> *>::iterator it = cths.begin(); it != cths.end(); ++it)
-    delete *it;
+  delete cpool;
   testobj *last;
   cerr << "\tverifying that the null item is the only thing in the queue\n";
   if (!q->nowait_deq(last)) {
@@ -145,6 +136,7 @@ void test(ConcurrentQueue<testobj *> *q,
 
 int main(int argc, char **argv)
 {
+  openlog(argv[0], LOG_PERROR, LOG_USER);
   if (argc !=4) {
     cerr << "usage: " << argv[0] << " <num-producers> <num-consumers> "
       "<items per producer>\n";
