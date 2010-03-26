@@ -100,7 +100,6 @@ void test(ConcurrentQueue<testobj *> *q,
   testproducer::nreps = nreps;
   testconsumer::q = q;
 
-
   Factory<testproducer> pfact;
   Factory<testconsumer> cfact;
 
