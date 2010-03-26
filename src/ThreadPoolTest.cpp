@@ -53,7 +53,7 @@ int main(int argc, char **argv)
   int victim, nthreads, nreps;
   useconds_t usecs;
   Mutex m;
-  while (loops++ < nloops) {
+  while (nloops == -1 || loops++ < nloops) {
     nthreads = (rand() % 50) + 1;
     nreps = (rand() % 100000) + 1;
     usecs = rand() % 5000000;
@@ -73,5 +73,6 @@ int main(int argc, char **argv)
     delete pool;
     cerr << "before " << before << " after " << victim
 	 << ((before == victim) ? " (ok)\n" : "(FAILURE)\n");
+    sleep(10);
   }
 }
