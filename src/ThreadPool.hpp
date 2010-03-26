@@ -18,9 +18,11 @@ template<class T> class ThreadPool
   static ThreadPool *thethreadpool;
   static void cleanup(void *ignore);
   static void pthread_exit_wrapper(int ignore) { pthread_exit(NULL); }
+  int sigkill;
 public:
   ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1);
   ~ThreadPool();
+  static void UNSAFE_emerg_yank(int ignore=-1);
   void start();
 };
 
@@ -28,7 +30,7 @@ template<class T> ThreadPool<T> *ThreadPool<T>::thethreadpool;
 
 template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
 					    void (T::*todo)(), int nthreads, int sigkill)
-  : done(m)
+  : done(m), sigkill(sigkill)
 {
   thethreadpool = this;
 
@@ -57,7 +59,7 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
     }
     _LOG_INFO("redefined the disposition of signal %s. "
 	      "this affects every thread in the process, "
-	      "including ones we know nothing about. Beware.",
+	      "including ones we know nothing about. beware.",
 	      strsignal(sigkill));
   }
 
@@ -75,17 +77,15 @@ template<class T> void ThreadPool<T>::cleanup(void *ignore)
   thethreadpool->m.lock();
   for (it = threads.begin(); it != threads.end(); ++it) {
     if (pthread_equal(me, (*it)->th)) {
-      delete *it; //???
+      delete *it; // By this time we shouldn't be using any of this
       threads.erase(it);
       if (threads.empty())
 	thethreadpool->done.signal();
       break;
     }
   }
-  if (it == threads.end()) {
-    _LOG_FATAL("exiting thread didn't find itself in thread pool");
-    exit(1);
-  }
+  if (it == threads.end())
+    _LOG_INFO("exiting thread didn't find itself in thread pool");
   thethreadpool->m.unlock();
 }
 
@@ -105,6 +105,22 @@ template<class T> void ThreadPool<T>::start()
   m.lock();
   std::for_each(threads.begin(), threads.end(), std::mem_fun(&Thread<T>::start));
   m.unlock();
+}
+
+template<class T> void ThreadPool<T>::UNSAFE_emerg_yank(int ignore)
+{
+  std::list<Thread<T> *> &threads = thethreadpool->threads;
+  typename std::list<Thread<T> *>::iterator it;
+  if (thethreadpool->sigkill != -1) {
+    thethreadpool->m.lock();
+    for (it = threads.begin(); it != threads.end(); ++it) {
+      if ((errno = pthread_kill((*it)->th, thethreadpool->sigkill))!=0)
+	_LOG_INFO("pthread_kill: %m, continuing");
+      delete *it; // Is this safe?
+    }
+    threads.clear();
+    thethreadpool->m.unlock();
+  }
 }
 
 #endif // THREAD_POOL_HPP

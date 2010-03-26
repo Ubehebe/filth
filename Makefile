@@ -26,6 +26,9 @@ SigThreadTest:
 .PHONY: standalone-cache
 standalone-cache:
 	cd $(SRC_DIR) && $(MAKE) standalone-cache
+.PHONY: ThreadPoolTest
+ThreadPoolTest:
+	cd $(SRC_DIR) && $(MAKE) ThreadPoolTest
 .PHONY: depend
 depend:
 	cd $(SRC_DIR) && $(MAKE) depend
