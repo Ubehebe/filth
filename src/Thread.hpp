@@ -26,6 +26,7 @@ public:
 	 sigset_t *_sigmask=NULL,
 	 bool detached=false,
 	 void (*cleanup)(void *)=cleanup_default,
+	 void *cleanup_arg = NULL,
 	 bool cleanup_on_normal_exit=true,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
@@ -34,6 +35,7 @@ public:
 	 sigset_t *_sigmask=NULL,
 	 bool detached=false,
 	 void (*cleanup)(void *)=cleanup_default,
+	 void *cleanup_arg = NULL,
 	 bool cleanup_on_normal_exit=true,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
@@ -51,6 +53,7 @@ private:
   bool dodelete, detached, cleanup_on_normal_exit;
   int cancelstate, canceltype;
   void (*cleanup)(void *);
+  void *cleanup_arg;
 
   static void *pthread_create_wrapper(void *_Th);
 
@@ -62,10 +65,12 @@ private:
     sigset_t *_sigmask;
     int _cancelstate, _canceltype, _cleanup_on_normal_exit;
     void (*_cleanup)(void *);
+    void *_cleanup_arg;
     _Thread(C *_c, void (C::*_p)(), sigset_t *_sigmask,
-	    void (*_cleanup)(void *), bool _cleanup_on_normal_exit,
-	    int _cancelstate, int _canceltype)
+	    void (*_cleanup)(void *), void *_cleanup_arg,
+	    bool _cleanup_on_normal_exit, int _cancelstate, int _canceltype)
       : _c(_c), _p(_p), _sigmask(_sigmask),  _cleanup(_cleanup),
+	_cleanup_arg(_cleanup_arg),
 	_cleanup_on_normal_exit(static_cast<int>(_cleanup_on_normal_exit)),
 	_cancelstate(_cancelstate), _canceltype(_canceltype)
     {}
@@ -77,11 +82,13 @@ template<class C> Thread<C>::Thread(Factory<C> &f,
 				    sigset_t *_sigm,
 				    bool detached,
 				    void (*cleanup)(void *),
+				    void *cleanup_arg,
 				    bool cleanup_on_normal_exit,
 				    int cancelstate,
 				    int canceltype)
   : _c(f()), _p(p), detached(detached),
-    cleanup(cleanup), cleanup_on_normal_exit(cleanup_on_normal_exit),
+    cleanup(cleanup), cleanup_arg(cleanup_arg), 
+    cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(true)
 {
   if (_sigm != NULL) {
@@ -97,18 +104,19 @@ template<class C> Thread<C>::Thread(
 				    sigset_t *_sigmask,
 				    bool detached,
 				    void (*cleanup)(void *),
+				    void *cleanup_arg,
 				    bool cleanup_on_normal_exit,
 				    int cancelstate,
 				    int canceltype)
   : _c(c), _p(p), _sigmask(_sigmask), detached(detached), cleanup(cleanup),
-    cleanup_on_normal_exit(cleanup_on_normal_exit),
+    cleanup_arg(cleanup_arg), cleanup_on_normal_exit(cleanup_on_normal_exit),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(false)
 {
 }
 
 template<class C> void Thread<C>::start()
 {
-  _Thread *tmp = new _Thread(_c, _p, _sigmask, cleanup,
+  _Thread *tmp = new _Thread(_c, _p, _sigmask, cleanup, cleanup_arg,
 			     cleanup_on_normal_exit, cancelstate, canceltype);
 
   pthread_attr_t attr;
@@ -158,16 +166,19 @@ template<class C> void *Thread<C>::pthread_create_wrapper
   }
 
   void (*cleanup)(void *) = tmp->_cleanup;
+  void *cleanup_arg = tmp->_cleanup_arg;
   bool cleanup_on_normal_exit = tmp->_cleanup_on_normal_exit;
   void (C::*p)() = tmp->_p;
   C *c = tmp->_c;
   
   delete tmp;
 
-  pthread_cleanup_push(cleanup, NULL);
+  pthread_cleanup_push(cleanup, cleanup_arg);
+  _LOG_DEBUG("pushed %p", cleanup);
 
   (std::mem_fun(p))(c);
 
+  _LOG_DEBUG("finished executing nullary function normally");
   pthread_cleanup_pop(cleanup_on_normal_exit);
 
 }
@@ -175,7 +186,7 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 template<class C> Thread<C>::~Thread() 
 {
   _LOG_DEBUG("Thread destructor");
-  delete _sigmask;
+  delete _sigmask; // Can we get rid of this sooner?
   if (!detached && (errno = pthread_join(th, NULL))!=0) {
     _LOG_FATAL("pthread_join: %m");
     exit(1);

@@ -15,15 +15,16 @@ template<class T> class ThreadPool
   Mutex m;
   CondVar done;
   std::list<Thread<T> *> threads;
-  static ThreadPool *thethreadpool;
-  static void cleanup(void *ignore);
-  static void pthread_exit_wrapper(int ignore) { pthread_exit(NULL); }
+  static void cleanup(void *thethreadpool);
+  static void pthread_exit_wrapper(int ignore) { _LOG_DEBUG("got %s", strsignal(ignore)); pthread_exit(NULL); }
   int sigkill;
 public:
   ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1);
   ~ThreadPool();
   static void UNSAFE_emerg_yank(int ignore=-1);
   void start();
+
+  static ThreadPool<T> *thethreadpool;
 };
 
 template<class T> ThreadPool<T> *ThreadPool<T>::thethreadpool;
@@ -57,7 +58,7 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
       _LOG_FATAL("sigaction: %m");
       exit(1);
     }
-    _LOG_INFO("Redefined the disposition of signal %s. "
+    _LOG_INFO("Redefined the disposition of signal \"%s\". "
 	      "This affects every thread in the process, "
 	      "including ones we know nothing about. Beware.",
 	      strsignal(sigkill));
@@ -65,38 +66,47 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
 
   m.lock();
   for (int i=0; i<nthreads; ++i)
-    threads.push_back(new Thread<T>(f, todo, &toblock, true, cleanup));
+    threads.push_back(new Thread<T>(f, todo, &toblock, true, cleanup,
+				    reinterpret_cast<void *>(this)));
   m.unlock();
 }
 
-template<class T> void ThreadPool<T>::cleanup(void *ignore)
+/* There's a suggestive bug going on here: although every thread
+ * in the pool receives the signal, only ONE thread executes this function.
+ * The result is deadlock because the ThreadPool destructor is waiting for
+ * the thread count to dwindle to zero. Why does this happen? */
+template<class T> void ThreadPool<T>::cleanup(void *tpool)
 {
-  if (thethreadpool == NULL)
-    return;
-  
-  std::list<Thread<T> *> &threads = thethreadpool->threads;
+  ThreadPool<T> *tp = reinterpret_cast<ThreadPool<T> *>(tpool);
+  std::list<Thread<T> *> &threads = tp->threads;
   typename std::list<Thread<T> *>::iterator it;
   pthread_t me = pthread_self();
-  thethreadpool->m.lock();
+  tp->m.lock();
+  _LOG_DEBUG("%d threads", threads.size());
   for (it = threads.begin(); it != threads.end(); ++it) {
     if (pthread_equal(me, (*it)->th)) {
+      _LOG_DEBUG("found myself");
       delete *it; // By this time we shouldn't be using any of this
       threads.erase(it);
-      if (threads.empty())
-	thethreadpool->done.signal();
+      if (threads.empty()) {
+	tp->done.signal();
+      }
       break;
     }
   }
   if (it == threads.end())
     _LOG_INFO("exiting thread didn't find itself in thread pool");
-  thethreadpool->m.unlock();
+  
+  tp->m.unlock();
 }
 
 template<class T> ThreadPool<T>::~ThreadPool()
 {
   m.lock();
-  while (!threads.empty())
+  while (!threads.empty()) {
+    _LOG_DEBUG("ThreadPool destructor waiting: %d left", threads.size());
     done.wait();
+  }
   m.unlock();
   _LOG_DEBUG("ThreadPool destructor complete");
 }
@@ -121,12 +131,12 @@ template<class T> void ThreadPool<T>::UNSAFE_emerg_yank(int ignore)
       _LOG_DEBUG("kill sent");
       if ((errno = pthread_kill((*it)->th, thethreadpool->sigkill))!=0)
 	_LOG_INFO("pthread_kill: %m, continuing");
-      delete *it; // Is this safe?
+      //      delete *it; // Is this safe?
     }
-    threads.clear();
-    thethreadpool->done.signal(); // ???
+    //    threads.clear();
+    //    thethreadpool->done.signal(); // ???
     thethreadpool->m.unlock();
-    thethreadpool = NULL;
+    //    thethreadpool = NULL; // ???
   }
 }
 

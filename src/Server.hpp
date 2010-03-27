@@ -6,6 +6,7 @@
 #include "Callback.hpp"
 #include "FindWork.hpp"
 #include "DoubleLockedQueue.hpp"
+#include "Locks.hpp"
 #include "Scheduler.hpp"
 #include "Worker.hpp"
 
@@ -36,6 +37,9 @@ class Server
   DoubleLockedQueue<Work *> *q; // Jobs waiting to be worked on.
   int sigdl_int, sigdl_ext;
   FindWork *fwork;
+
+  Semaphore sch_done;
+  static void sch_cleanup(void *semaphore);
 
 protected:
   Scheduler *sch;
