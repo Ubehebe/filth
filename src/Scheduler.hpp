@@ -85,7 +85,6 @@ public:
    * are dictated by the sa_handler field of struct sigaction. (We wouldn't
    * have to do this if we didn't support an alternative to signalfd.) */
   static void halt(int ignore=-1);
-  static void halt_nopoison(int ignore=-1);
   static Scheduler *thescheduler; // For non-signalfd-based signal handling
   void setfwork(FindWork *fwork);
 

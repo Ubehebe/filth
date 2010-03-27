@@ -122,7 +122,6 @@ template<class C> void Thread<C>::start()
     _LOG_FATAL("pthread_create: %m");
     exit(1);
   }
-  _LOG_DEBUG("created thread %ld", th);
 }
 
 template<class C> void *Thread<C>::pthread_create_wrapper
@@ -166,7 +165,6 @@ template<class C> void *Thread<C>::pthread_create_wrapper
 
 template<class C> Thread<C>::~Thread() 
 {
-  _LOG_DEBUG("Thread destructor");
   delete _sigmask; // Can we get rid of this sooner?
   if (!detached && (errno = pthread_join(th, NULL))!=0) {
     _LOG_FATAL("pthread_join: %m");
@@ -174,7 +172,6 @@ template<class C> Thread<C>::~Thread()
   }
   if (dodelete) 
     delete _c;
-  _LOG_DEBUG("Thread destructor done");
 }
 
 template<class C> void Thread<C>::cancel()

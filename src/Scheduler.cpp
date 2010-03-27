@@ -294,12 +294,6 @@ void Scheduler::halt(int ignore)
   thescheduler->q.enq(NULL);
 }
 
-void Scheduler::halt_nopoison(int ignore)
-{
-  _LOG_INFO("scheduler halting");
-  thescheduler->dowork = false;
-}
-
 inline void Scheduler::handle_sock_err(int fd)
 {
   // What's this for?

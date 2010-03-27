@@ -5,7 +5,7 @@
 
 #include "Callback.hpp"
 #include "FindWork.hpp"
-#include "DoubleLockedQueue.hpp"
+#include "LockFreeQueue.hpp"
 #include "Locks.hpp"
 #include "Scheduler.hpp"
 #include "Worker.hpp"
@@ -34,7 +34,7 @@ class Server
    * should use these callbacks to tear down and rebuild those resources. */
   Callback *onstartup, *onshutdown;
 
-  DoubleLockedQueue<Work *> *q; // Jobs waiting to be worked on.
+  LockFreeQueue<Work *> *q; // Jobs waiting to be worked on.
   int sigdl_int, sigdl_ext;
   FindWork *fwork;
 

@@ -22,7 +22,7 @@ Mutex::Mutex()
 Mutex::~Mutex()
 {
   if ((errno = pthread_mutex_destroy(&_m))!=0)
-    _LOG_INFO("pthread_mutex_destroy: %m");
+  _LOG_INFO("pthread_mutex_destroy: %m");
 }
 
 void Mutex::lock()

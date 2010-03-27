@@ -115,7 +115,7 @@ void Server::serve()
 
   while (doserve) {
     socket_bind_listen();
-    q = new DoubleLockedQueue<Work *>();
+    q = new LockFreeQueue<Work *>();
     sch = new Scheduler(*q, listenfd);
 
     /* This callback should create a FindWork object and let the scheduler 
@@ -131,21 +131,13 @@ void Server::serve()
       schedth.start();
       wths.start();
       /* The Thread and ThreadPool destructors wait for their threads 
-       * to go out of scope.
-       *
-       * BUG
-       * The emergency yank still does not work correctly. I get a segfault at
-       * what looks to around the Thread destructor for the scheduler.
-       * Suggestively, when I run it under valgrind, there is no segfault and
-       * not even any warning. What could be the difference? */
+       * to go out of scope. */
     }
-    _LOG_DEBUG("Thread and ThreadPool went out of scope");
 
     if (onshutdown != NULL)
       (*onshutdown)();
     delete sch;
     delete q;
-    _LOG_DEBUG("looping");
   }
 }
 
