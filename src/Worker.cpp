@@ -18,6 +18,7 @@ void Worker::work()
     Work *w = q->wait_deq();
     // a NULL Work object means stop!
     if (w == NULL) {
+      _LOG_DEBUG("poison pill!");
       // Put it back, for the other workers to see
       q->enq(w);
       break;

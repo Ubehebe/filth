@@ -26,6 +26,15 @@ public:
   }
 };
 
+class fake
+{
+public:
+  void work()
+  {
+    sleep(15);
+  }
+};
+
 int *test::victim = NULL;
 int test::nreps = 0;
 Mutex *test::m = NULL;
@@ -53,6 +62,9 @@ int main(int argc, char **argv)
   int victim, nthreads, nreps;
   useconds_t usecs;
   Mutex m;
+  fake *fk = new fake();
+  Thread<fake> faketh(fk, &fake::work);
+  faketh.start();
   while (nloops == -1 || loops++ < nloops) {
     nthreads = (rand() % 50) + 1;
     nreps = (rand() % 100000) + 1;

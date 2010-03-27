@@ -38,9 +38,6 @@ class Server
   int sigdl_int, sigdl_ext;
   FindWork *fwork;
 
-  Semaphore sch_done;
-  static void sch_cleanup(void *semaphore);
-
 protected:
   Scheduler *sch;
   bool doserve;

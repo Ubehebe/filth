@@ -6,23 +6,24 @@
 #include <signal.h>
 #include <string.h>
 
+#include "Callback.hpp"
 #include "Factory.hpp"
 #include "Locks.hpp"
 #include "Thread.hpp"
 
-template<class T> class ThreadPool
+template<class T> class ThreadPool : public Callback
 {
   Mutex m;
   CondVar done;
   std::list<Thread<T> *> threads;
-  static void cleanup(void *thethreadpool);
-  static void pthread_exit_wrapper(int ignore) { _LOG_DEBUG("got %s", strsignal(ignore)); pthread_exit(NULL); }
+  static void pthread_exit_wrapper(int ignore) { (*thethreadpool)(); pthread_exit(NULL); }
   int sigkill;
 public:
   ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1);
   ~ThreadPool();
   static void UNSAFE_emerg_yank(int ignore=-1);
   void start();
+  void operator()(); // cleanup callback
 
   static ThreadPool<T> *thethreadpool;
 };
@@ -66,8 +67,7 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
 
   m.lock();
   for (int i=0; i<nthreads; ++i)
-    threads.push_back(new Thread<T>(f, todo, &toblock, true, cleanup,
-				    reinterpret_cast<void *>(this)));
+    threads.push_back(new Thread<T>(f, todo, &toblock, true, this));
   m.unlock();
 }
 
@@ -75,40 +75,35 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
  * in the pool receives the signal, only ONE thread executes this function.
  * The result is deadlock because the ThreadPool destructor is waiting for
  * the thread count to dwindle to zero. Why does this happen? */
-template<class T> void ThreadPool<T>::cleanup(void *tpool)
+template<class T> void ThreadPool<T>::operator()()
 {
-  ThreadPool<T> *tp = reinterpret_cast<ThreadPool<T> *>(tpool);
-  std::list<Thread<T> *> &threads = tp->threads;
-  typename std::list<Thread<T> *>::iterator it;
+  typename std::list<Thread<T> *>::iterator it, toerase = threads.end();
   pthread_t me = pthread_self();
-  tp->m.lock();
-  _LOG_DEBUG("%d threads", threads.size());
+  m.lock();
   for (it = threads.begin(); it != threads.end(); ++it) {
     if (pthread_equal(me, (*it)->th)) {
-      _LOG_DEBUG("found myself");
-      delete *it; // By this time we shouldn't be using any of this
-      threads.erase(it);
-      if (threads.empty()) {
-	tp->done.signal();
-      }
-      break;
+      delete *it; // By this time we shouldn't be using any of this...right?
+      toerase = it;
     }
   }
-  if (it == threads.end())
-    _LOG_INFO("exiting thread didn't find itself in thread pool");
-  
-  tp->m.unlock();
+  if (toerase != threads.end()) {
+    threads.erase(toerase);
+    if (threads.empty())
+      done.signal();
+  }
+  else
+    _LOG_INFO("exiting thread %ld didn't find itself in thread pool", me);
+    
+  m.unlock();
 }
 
 template<class T> ThreadPool<T>::~ThreadPool()
 {
   m.lock();
   while (!threads.empty()) {
-    _LOG_DEBUG("ThreadPool destructor waiting: %d left", threads.size());
     done.wait();
   }
   m.unlock();
-  _LOG_DEBUG("ThreadPool destructor complete");
 }
 
 template<class T> void ThreadPool<T>::start()
@@ -128,15 +123,10 @@ template<class T> void ThreadPool<T>::UNSAFE_emerg_yank(int ignore)
   if (thethreadpool->sigkill != -1) {
     thethreadpool->m.lock();
     for (it = threads.begin(); it != threads.end(); ++it) {
-      _LOG_DEBUG("kill sent");
       if ((errno = pthread_kill((*it)->th, thethreadpool->sigkill))!=0)
 	_LOG_INFO("pthread_kill: %m, continuing");
-      //      delete *it; // Is this safe?
     }
-    //    threads.clear();
-    //    thethreadpool->done.signal(); // ???
     thethreadpool->m.unlock();
-    //    thethreadpool = NULL; // ???
   }
 }
 

@@ -66,5 +66,5 @@ void HTTP_Server::halt(int ignore)
 void HTTP_Server::UNSAFE_emerg_yank_wrapper(int ignore)
 {
   ThreadPool<Worker>::UNSAFE_emerg_yank();
-  theserver->sch->halt();
+  theserver->sch->halt_nopoison();
 }

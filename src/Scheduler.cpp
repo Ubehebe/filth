@@ -106,7 +106,6 @@ void Scheduler::schedule(Work *w, bool oneshot)
     e.events |= EPOLLOUT;
     break;
   }
-  // Somehow, after flushes, we get an EINVAL here b/c pollfd == w->fd. ???
   if (epoll_ctl(pollfd, EPOLL_CTL_ADD, w->fd, &e)==-1)
     throw ResourceErr("epoll_ctl (EPOLL_CTL_ADD)", errno);
 }
@@ -211,8 +210,6 @@ void Scheduler::poll()
     }
   }
   _LOG_INFO("scheduler retiring");
-  
-  poisonpill();
 }
 
 void Scheduler::_acceptcb::operator()()
@@ -290,13 +287,14 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
   }
 }
 
-// This should cause the workers to break out of their loops.
-void Scheduler::poisonpill()
+void Scheduler::halt(int ignore)
 {
-  q.enq(NULL);
+  _LOG_INFO("scheduler halting");
+  thescheduler->dowork = false;
+  thescheduler->q.enq(NULL);
 }
 
-void Scheduler::halt(int ignore)
+void Scheduler::halt_nopoison(int ignore)
 {
   _LOG_INFO("scheduler halting");
   thescheduler->dowork = false;

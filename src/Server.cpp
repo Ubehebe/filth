@@ -125,8 +125,7 @@ void Server::serve()
 
     {
       
-      Thread<Scheduler> schedth(sch, &Scheduler::poll, NULL, true,
-				sch_cleanup, reinterpret_cast<void *>(&sch_done));
+      Thread<Scheduler> schedth(sch, &Scheduler::poll);
       Factory<Worker> wfact(q);
       ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int);
       schedth.start();
@@ -140,7 +139,6 @@ void Server::serve()
        * Suggestively, when I run it under valgrind, there is no segfault and
        * not even any warning. What could be the difference? */
     }
-    sch_done.down();
     _LOG_DEBUG("Thread and ThreadPool went out of scope");
 
     if (onshutdown != NULL)
@@ -271,9 +269,4 @@ void Server::setup_AF_LOCAL()
     exit(1);
   }
   _LOG_INFO("listening on %s", sa.sun_path);
-}
-
-void Server::sch_cleanup(void *semaphore)
-{
-  reinterpret_cast<Semaphore *>(semaphore)->up();
 }

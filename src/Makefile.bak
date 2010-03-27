@@ -16,9 +16,6 @@ CONCURRENT_QUEUE_TEST_OBJS = $(CONCURRENT_QUEUE_TEST_SRCS:.cpp=.o)
 ENDLESS_TEST_SRCS = EndlessTest.c
 ENDLESS_TEST_OBJS = $(ENDLESS_TEST_SRCS:.c=.o)
 
-SIGTHREAD_TEST_SRCS = SigThreadTest.cpp Locks.cpp
-SIGTHREAD_TEST_OBJS = $(SIGTHREAD_TEST_SRCS:.cpp=.o)
-
 THREAD_POOL_TEST_SRCS = ThreadPoolTest.cpp Locks.cpp
 THREAD_POOL_TEST_OBJS = $(THREAD_POOL_TEST_SRCS:.cpp=.o)
 
@@ -61,7 +58,8 @@ clean:
 
 Locks.o: Locks.hpp logging.h
 Scheduler.o: Scheduler.hpp Callback.hpp ConcurrentQueue.hpp logging.h
-Scheduler.o: FindWork.hpp Work.hpp Workmap.hpp ServerErrs.hpp sigmasks.hpp
+Scheduler.o: Factory.hpp FindWork.hpp Work.hpp Workmap.hpp ServerErrs.hpp
+Scheduler.o: sigmasks.hpp
 Server.o: Factory.hpp logging.h Server.hpp Callback.hpp FindWork.hpp Work.hpp
 Server.o: Workmap.hpp DoubleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp
 Server.o: Scheduler.hpp Worker.hpp sigmasks.hpp ThreadPool.hpp Thread.hpp
@@ -85,6 +83,7 @@ HTTP_FindWork.o: HTTP_Work.hpp HTTP_constants.hpp
 HTTP_FindWork.o: /home/brendan/http/data/HTTP_status.def
 HTTP_FindWork.o: /home/brendan/http/data/HTTP_methods.def
 HTTP_FindWork.o: /home/brendan/http/data/HTTP_headers.def Scheduler.hpp
+HTTP_FindWork.o: Factory.hpp
 HTTP_main.o: logging.h HTTP_cmdline.hpp cmdline.hpp
 HTTP_main.o: /home/brendan/http/data/sigs.def
 HTTP_main.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_Server.hpp
@@ -94,8 +93,8 @@ HTTP_main.o: /home/brendan/http/data/HTTP_methods.def
 HTTP_main.o: /home/brendan/http/data/HTTP_headers.def Workmap.hpp Work.hpp
 HTTP_main.o: HTTP_FindWork.hpp FileCache.hpp DoubleLockedQueue.hpp
 HTTP_main.o: ConcurrentQueue.hpp Locks.hpp FindWork.hpp FindWork_prealloc.hpp
-HTTP_main.o: HTTP_Work.hpp Scheduler.hpp inotifyFileCache.hpp Server.hpp
-HTTP_main.o: Worker.hpp Factory.hpp ServerErrs.hpp
+HTTP_main.o: HTTP_Work.hpp Scheduler.hpp Factory.hpp inotifyFileCache.hpp
+HTTP_main.o: Server.hpp Worker.hpp ServerErrs.hpp
 HTTP_Server.o: HTTP_Server.hpp Callback.hpp HTTP_cmdline.hpp cmdline.hpp
 HTTP_Server.o: /home/brendan/http/data/sigs.def
 HTTP_Server.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_constants.hpp
@@ -104,9 +103,9 @@ HTTP_Server.o: /home/brendan/http/data/HTTP_methods.def
 HTTP_Server.o: /home/brendan/http/data/HTTP_headers.def Workmap.hpp Work.hpp
 HTTP_Server.o: HTTP_FindWork.hpp FileCache.hpp DoubleLockedQueue.hpp
 HTTP_Server.o: ConcurrentQueue.hpp Locks.hpp logging.h FindWork.hpp
-HTTP_Server.o: FindWork_prealloc.hpp HTTP_Work.hpp Scheduler.hpp
-HTTP_Server.o: inotifyFileCache.hpp Server.hpp Worker.hpp Factory.hpp
-HTTP_Server.o: ServerErrs.hpp ThreadPool.hpp Thread.hpp
+HTTP_Server.o: FindWork_prealloc.hpp HTTP_Work.hpp Scheduler.hpp Factory.hpp
+HTTP_Server.o: inotifyFileCache.hpp Server.hpp Worker.hpp ServerErrs.hpp
+HTTP_Server.o: ThreadPool.hpp Thread.hpp
 HTTP_Work.o: HTTP_cmdline.hpp cmdline.hpp /home/brendan/http/data/sigs.def
 HTTP_Work.o: /home/brendan/http/data/HTTP_cmdline.def HTTP_Parse_Err.hpp
 HTTP_Work.o: HTTP_constants.hpp /home/brendan/http/data/HTTP_status.def
@@ -115,9 +114,11 @@ HTTP_Work.o: /home/brendan/http/data/HTTP_headers.def ServerErrs.hpp
 HTTP_Work.o: HTTP_Work.hpp FileCache.hpp DoubleLockedQueue.hpp
 HTTP_Work.o: ConcurrentQueue.hpp Locks.hpp logging.h FindWork.hpp Work.hpp
 HTTP_Work.o: Callback.hpp Workmap.hpp FindWork_prealloc.hpp Scheduler.hpp
+HTTP_Work.o: Factory.hpp
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
 inotifyFileCache.o: DoubleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp
 inotifyFileCache.o: logging.h FindWork.hpp Work.hpp Workmap.hpp Scheduler.hpp
+inotifyFileCache.o: Factory.hpp
 ConcurrentQueueTest.o: Factory.hpp Locks.hpp logging.h DoubleLockedQueue.hpp
 ConcurrentQueueTest.o: ConcurrentQueue.hpp ThreadPool.hpp Thread.hpp
 Locks.o: Locks.hpp logging.h
@@ -129,29 +130,28 @@ Cache_main.o: /home/brendan/http/data/Cache_cmdline.def CacheServer.hpp
 Cache_main.o: CacheFindWork.hpp CacheWork.hpp FileCache.hpp
 Cache_main.o: DoubleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp logging.h
 Cache_main.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-Cache_main.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
-Cache_main.o: inotifyFileCache.hpp Server.hpp Worker.hpp Factory.hpp
+Cache_main.o: FindWork_prealloc.hpp Scheduler.hpp Factory.hpp ServerErrs.hpp
+Cache_main.o: inotifyFileCache.hpp Server.hpp Worker.hpp
 CacheFindWork.o: CacheFindWork.hpp CacheWork.hpp FileCache.hpp
 CacheFindWork.o: DoubleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp
 CacheFindWork.o: logging.h FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-CacheFindWork.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
+CacheFindWork.o: FindWork_prealloc.hpp Scheduler.hpp Factory.hpp
+CacheFindWork.o: ServerErrs.hpp
 CacheServer.o: CacheServer.hpp CacheFindWork.hpp CacheWork.hpp FileCache.hpp
 CacheServer.o: DoubleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp logging.h
 CacheServer.o: FindWork.hpp Work.hpp Callback.hpp Workmap.hpp
-CacheServer.o: FindWork_prealloc.hpp Scheduler.hpp ServerErrs.hpp
-CacheServer.o: inotifyFileCache.hpp Server.hpp Worker.hpp Factory.hpp
+CacheServer.o: FindWork_prealloc.hpp Scheduler.hpp Factory.hpp ServerErrs.hpp
+CacheServer.o: inotifyFileCache.hpp Server.hpp Worker.hpp
 CacheWork.o: CacheWork.hpp FileCache.hpp DoubleLockedQueue.hpp
 CacheWork.o: ConcurrentQueue.hpp Locks.hpp logging.h FindWork.hpp Work.hpp
 CacheWork.o: Callback.hpp Workmap.hpp FindWork_prealloc.hpp Scheduler.hpp
-CacheWork.o: ServerErrs.hpp
+CacheWork.o: Factory.hpp ServerErrs.hpp
 FileCache.o: FileCache.hpp DoubleLockedQueue.hpp ConcurrentQueue.hpp
 FileCache.o: Locks.hpp logging.h FindWork.hpp Work.hpp Callback.hpp
 FileCache.o: Workmap.hpp
 inotifyFileCache.o: inotifyFileCache.hpp Callback.hpp FileCache.hpp
 inotifyFileCache.o: DoubleLockedQueue.hpp ConcurrentQueue.hpp Locks.hpp
 inotifyFileCache.o: logging.h FindWork.hpp Work.hpp Workmap.hpp Scheduler.hpp
-SigThreadTest.o: Locks.hpp SigThread.hpp Callback.hpp logging.h Thread.hpp
-SigThreadTest.o: Factory.hpp
-Locks.o: Locks.hpp logging.h
+inotifyFileCache.o: Factory.hpp
 ThreadPoolTest.o: Factory.hpp Locks.hpp ThreadPool.hpp Thread.hpp logging.h
 Locks.o: Locks.hpp logging.h
