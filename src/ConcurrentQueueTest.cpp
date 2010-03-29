@@ -156,7 +156,6 @@ int main(int argc, char **argv)
   }
 
   LockFreeQueue<testobj *> q;
-  cerr << "lock-free queue:\n";
   test(&q, nproducers, nconsumers, nreps);
   cerr << "passed\n";
 }

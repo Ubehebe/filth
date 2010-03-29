@@ -1,12 +1,15 @@
 #include "HTTP_FindWork.hpp"
 
-HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler &sch, 
-			     FileCache &cache)
+HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler &sch)
   : FindWork_prealloc<HTTP_Work>(req_prealloc)
 {
   HTTP_Work::sch = &sch;
-  HTTP_Work::cache = &cache;
   HTTP_Work::st = &st;
+}
+
+void HTTP_FindWork::setcache(FileCache &cache)
+{
+  HTTP_Work::cache = &cache;
 }
 
 Work *HTTP_FindWork::operator()(int fd, Work::mode m)

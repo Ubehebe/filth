@@ -15,7 +15,9 @@ class HTTP_FindWork : public FindWork_prealloc<HTTP_Work>
   HTTP_FindWork(HTTP_FindWork const&);
   HTTP_FindWork &operator=(HTTP_FindWork const&);
 public:
-  HTTP_FindWork(size_t req_prealloc, Scheduler &sch, FileCache &cache);
+  HTTP_FindWork(size_t req_prealloc, Scheduler &sch);
+  void setcache(FileCache &cache);
+  
   Work *operator()(int fd, Work::mode m);
 };
 
