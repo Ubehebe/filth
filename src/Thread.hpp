@@ -43,6 +43,8 @@ public:
   void start();
   void setspecific(pthread_key_t k, const void *v);
   void *getspecific(pthread_key_t k);
+  static void key_create(pthread_key_t *k, void (*destructor)(void *)=NULL);
+  static void key_delete(pthread_key_t k);
   pthread_t th;
 
 private:
@@ -199,6 +201,23 @@ template<class C> void *Thread<C>::getspecific(pthread_key_t k)
     exit(1);
   }
   return ans;
+}
+
+template<class C> void Thread<C>::key_create(pthread_key_t *k,
+					     void (*destructor)(void *))
+{
+  if ((errno = pthread_key_create(k, destructor))!=0) {
+    _LOG_FATAL("pthread_key_create: %m");
+    exit(1);
+  }
+}
+
+template<class C> void Thread<C>::key_delete(pthread_key_t k)
+{
+  if ((errno = pthread_key_delete(k))!=0) {
+    _LOG_FATAL("pthread_key_delete: %m");
+    exit(1);
+  }
 }
 
 #endif // THREAD_HPP
