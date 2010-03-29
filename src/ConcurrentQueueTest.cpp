@@ -7,7 +7,7 @@
 #include "Factory.hpp"
 #include "Locks.hpp"
 #include "logging.h"
-#include "DoubleLockedQueue.hpp"
+#include "LockFreeQueue.hpp"
 #include "ThreadPool.hpp"
 
 using namespace std;
@@ -155,8 +155,8 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  DoubleLockedQueue<testobj *> q;
-  cerr << "double-locked queue:\n";
+  LockFreeQueue<testobj *> q;
+  cerr << "lock-free queue:\n";
   test(&q, nproducers, nconsumers, nreps);
   cerr << "passed\n";
 }
