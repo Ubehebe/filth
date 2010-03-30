@@ -20,7 +20,8 @@ public:
 	      size_t cacheszMB,
 	      size_t req_prealloc_MB,
 	      int listenq,
-	      int sigdeadlock,
+	      int sigdl_int,
+	      int sigdl_ext,
 	      int sigflush);
   ~CacheServer();
   static CacheServer *theserver;

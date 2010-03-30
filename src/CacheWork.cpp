@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include "CacheWork.hpp"
+#include "LockFreeQueue.hpp"
 #include "logging.h"
 
 using namespace std;
@@ -9,7 +10,7 @@ using namespace std;
 Scheduler *CacheWork::sch = NULL;
 FileCache *CacheWork::cache = NULL;
 Workmap *CacheWork::st = NULL;
-LockedQueue<void *> CacheWork::store;
+LockFreeQueue<void *> CacheWork::store;
 
 CacheWork::CacheWork(int fd, Work::mode m)
   : Work(fd, m), path_written(false), resource(NULL)

@@ -6,7 +6,7 @@
 
 #include "FileCache.hpp"
 #include "FindWork_prealloc.hpp"
-#include "LockedQueue.hpp"
+#include "LockFreeQueue.hpp"
 #include "Scheduler.hpp"
 #include "ServerErrs.hpp"
 #include "Work.hpp"
@@ -18,7 +18,7 @@ class CacheWork : public Work
   CacheWork(CacheWork const &);
   CacheWork &operator=(CacheWork const &);
 
-  static LockedQueue<void *> store;
+  static LockFreeQueue<void *> store;
   static size_t const rdbufsz = 1<<7;
   static Scheduler *sch;
   static FileCache *cache;

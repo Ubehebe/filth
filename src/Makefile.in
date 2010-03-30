@@ -32,10 +32,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = ess-a-byte$(EXEEXT) ess-a-byte-debug$(EXEEXT) \
-	concurrent-queue-test$(EXEEXT) \
+bin_PROGRAMS = ess-a-byte$(EXEEXT) concurrent-queue-test$(EXEEXT) \
 	concurrent-queue-endless-test$(EXEEXT) \
-	thread-pool-test$(EXEEXT)
+	thread-pool-test$(EXEEXT) standalone-cache$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -65,23 +64,12 @@ am_ess_a_byte_OBJECTS = $(am__objects_1) FileCache.$(OBJEXT) \
 	inotifyFileCache.$(OBJEXT)
 ess_a_byte_OBJECTS = $(am_ess_a_byte_OBJECTS)
 ess_a_byte_LDADD = $(LDADD)
-am__objects_2 = ess_a_byte_debug-Locks.$(OBJEXT) \
-	ess_a_byte_debug-Scheduler.$(OBJEXT) \
-	ess_a_byte_debug-Server.$(OBJEXT) \
-	ess_a_byte_debug-sigmasks.$(OBJEXT) \
-	ess_a_byte_debug-Work.$(OBJEXT) \
-	ess_a_byte_debug-Worker.$(OBJEXT)
-am__objects_3 = $(am__objects_2) ess_a_byte_debug-FileCache.$(OBJEXT) \
-	ess_a_byte_debug-HTTP_cmdline.$(OBJEXT) \
-	ess_a_byte_debug-HTTP_constants.$(OBJEXT) \
-	ess_a_byte_debug-HTTP_FindWork.$(OBJEXT) \
-	ess_a_byte_debug-HTTP_main.$(OBJEXT) \
-	ess_a_byte_debug-HTTP_Server.$(OBJEXT) \
-	ess_a_byte_debug-HTTP_Work.$(OBJEXT) \
-	ess_a_byte_debug-inotifyFileCache.$(OBJEXT)
-am_ess_a_byte_debug_OBJECTS = $(am__objects_3)
-ess_a_byte_debug_OBJECTS = $(am_ess_a_byte_debug_OBJECTS)
-ess_a_byte_debug_LDADD = $(LDADD)
+am_standalone_cache_OBJECTS = $(am__objects_1) Cache_cmdline.$(OBJEXT) \
+	Cache_main.$(OBJEXT) CacheFindWork.$(OBJEXT) \
+	CacheServer.$(OBJEXT) CacheWork.$(OBJEXT) FileCache.$(OBJEXT) \
+	inotifyFileCache.$(OBJEXT)
+standalone_cache_OBJECTS = $(am_standalone_cache_OBJECTS)
+standalone_cache_LDADD = $(LDADD)
 am_thread_pool_test_OBJECTS = Locks.$(OBJEXT) ThreadPoolTest.$(OBJEXT)
 thread_pool_test_OBJECTS = $(am_thread_pool_test_OBJECTS)
 thread_pool_test_LDADD = $(LDADD)
@@ -100,10 +88,10 @@ CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
 SOURCES = $(concurrent_queue_endless_test_SOURCES) \
 	$(concurrent_queue_test_SOURCES) $(ess_a_byte_SOURCES) \
-	$(ess_a_byte_debug_SOURCES) $(thread_pool_test_SOURCES)
+	$(standalone_cache_SOURCES) $(thread_pool_test_SOURCES)
 DIST_SOURCES = $(concurrent_queue_endless_test_SOURCES) \
 	$(concurrent_queue_test_SOURCES) $(ess_a_byte_SOURCES) \
-	$(ess_a_byte_debug_SOURCES) $(thread_pool_test_SOURCES)
+	$(standalone_cache_SOURCES) $(thread_pool_test_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -197,16 +185,19 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+AM_CPPFLAGS = -D $(LOG)
 BASE = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp
 ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
 	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp HTTP_Work.cpp \
 	inotifyFileCache.cpp
 
-ess_a_byte_debug_SOURCES = $(ess_a_byte_SOURCES)
-ess_a_byte_debug_CPPFLAGS = -D _LOG_DEBUG
 concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp
 concurrent_queue_endless_test_SOURCES = endless_test.c
 thread_pool_test_SOURCES = Locks.cpp ThreadPoolTest.cpp
+standalone_cache_SOURCES = $(BASE) Cache_cmdline.cpp Cache_main.cpp \
+	CacheFindWork.cpp CacheServer.cpp CacheWork.cpp FileCache.cpp \
+	inotifyFileCache.cpp
+
 all: all-am
 
 .SUFFIXES:
@@ -287,9 +278,9 @@ concurrent-queue-test$(EXEEXT): $(concurrent_queue_test_OBJECTS) $(concurrent_qu
 ess-a-byte$(EXEEXT): $(ess_a_byte_OBJECTS) $(ess_a_byte_DEPENDENCIES) 
 	@rm -f ess-a-byte$(EXEEXT)
 	$(CXXLINK) $(ess_a_byte_OBJECTS) $(ess_a_byte_LDADD) $(LIBS)
-ess-a-byte-debug$(EXEEXT): $(ess_a_byte_debug_OBJECTS) $(ess_a_byte_debug_DEPENDENCIES) 
-	@rm -f ess-a-byte-debug$(EXEEXT)
-	$(CXXLINK) $(ess_a_byte_debug_OBJECTS) $(ess_a_byte_debug_LDADD) $(LIBS)
+standalone-cache$(EXEEXT): $(standalone_cache_OBJECTS) $(standalone_cache_DEPENDENCIES) 
+	@rm -f standalone-cache$(EXEEXT)
+	$(CXXLINK) $(standalone_cache_OBJECTS) $(standalone_cache_LDADD) $(LIBS)
 thread-pool-test$(EXEEXT): $(thread_pool_test_OBJECTS) $(thread_pool_test_DEPENDENCIES) 
 	@rm -f thread-pool-test$(EXEEXT)
 	$(CXXLINK) $(thread_pool_test_OBJECTS) $(thread_pool_test_LDADD) $(LIBS)
@@ -300,6 +291,11 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CacheFindWork.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CacheServer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CacheWork.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Cache_cmdline.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Cache_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ConcurrentQueueTest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/FileCache.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_FindWork.Po@am__quote@
@@ -315,20 +311,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Worker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/endless_test.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-FileCache.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-HTTP_Server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-HTTP_Work.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-HTTP_constants.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-HTTP_main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-Locks.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-Scheduler.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-Server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-Work.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-Worker.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ess_a_byte_debug-sigmasks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inotifyFileCache.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sigmasks.Po@am__quote@
 
@@ -359,202 +341,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
-
-ess_a_byte_debug-Locks.o: Locks.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Locks.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Locks.Tpo -c -o ess_a_byte_debug-Locks.o `test -f 'Locks.cpp' || echo '$(srcdir)/'`Locks.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Locks.Tpo $(DEPDIR)/ess_a_byte_debug-Locks.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Locks.cpp' object='ess_a_byte_debug-Locks.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Locks.o `test -f 'Locks.cpp' || echo '$(srcdir)/'`Locks.cpp
-
-ess_a_byte_debug-Locks.obj: Locks.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Locks.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Locks.Tpo -c -o ess_a_byte_debug-Locks.obj `if test -f 'Locks.cpp'; then $(CYGPATH_W) 'Locks.cpp'; else $(CYGPATH_W) '$(srcdir)/Locks.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Locks.Tpo $(DEPDIR)/ess_a_byte_debug-Locks.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Locks.cpp' object='ess_a_byte_debug-Locks.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Locks.obj `if test -f 'Locks.cpp'; then $(CYGPATH_W) 'Locks.cpp'; else $(CYGPATH_W) '$(srcdir)/Locks.cpp'; fi`
-
-ess_a_byte_debug-Scheduler.o: Scheduler.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Scheduler.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Scheduler.Tpo -c -o ess_a_byte_debug-Scheduler.o `test -f 'Scheduler.cpp' || echo '$(srcdir)/'`Scheduler.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Scheduler.Tpo $(DEPDIR)/ess_a_byte_debug-Scheduler.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Scheduler.cpp' object='ess_a_byte_debug-Scheduler.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Scheduler.o `test -f 'Scheduler.cpp' || echo '$(srcdir)/'`Scheduler.cpp
-
-ess_a_byte_debug-Scheduler.obj: Scheduler.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Scheduler.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Scheduler.Tpo -c -o ess_a_byte_debug-Scheduler.obj `if test -f 'Scheduler.cpp'; then $(CYGPATH_W) 'Scheduler.cpp'; else $(CYGPATH_W) '$(srcdir)/Scheduler.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Scheduler.Tpo $(DEPDIR)/ess_a_byte_debug-Scheduler.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Scheduler.cpp' object='ess_a_byte_debug-Scheduler.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Scheduler.obj `if test -f 'Scheduler.cpp'; then $(CYGPATH_W) 'Scheduler.cpp'; else $(CYGPATH_W) '$(srcdir)/Scheduler.cpp'; fi`
-
-ess_a_byte_debug-Server.o: Server.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Server.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Server.Tpo -c -o ess_a_byte_debug-Server.o `test -f 'Server.cpp' || echo '$(srcdir)/'`Server.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Server.Tpo $(DEPDIR)/ess_a_byte_debug-Server.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Server.cpp' object='ess_a_byte_debug-Server.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Server.o `test -f 'Server.cpp' || echo '$(srcdir)/'`Server.cpp
-
-ess_a_byte_debug-Server.obj: Server.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Server.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Server.Tpo -c -o ess_a_byte_debug-Server.obj `if test -f 'Server.cpp'; then $(CYGPATH_W) 'Server.cpp'; else $(CYGPATH_W) '$(srcdir)/Server.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Server.Tpo $(DEPDIR)/ess_a_byte_debug-Server.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Server.cpp' object='ess_a_byte_debug-Server.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Server.obj `if test -f 'Server.cpp'; then $(CYGPATH_W) 'Server.cpp'; else $(CYGPATH_W) '$(srcdir)/Server.cpp'; fi`
-
-ess_a_byte_debug-sigmasks.o: sigmasks.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-sigmasks.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-sigmasks.Tpo -c -o ess_a_byte_debug-sigmasks.o `test -f 'sigmasks.cpp' || echo '$(srcdir)/'`sigmasks.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-sigmasks.Tpo $(DEPDIR)/ess_a_byte_debug-sigmasks.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='sigmasks.cpp' object='ess_a_byte_debug-sigmasks.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-sigmasks.o `test -f 'sigmasks.cpp' || echo '$(srcdir)/'`sigmasks.cpp
-
-ess_a_byte_debug-sigmasks.obj: sigmasks.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-sigmasks.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-sigmasks.Tpo -c -o ess_a_byte_debug-sigmasks.obj `if test -f 'sigmasks.cpp'; then $(CYGPATH_W) 'sigmasks.cpp'; else $(CYGPATH_W) '$(srcdir)/sigmasks.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-sigmasks.Tpo $(DEPDIR)/ess_a_byte_debug-sigmasks.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='sigmasks.cpp' object='ess_a_byte_debug-sigmasks.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-sigmasks.obj `if test -f 'sigmasks.cpp'; then $(CYGPATH_W) 'sigmasks.cpp'; else $(CYGPATH_W) '$(srcdir)/sigmasks.cpp'; fi`
-
-ess_a_byte_debug-Work.o: Work.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Work.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Work.Tpo -c -o ess_a_byte_debug-Work.o `test -f 'Work.cpp' || echo '$(srcdir)/'`Work.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Work.Tpo $(DEPDIR)/ess_a_byte_debug-Work.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Work.cpp' object='ess_a_byte_debug-Work.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Work.o `test -f 'Work.cpp' || echo '$(srcdir)/'`Work.cpp
-
-ess_a_byte_debug-Work.obj: Work.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Work.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Work.Tpo -c -o ess_a_byte_debug-Work.obj `if test -f 'Work.cpp'; then $(CYGPATH_W) 'Work.cpp'; else $(CYGPATH_W) '$(srcdir)/Work.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Work.Tpo $(DEPDIR)/ess_a_byte_debug-Work.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Work.cpp' object='ess_a_byte_debug-Work.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Work.obj `if test -f 'Work.cpp'; then $(CYGPATH_W) 'Work.cpp'; else $(CYGPATH_W) '$(srcdir)/Work.cpp'; fi`
-
-ess_a_byte_debug-Worker.o: Worker.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Worker.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Worker.Tpo -c -o ess_a_byte_debug-Worker.o `test -f 'Worker.cpp' || echo '$(srcdir)/'`Worker.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Worker.Tpo $(DEPDIR)/ess_a_byte_debug-Worker.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Worker.cpp' object='ess_a_byte_debug-Worker.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Worker.o `test -f 'Worker.cpp' || echo '$(srcdir)/'`Worker.cpp
-
-ess_a_byte_debug-Worker.obj: Worker.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-Worker.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-Worker.Tpo -c -o ess_a_byte_debug-Worker.obj `if test -f 'Worker.cpp'; then $(CYGPATH_W) 'Worker.cpp'; else $(CYGPATH_W) '$(srcdir)/Worker.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-Worker.Tpo $(DEPDIR)/ess_a_byte_debug-Worker.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='Worker.cpp' object='ess_a_byte_debug-Worker.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-Worker.obj `if test -f 'Worker.cpp'; then $(CYGPATH_W) 'Worker.cpp'; else $(CYGPATH_W) '$(srcdir)/Worker.cpp'; fi`
-
-ess_a_byte_debug-FileCache.o: FileCache.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-FileCache.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-FileCache.Tpo -c -o ess_a_byte_debug-FileCache.o `test -f 'FileCache.cpp' || echo '$(srcdir)/'`FileCache.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-FileCache.Tpo $(DEPDIR)/ess_a_byte_debug-FileCache.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='FileCache.cpp' object='ess_a_byte_debug-FileCache.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-FileCache.o `test -f 'FileCache.cpp' || echo '$(srcdir)/'`FileCache.cpp
-
-ess_a_byte_debug-FileCache.obj: FileCache.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-FileCache.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-FileCache.Tpo -c -o ess_a_byte_debug-FileCache.obj `if test -f 'FileCache.cpp'; then $(CYGPATH_W) 'FileCache.cpp'; else $(CYGPATH_W) '$(srcdir)/FileCache.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-FileCache.Tpo $(DEPDIR)/ess_a_byte_debug-FileCache.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='FileCache.cpp' object='ess_a_byte_debug-FileCache.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-FileCache.obj `if test -f 'FileCache.cpp'; then $(CYGPATH_W) 'FileCache.cpp'; else $(CYGPATH_W) '$(srcdir)/FileCache.cpp'; fi`
-
-ess_a_byte_debug-HTTP_cmdline.o: HTTP_cmdline.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_cmdline.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Tpo -c -o ess_a_byte_debug-HTTP_cmdline.o `test -f 'HTTP_cmdline.cpp' || echo '$(srcdir)/'`HTTP_cmdline.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_cmdline.cpp' object='ess_a_byte_debug-HTTP_cmdline.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_cmdline.o `test -f 'HTTP_cmdline.cpp' || echo '$(srcdir)/'`HTTP_cmdline.cpp
-
-ess_a_byte_debug-HTTP_cmdline.obj: HTTP_cmdline.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_cmdline.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Tpo -c -o ess_a_byte_debug-HTTP_cmdline.obj `if test -f 'HTTP_cmdline.cpp'; then $(CYGPATH_W) 'HTTP_cmdline.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_cmdline.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_cmdline.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_cmdline.cpp' object='ess_a_byte_debug-HTTP_cmdline.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_cmdline.obj `if test -f 'HTTP_cmdline.cpp'; then $(CYGPATH_W) 'HTTP_cmdline.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_cmdline.cpp'; fi`
-
-ess_a_byte_debug-HTTP_constants.o: HTTP_constants.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_constants.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_constants.Tpo -c -o ess_a_byte_debug-HTTP_constants.o `test -f 'HTTP_constants.cpp' || echo '$(srcdir)/'`HTTP_constants.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_constants.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_constants.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_constants.cpp' object='ess_a_byte_debug-HTTP_constants.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_constants.o `test -f 'HTTP_constants.cpp' || echo '$(srcdir)/'`HTTP_constants.cpp
-
-ess_a_byte_debug-HTTP_constants.obj: HTTP_constants.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_constants.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_constants.Tpo -c -o ess_a_byte_debug-HTTP_constants.obj `if test -f 'HTTP_constants.cpp'; then $(CYGPATH_W) 'HTTP_constants.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_constants.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_constants.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_constants.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_constants.cpp' object='ess_a_byte_debug-HTTP_constants.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_constants.obj `if test -f 'HTTP_constants.cpp'; then $(CYGPATH_W) 'HTTP_constants.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_constants.cpp'; fi`
-
-ess_a_byte_debug-HTTP_FindWork.o: HTTP_FindWork.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_FindWork.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Tpo -c -o ess_a_byte_debug-HTTP_FindWork.o `test -f 'HTTP_FindWork.cpp' || echo '$(srcdir)/'`HTTP_FindWork.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_FindWork.cpp' object='ess_a_byte_debug-HTTP_FindWork.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_FindWork.o `test -f 'HTTP_FindWork.cpp' || echo '$(srcdir)/'`HTTP_FindWork.cpp
-
-ess_a_byte_debug-HTTP_FindWork.obj: HTTP_FindWork.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_FindWork.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Tpo -c -o ess_a_byte_debug-HTTP_FindWork.obj `if test -f 'HTTP_FindWork.cpp'; then $(CYGPATH_W) 'HTTP_FindWork.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_FindWork.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_FindWork.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_FindWork.cpp' object='ess_a_byte_debug-HTTP_FindWork.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_FindWork.obj `if test -f 'HTTP_FindWork.cpp'; then $(CYGPATH_W) 'HTTP_FindWork.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_FindWork.cpp'; fi`
-
-ess_a_byte_debug-HTTP_main.o: HTTP_main.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_main.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_main.Tpo -c -o ess_a_byte_debug-HTTP_main.o `test -f 'HTTP_main.cpp' || echo '$(srcdir)/'`HTTP_main.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_main.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_main.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_main.cpp' object='ess_a_byte_debug-HTTP_main.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_main.o `test -f 'HTTP_main.cpp' || echo '$(srcdir)/'`HTTP_main.cpp
-
-ess_a_byte_debug-HTTP_main.obj: HTTP_main.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_main.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_main.Tpo -c -o ess_a_byte_debug-HTTP_main.obj `if test -f 'HTTP_main.cpp'; then $(CYGPATH_W) 'HTTP_main.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_main.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_main.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_main.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_main.cpp' object='ess_a_byte_debug-HTTP_main.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_main.obj `if test -f 'HTTP_main.cpp'; then $(CYGPATH_W) 'HTTP_main.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_main.cpp'; fi`
-
-ess_a_byte_debug-HTTP_Server.o: HTTP_Server.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_Server.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_Server.Tpo -c -o ess_a_byte_debug-HTTP_Server.o `test -f 'HTTP_Server.cpp' || echo '$(srcdir)/'`HTTP_Server.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_Server.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_Server.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_Server.cpp' object='ess_a_byte_debug-HTTP_Server.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_Server.o `test -f 'HTTP_Server.cpp' || echo '$(srcdir)/'`HTTP_Server.cpp
-
-ess_a_byte_debug-HTTP_Server.obj: HTTP_Server.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_Server.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_Server.Tpo -c -o ess_a_byte_debug-HTTP_Server.obj `if test -f 'HTTP_Server.cpp'; then $(CYGPATH_W) 'HTTP_Server.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_Server.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_Server.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_Server.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_Server.cpp' object='ess_a_byte_debug-HTTP_Server.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_Server.obj `if test -f 'HTTP_Server.cpp'; then $(CYGPATH_W) 'HTTP_Server.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_Server.cpp'; fi`
-
-ess_a_byte_debug-HTTP_Work.o: HTTP_Work.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_Work.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_Work.Tpo -c -o ess_a_byte_debug-HTTP_Work.o `test -f 'HTTP_Work.cpp' || echo '$(srcdir)/'`HTTP_Work.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_Work.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_Work.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_Work.cpp' object='ess_a_byte_debug-HTTP_Work.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_Work.o `test -f 'HTTP_Work.cpp' || echo '$(srcdir)/'`HTTP_Work.cpp
-
-ess_a_byte_debug-HTTP_Work.obj: HTTP_Work.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-HTTP_Work.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-HTTP_Work.Tpo -c -o ess_a_byte_debug-HTTP_Work.obj `if test -f 'HTTP_Work.cpp'; then $(CYGPATH_W) 'HTTP_Work.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_Work.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-HTTP_Work.Tpo $(DEPDIR)/ess_a_byte_debug-HTTP_Work.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='HTTP_Work.cpp' object='ess_a_byte_debug-HTTP_Work.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-HTTP_Work.obj `if test -f 'HTTP_Work.cpp'; then $(CYGPATH_W) 'HTTP_Work.cpp'; else $(CYGPATH_W) '$(srcdir)/HTTP_Work.cpp'; fi`
-
-ess_a_byte_debug-inotifyFileCache.o: inotifyFileCache.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-inotifyFileCache.o -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Tpo -c -o ess_a_byte_debug-inotifyFileCache.o `test -f 'inotifyFileCache.cpp' || echo '$(srcdir)/'`inotifyFileCache.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Tpo $(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='inotifyFileCache.cpp' object='ess_a_byte_debug-inotifyFileCache.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-inotifyFileCache.o `test -f 'inotifyFileCache.cpp' || echo '$(srcdir)/'`inotifyFileCache.cpp
-
-ess_a_byte_debug-inotifyFileCache.obj: inotifyFileCache.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT ess_a_byte_debug-inotifyFileCache.obj -MD -MP -MF $(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Tpo -c -o ess_a_byte_debug-inotifyFileCache.obj `if test -f 'inotifyFileCache.cpp'; then $(CYGPATH_W) 'inotifyFileCache.cpp'; else $(CYGPATH_W) '$(srcdir)/inotifyFileCache.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Tpo $(DEPDIR)/ess_a_byte_debug-inotifyFileCache.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='inotifyFileCache.cpp' object='ess_a_byte_debug-inotifyFileCache.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(ess_a_byte_debug_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o ess_a_byte_debug-inotifyFileCache.obj `if test -f 'inotifyFileCache.cpp'; then $(CYGPATH_W) 'inotifyFileCache.cpp'; else $(CYGPATH_W) '$(srcdir)/inotifyFileCache.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -754,6 +540,8 @@ uninstall-am: uninstall-binPROGRAMS
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-binPROGRAMS
 
+
+LOG ?= _LOG_FATAL
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

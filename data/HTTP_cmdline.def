@@ -1,5 +1,4 @@
 /* See cmdline.hpp for details. */
-#include <sys/syscall.h>
 
 DEFINE_ME_BOOL(ipv6, 6, ipv6, use IPv6, false)
 DEFINE_ME_INT(cachesz, c, cache-size, static resource cache size (MB), 10)
