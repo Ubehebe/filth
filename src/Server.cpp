@@ -18,7 +18,8 @@
 #include "logging.h"
 #include "Server.hpp"
 #include "sigmasks.hpp"
-#include "ThreadPool.hpp"
+
+Server *Server::theserver = NULL;
 
 Server::Server(
 	       int domain,
@@ -27,20 +28,38 @@ Server::Server(
 	       char const *bindto,
 	       int nworkers,
 	       int listenq,
-	       int sigdl_int,
-	       int sigdl_ext,
 	       char const *ifnam,
 	       Callback *onstartup,
-	       Callback *onshutdown)
+	       Callback *onshutdown,
+	       sigset_t *_haltsigs,
+	       int sigdl_int,
+	       int sigdl_ext)
+
   : domain(domain), fwork(fwork), bindto(bindto),
     nworkers(nworkers), listenq(listenq), sigdl_int(sigdl_int),
     sigdl_ext(sigdl_ext), ifnam(ifnam), onstartup(onstartup),
-    onshutdown(onshutdown), doserve(true)
+    onshutdown(onshutdown), _doserve(true)
 {
+  // For signal handlers that have to be static.
+  theserver = this;
+
   /* A domain socket server needs to remember where it's bound in the
    * filesystem in order to unlink in the destructor. */
   if (domain == AF_LOCAL)
     sockdir = get_current_dir_name();
+
+  if (_haltsigs != NULL) {
+    memcpy((void *)&haltsigs, (void *)_haltsigs, sizeof(sigset_t));
+  } else if (sigemptyset(&haltsigs)==-1) {
+    _LOG_FATAL("sigemptyset: %m");
+    exit(1);
+  } else if (sigaddset(&haltsigs, SIGINT)==-1) {
+    _LOG_FATAL("sigaddset: %m");
+    exit(1);
+  } else if (sigaddset(&haltsigs, SIGTERM)==-1) {
+    _LOG_FATAL("sigaddset: %m");
+    exit(1);
+  }
 
   // Go to the mount point.
   if (chdir(mount)==-1) {
@@ -113,7 +132,7 @@ void Server::serve()
 {
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
 
-  while (doserve) {
+  while (_doserve) {
     socket_bind_listen();
     q = new LockFreeQueue<Work *>();
     sch = new Scheduler(*q, listenfd);
@@ -122,9 +141,17 @@ void Server::serve()
      * know about it. */
     if (onstartup != NULL)
       (*onstartup)();
+    
+    for (uint8_t sig=1; sig<sigmax; ++sig) {
+      if (sigismember(&haltsigs, sig)) {
+	sch->push_sighandler(sig, halt);
+      }
+    }
+
+    if (sigdl_ext != -1)
+      sch->push_sighandler(sigdl_ext, UNSAFE_emerg_yank_wrapper);
 
     {
-      
       Thread<Scheduler> schedth(sch, &Scheduler::poll);
       Factory<Worker> wfact(q);
       ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int);
@@ -262,3 +289,4 @@ void Server::setup_AF_LOCAL()
   }
   _LOG_INFO("listening on %s", sa.sun_path);
 }
+

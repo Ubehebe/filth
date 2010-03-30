@@ -1,11 +1,14 @@
 #include "CacheFindWork.hpp"
 
-CacheFindWork::CacheFindWork(size_t prealloc_bytes, Scheduler &sch, FileCache &cache)
-  : FindWork_prealloc<CacheWork>(prealloc_bytes)
+CacheFindWork::CacheFindWork(Scheduler &sch)
 {
   CacheWork::sch = &sch;
-  CacheWork::cache = &cache;
   CacheWork::st = &st;
+}
+
+void CacheFindWork::setcache(FileCache &cache)
+{
+  CacheWork::cache = &cache;
 }
 
 Work *CacheFindWork::operator()(int fd, Work::mode m)

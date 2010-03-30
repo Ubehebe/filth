@@ -24,11 +24,10 @@ int main(int argc, char **argv)
 		Cache_cmdline::c.svals[Cache_cmdline::mount],
 		Cache_cmdline::c.ivals[Cache_cmdline::nworkers],
 		Cache_cmdline::c.ivals[Cache_cmdline::sz],
-		1, // ?
 		Cache_cmdline::c.ivals[Cache_cmdline::listenq],
+		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigflush]),
 		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigdl_int]),
-		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigdl_ext]),
-		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigflush])
+		Cache_cmdline::c.sigconv(Cache_cmdline::c.svals[Cache_cmdline::sigdl_ext])
 		).serve();
   } catch (ResourceErr e) {
     _LOG_FATAL("uncaught ResourceErr: %s: %s", e.msg, strerror(e.err));

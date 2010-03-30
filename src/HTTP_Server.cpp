@@ -15,9 +15,9 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 int sigdl_int,
 			 int sigdl_ext)
   : Server((ipv6) ? AF_INET6 : AF_INET, fwork, mount, portno, nworkers, listenq,
-	   sigdl_int, sigdl_ext, ifnam, this, this),
+	   ifnam, this, this, NULL, sigdl_int, sigdl_ext),
     req_prealloc_MB(req_prealloc_MB), cacheszMB(cacheszMB), sigflush(sigflush),
-    sigdl_ext(sigdl_ext), perform_startup(true)
+    perform_startup(true)
 {
 #ifdef _COLLECT_STATS
   flushes = 0;
@@ -35,9 +35,6 @@ void HTTP_Server::operator()()
     cache = new inotifyFileCache(cacheszMB * (1<<20), *fwork, *sch);
     fwork->setcache(*cache);
     sch->push_sighandler(sigflush, flush);
-    sch->push_sighandler(SIGINT, halt); 
-    sch->push_sighandler(SIGTERM, halt);
-    sch->push_sighandler(sigdl_ext, UNSAFE_emerg_yank_wrapper);
   } else {
     delete cache;
     delete fwork;
@@ -58,14 +55,3 @@ void HTTP_Server::flush(int ignore)
   _INC_STAT(theserver->flushes);
 }
 
-void HTTP_Server::halt(int ignore)
-{
-  theserver->doserve = false;
-  theserver->sch->halt();
-}
-
-void HTTP_Server::UNSAFE_emerg_yank_wrapper(int ignore)
-{
-  ThreadPool<Worker>::UNSAFE_emerg_yank();
-  theserver->sch->halt();
-}

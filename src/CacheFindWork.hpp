@@ -2,15 +2,16 @@
 #define CACHE_FINDWORK_HPP
 
 #include "CacheWork.hpp"
-#include "FindWork_prealloc.hpp"
+#include "FindWork.hpp"
 
-class CacheFindWork : public FindWork_prealloc<CacheWork>
+class CacheFindWork : public FindWork
 {
   CacheFindWork(CacheFindWork const &);
   CacheFindWork &operator=(CacheFindWork const &);
 public:
-  CacheFindWork(size_t prealloc_MB, Scheduler &sch, FileCache &cache);
+  CacheFindWork(Scheduler &sch);
   Work *operator()(int fd, Work::mode m);
+  void setcache(FileCache &cache);
 };
 
 #endif // CACHE_FINDWORK_HPP

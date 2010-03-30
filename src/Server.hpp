@@ -1,6 +1,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include <sys/types.h>
 #include <unordered_map>
 
 #include "Callback.hpp"
@@ -8,6 +9,7 @@
 #include "LockFreeQueue.hpp"
 #include "Locks.hpp"
 #include "Scheduler.hpp"
+#include "ThreadPool.hpp"
 #include "Worker.hpp"
 
 class Server
@@ -37,10 +39,16 @@ class Server
   LockFreeQueue<Work *> *q; // Jobs waiting to be worked on.
   int sigdl_int, sigdl_ext;
   FindWork *fwork;
+  bool _doserve;
+  sigset_t haltsigs;
+  static Server *theserver;
+
+  /* For use in interating over a sigset_t. According to man 7 signal this
+   * covers all the signals except the real-time ones. */
+  static const uint8_t sigmax = 1<<5;
 
 protected:
   Scheduler *sch;
-  bool doserve;
 
 public:
 
@@ -53,13 +61,25 @@ public:
 	 char const *bindto,
 	 int nworkers,
 	 int listenq,
-	 int sigdl_int,
-	 int sigdl_ext,
-	 char const *ifname=NULL,
+	 char const *ifnam=NULL,
 	 Callback *onstartup=NULL,
-	 Callback *onshutdown=NULL);
+	 Callback *onshutdown=NULL,
+	 sigset_t *haltsigs=NULL,
+	 int sigdl_int=-1,
+	 int sigdl_ext=-1);
   ~Server();
   void serve();
+  void doserve(bool doserve) { _doserve = doserve; }
+  static void halt(int ignore=-1)
+  { 
+    theserver->doserve(false);
+    theserver->sch->halt();
+  }
+  static void UNSAFE_emerg_yank_wrapper(int ignore=-1)
+  {
+    ThreadPool<Worker>::UNSAFE_emerg_yank();
+    theserver->sch->halt();
+  }
 };
 
 #endif // SERVER_HPP

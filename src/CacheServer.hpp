@@ -6,26 +6,31 @@
 #include <unistd.h>
 
 #include "CacheFindWork.hpp"
+#include "Callback.hpp"
 #include "inotifyFileCache.hpp"
 #include "Server.hpp"
 
-class CacheServer : public Server
+class CacheServer : public Server, public Callback
 {
-  CacheFindWork fwork;
-  inotifyFileCache cache;
+  // Pointers because they can be torn down and rebuilt.
+  CacheFindWork *fwork;
+  inotifyFileCache *cache;
+  bool perform_startup; // Multiplex operator()
+  size_t cacheszMB;
+  int sigflush;
 public:
   CacheServer(char const *sockname,
 	      char const *mount,
 	      int nworkers, 
 	      size_t cacheszMB,
-	      size_t req_prealloc_MB,
 	      int listenq,
+	      int sigflush,
 	      int sigdl_int,
-	      int sigdl_ext,
-	      int sigflush);
+	      int sigdl_ext);
   ~CacheServer();
   static CacheServer *theserver;
   static void flush(int ignore);
+  void operator()();
 #ifdef _COLLECT_STATS
   uint32_t flushes;
 #endif // _COLLECT_STATS

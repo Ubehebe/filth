@@ -266,7 +266,7 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
       _LOG_INFO(" redefining signal handler for signal %d", signo);
     }
     else if (sigaddset(&tohandle, signo)==-1) {
-      _LOG_FATAL("sigaddset: %m");
+      _LOG_FATAL("sigaddset: %m %d", signo);
       exit(1);
     }
     sighandlers[signo] = handler; 

@@ -19,7 +19,7 @@
 #include "Server.hpp"
 #include "ServerErrs.hpp"
 
-class HTTP_Server : public Server, Callback
+class HTTP_Server : public Server, public Callback
 {
   HTTP_Server(HTTP_Server const&);
   HTTP_Server &operator=(HTTP_Server const&);
@@ -29,9 +29,7 @@ class HTTP_Server : public Server, Callback
   inotifyFileCache *cache;
 
   static HTTP_Server *theserver; // For non-signalfd-based signal handling
-  static void halt(int ignore=-1);
   static void flush(int ignore=-1);
-  static void UNSAFE_emerg_yank_wrapper(int ignore=-1);
 
   /* Multiplex callbacks: the server wants one for startup and one for shutdown,
    * but since we're building operator() right into the server object, we can
@@ -39,7 +37,7 @@ class HTTP_Server : public Server, Callback
   bool perform_startup;
 
   size_t req_prealloc_MB, cacheszMB;
-  int sigflush, sigdl_ext;
+  int sigflush;
 
 public:
   HTTP_Server(char const *portno,
@@ -50,9 +48,9 @@ public:
 	      size_t cacheszMB,
 	      size_t req_prealloc_MB,
 	      int listenq,
-	      int sigdeadlock,
 	      int sigflush,
-	      int sigthinternal);
+	      int sigdl_int,
+	      int sigdl_ext);
   ~HTTP_Server();
   void operator()(); // Callback into Server's main loop.
   #ifdef _COLLECT_STATS
