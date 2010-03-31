@@ -14,14 +14,14 @@ CacheServer::CacheServer(
 			 char const *sockname,
 			 char const *mount,
 			 int nworkers,
-			 size_t cacheszMB,
+			 size_t cachesz,
 			 int listenq,
 			 int sigflush,
 			 int sigdl_int,
 			 int sigdl_ext)
   : Server(AF_LOCAL, fwork, mount, sockname, nworkers, listenq, NULL, this, 
 	   this, NULL, sigdl_int, sigdl_ext),
-    cacheszMB(cacheszMB), sigflush(sigflush), perform_startup(true)
+    cachesz(cachesz), sigflush(sigflush), perform_startup(true)
 {
   struct stat buf;
   if (stat(sockname, &buf)!= 0 && errno != ENOENT) {
@@ -42,7 +42,7 @@ void CacheServer::operator()()
     /* Need to do this now because the inotifyFileCache constructor registers
      * callbacks with the scheduler. */
     sch->setfwork(fwork);
-    cache = new FileCache(cacheszMB * (1<<20), *fwork);
+    cache = new FileCache(cachesz, *fwork);
     fwork->setcache(*cache);
     sch->push_sighandler(sigflush, flush);
   } else {

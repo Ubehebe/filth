@@ -78,10 +78,8 @@ bool FileCache::evict()
  evict_tryagain:
 
   // Nothing to evict.
-  if (!toevict.nowait_deq(s)) {
-    _LOG_DEBUG("nothing to evict");
+  if (!toevict.nowait_deq(s))
     return false;
-  }
 
   /* A file is put on the eviction list whenever its reference count falls to
    * 0; it is not automatically removed from the list when its reference count
@@ -92,8 +90,6 @@ bool FileCache::evict()
   clock.wrlock();
   if ((it = c.find(s)) != c.end() && it->second->refcnt == 0) {
     _SYNC_INC_STAT(evictions);
-    _LOG_DEBUG("evicted %s, cur goes from %d to %d",
-	       s.c_str(), cur, cur - it->second->sz);
     __sync_sub_and_fetch(&cur, it->second->sz);
     delete it->second;
     c.erase(it);
@@ -172,7 +168,6 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
   }
   
  reserve_tryagain:
-  _LOG_DEBUG("trying %s sz %d cur %d max %d", path.c_str(), sz, cur, max);
   
   // Not enough room in the cache?
   if (__sync_add_and_fetch(&cur, sz) > max) {
@@ -183,7 +178,6 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     }
     // Otherwise just give up.
     else {
-      _LOG_DEBUG("reserve %s sz %d: unable to evict anything", path.c_str(), sz);
       close(fd);
       _SYNC_INC_STAT(failures);
       return ENOMEM;
@@ -196,7 +190,6 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
   }
   // If we weren't able to get that much memory from the OS, give up.
   catch (bad_alloc) {
-    _LOG_INFO("whoa! bad_alloc %s sz %d", path.c_str(), sz);
     __sync_sub_and_fetch(&cur, sz);
     close(fd);
     _SYNC_INC_STAT(failures);
@@ -268,7 +261,6 @@ void FileCache::release(std::string &path)
 	     __sync_add_and_fetch(&it->second->invalid, 0) == 1);
   clock.unlock();
   if (doenq) {
-    _LOG_DEBUG("%s goes on evict list", path.c_str());
     toevict.enq(path);
   }
   // Evicts the invalidated file, but first evicts everything else. Overkill?

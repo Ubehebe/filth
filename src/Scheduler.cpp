@@ -195,11 +195,7 @@ void Scheduler::poll()
       if ((it = fdcbs.find(fd)) != fdcbs.end())
 	(*(it->second))();
       /* When do hangups and other errors happen? I do not know enough about
-       * TCP to know. When I am doing load testing, I get a lot of these, 
-       * although from the client's perspective nothing goes wrong. We don't
-       * close() the connection right now, because this generates "connection
-       * reset by peer" errors at the client. Thus, I think these are
-       * EPOLLERRs, not EPOLLHUPs.
+       * TCP to know.
        *
        * TODO: figure out what's going on! */
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP)) {

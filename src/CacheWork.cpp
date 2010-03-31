@@ -1,4 +1,5 @@
 #include <string>
+#include <string.h>
 #include <unistd.h>
 
 #include "CacheWork.hpp"
@@ -12,14 +13,13 @@ FileCache *CacheWork::cache = NULL;
 Workmap *CacheWork::st = NULL;
 
 CacheWork::CacheWork(int fd, Work::mode m)
-  : Work(fd, m), path_written(false), has_reserved(false), resource(NULL)
+  : Work(fd, m), path_written(false), resource(NULL)
 {
 }
 
 CacheWork::~CacheWork()
 {
-  if (has_reserved) {
-    _LOG_DEBUG("releasing %s", path.c_str());
+  if (resource != NULL) {
     cache->release(path);
   }
   st->erase(fd);
@@ -39,12 +39,10 @@ void CacheWork::operator()()
       inbuf.str(path);
     }
     else {
-
       err = cache->reserve(path, resource, resourcesz);
       
       switch (err) {
       case 0:
-	has_reserved = true;
 	break;
       case ENOMEM:
       case EINVAL:
@@ -53,10 +51,9 @@ void CacheWork::operator()()
       case ENOENT:
       case ESPIPE:
       default:
-	errno = err;
-	/* In case of error, the client will see "(pathname)\r\n\0". */
-	resource = const_cast<char *>("\0");
-	resourcesz = 1;
+	/* In case of error, the client will see "(pathname)\r\n". */
+	resource = NULL;
+	resourcesz = 0;
 	break;
       }
       statln = path + "\r\n";
@@ -78,7 +75,6 @@ void CacheWork::operator()()
       outsz = resourcesz;
       sch->reschedule(this);
     } else {
-      _LOG_DEBUG("finished sending %s to %d", path.c_str(), fd);
       deleteme = true;
     }
     break;

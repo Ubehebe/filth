@@ -16,13 +16,13 @@ class CacheServer : public Server, public Callback
   CacheFindWork *fwork;
   FileCache *cache;
   bool perform_startup; // Multiplex operator()
-  size_t cacheszMB;
+  size_t cachesz;
   int sigflush;
 public:
   CacheServer(char const *sockname,
 	      char const *mount,
 	      int nworkers, 
-	      size_t cacheszMB,
+	      size_t cachesz,
 	      int listenq,
 	      int sigflush,
 	      int sigdl_int,

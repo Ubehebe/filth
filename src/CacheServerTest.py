@@ -25,25 +25,26 @@ class client:
         for i in range(self.nreps):
             name = random.choice(list(files.keys()))
             (sz, stuff) = files[name]
-            sock = socket.socket(socket.AF_UNIX)
-            sock.connect("bucket")
-            sock.sendall(name + "\r\n")
-            torecv = sz + 2 + len(name)
-            recvd = bytearray()
-            print("client " + str(self.clid) + ": requesting "
-                  + name + " " + str(torecv) + " "
-                  + " [" + str(i+1) + "/" + str(self.nreps) + "]")
-            while len(recvd) < torecv:
-                recvd += sock.recv(1<<12)
-                if len(recvd) == 3+len(name) and recvd[-1] == 0:
+            while (self.passed):
+                sock = socket.socket(socket.AF_UNIX)
+                sock.connect("bucket")
+                sock.sendall(name + "\r\n")
+                torecv = sz + 2 + len(name)
+                recvd = bytearray()
+                print("client " + str(self.clid) + ": requesting "
+                      + name + " " + str(torecv) + " "
+                      + " [" + str(i+1) + "/" + str(self.nreps) + "]")
+                newstuff = sock.recv(1<<12)
+                while len(newstuff) > 0:
+                    recvd += newstuff
+                    nread += len(newstuff)
+                    newstuff = sock.recv(1<<12)
+                # I.e. an error at the server; retry.
+                if len(recvd) == 2+len(name):
                     retries += 1
-                    recvd = bytearray()
-                    sock = socket.socket(socket.AF_UNIX)
-                    sock.connect("bucket")
-                    sock.sendall(name + "\r\n")
-            nread += torecv
-            if recvd[(2+len(name)):] != stuff:
-                self.passed = False
+                    continue
+                if recvd[(2+len(name)):] != stuff:
+                    self.passed = False
                 break
 
 def create_files(cachesz, singlefilemax=None):
@@ -95,31 +96,29 @@ pid = os.fork()
 
 if pid == 0:
     os.execvp("valgrind", ["valgrind", "./standalone-cache", "-n./bucket", "-m/tmp",
-                           "-s" + sys.argv[1]])
+                           "-s" + str((1<<20) * int(sys.argv[1]))])
 else:
     print("waiting for cache to start up")
     time.sleep(5)
-    cacheszmb = int(sys.argv[1]) * (1<<20)
+    cachesz = (1<<20) * int(sys.argv[1])
 
-#    create_files(cacheszmb)
-#    print("simple concurrent test:")
-#    before = resource.getrusage(resource.RUSAGE_SELF)
-#    result = concurrent_test(10,100)
-#    after = resource.getrusage(resource.RUSAGE_SELF)
-#    if result:
-#        print("passed")
-#    else:
-#        print("FAILED")
-#    print(str(retries) + " retries, "
-#          + str(nread/(after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime))
-#          + "bytes/s")
+    create_files(cachesz)
+    print("simple concurrent test:")
+    before = resource.getrusage(resource.RUSAGE_SELF)
+    result = concurrent_test(10,100)
+    after = resource.getrusage(resource.RUSAGE_SELF)
+    if result:
+        print("passed")
+    else:
+        print("FAILED")
+    print(str(retries) + " retries, "
+          + str(nread/(after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime))
+          + "bytes/s")
+    os.kill(pid, signal.SIGCONT)
+    time.sleep(1)
+    clear_state()
 
-#    os.kill(pid, signal.SIGCONT)
-#    time.sleep(1)
-#    clear_state()
-
-    # Why does this not work but the one above does appear to work?
-    create_files(cacheszmb, cacheszmb)
+    create_files(2*cachesz, cachesz)
     print("overloaded concurrent test:")
     before = resource.getrusage(resource.RUSAGE_SELF)
     result = concurrent_test(10,100)

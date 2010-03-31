@@ -16,10 +16,26 @@
 
 /* Simple file cache. The biggest inefficiency is that it calls new for
  * each allocation, rather than malloc'ing all the memory at the outset
- * and managing it itself. I did this because I do not know how to design
- * a concurrent memory allocator; all my ideas involve walking a free list,
- * and I don't know how to make that thread-safe without locking the whole
- * list. TODO: learn more about lock-free lists! */
+ * and managing it itself.
+ *
+ * NOTE:
+ * I designed this cache to be hard-wired into a server. An alternative is to
+ * regard the cache itself as a kind of server; the "main" server parses full
+ * requests, and dispatches requests to cacheable resources to the cache
+ * server. The parsing done by the cache server would then be very simple.
+ * This would also make the cache much easier to test separately, since
+ * it is exposed as a process of its own. To this end, I designed a cache
+ * server class, although for my HTTP server I kept the cache hard-wired
+ * for performance reasons.
+ *
+ * If you are running the standalone cache server tests and seeing problems,
+ * I would recommend first looking at the standalone cache server classes,
+ * not the file cache classes. The protocol governing the text read and written
+ * by the standalone cache server is quite ad hoc; for example to indicate
+ * a failure, the server just echoes back the request line and then closes
+ * the connection. I've wasted more than one day "debugging" what looked
+ * like inconsistencies in the file cache, when in reality it was just the test
+ * suite (client) misinterpreting the server's correct results. */
 class FileCache
 {
   FileCache(FileCache const&);

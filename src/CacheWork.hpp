@@ -26,7 +26,8 @@ class CacheWork : public Work
   std::string path, statln;
   size_t resourcesz, outsz;
   char *resource, *out;
-  bool path_written, has_reserved;
+  bool path_written;
+  int err;
   
 public:
   CacheWork(int fd, Work::mode m);

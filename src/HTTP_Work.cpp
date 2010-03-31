@@ -62,7 +62,7 @@ bool HTTP_Work::rdlines()
     stat = OK;
     return true;
   } else {
-    _LOG_DEBUG("line not properly terminated: %s", fd, line.c_str());
+    _LOG_DEBUG("line not properly terminated: %s", line.c_str());
     pbuf.str(line);
     return false;
   }
