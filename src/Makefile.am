@@ -4,8 +4,9 @@ bin_PROGRAMS=ess-a-byte \
 	thread-pool-test \
 	standalone-cache
 
+# Just so we can say e.g. "make LOG=_LOG_DEBUG" on the command line.
 LOG ?= _LOG_FATAL
-AM_CPPFLAGS = -D $(LOG)
+AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 
 BASE=Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp
 ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \

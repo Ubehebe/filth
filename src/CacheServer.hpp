@@ -7,14 +7,14 @@
 
 #include "CacheFindWork.hpp"
 #include "Callback.hpp"
-#include "inotifyFileCache.hpp"
+#include "FileCache.hpp"
 #include "Server.hpp"
 
 class CacheServer : public Server, public Callback
 {
   // Pointers because they can be torn down and rebuilt.
   CacheFindWork *fwork;
-  inotifyFileCache *cache;
+  FileCache *cache;
   bool perform_startup; // Multiplex operator()
   size_t cacheszMB;
   int sigflush;

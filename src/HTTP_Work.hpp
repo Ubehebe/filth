@@ -12,7 +12,7 @@
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
 #include "Workmap.hpp"
-#include "DoubleLockedQueue.hpp"
+#include "LockFreeQueue.hpp"
 #include "Scheduler.hpp"
 #include "Work.hpp"
 
@@ -23,8 +23,8 @@ class HTTP_Work : public Work
   HTTP_Work(HTTP_Work const&);
   HTTP_Work &operator=(HTTP_Work const&);
 
-  static DoubleLockedQueue<void *> store; // For operator new/delete
-  static size_t const rdbufsz = 1<<10;
+  static LockFreeQueue<void *> store; // For operator new/delete
+  static size_t const rdbufsz = 1<<12; // 4K
   static Scheduler *sch;
   static FileCache *cache;
   static Workmap *st;
@@ -36,20 +36,22 @@ private:
   std::string query; // The stuff after the "?" in a URI; to pass to resource
   char *resource; // Raw pointer to resource contents
   std::stringstream pbuf; // Buffer to use in parsing
+  std::list<std::string> req; // Store the request as a list of lines.
   HTTP_constants::status stat; // Status code we'll return to client
   HTTP_constants::method meth; // Method (GET, POST, etc.)
   size_t resourcesz; // Size of resource (for static only??)
   size_t statlnsz; // Size of status line
-  bool req_line_done, status_line_done;
+  bool status_line_done;
   char *outgoing_offset;
   size_t outgoing_offset_sz;
   
   void format_status_line();
-  bool parse();
+  bool rdlines();
+  void parse_req();
   void parse_req_line(std::string &line);
   void parse_header(std::string &line);
   void parse_uri(std::string &uri);
-  // TODO: uri_hex_escape
+  std::string &uri_hex_escape(std::string &uri);
   
 public:
   void operator()();

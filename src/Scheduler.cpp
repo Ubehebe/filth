@@ -194,9 +194,15 @@ void Scheduler::poll()
        * in particular the events. Do we need to? */
       if ((it = fdcbs.find(fd)) != fdcbs.end())
 	(*(it->second))();
-      // epoll_wait always collects these. Do we know what to do with them?
+      /* When do hangups and other errors happen? I do not know enough about
+       * TCP to know. When I am doing load testing, I get a lot of these, 
+       * although from the client's perspective nothing goes wrong. We don't
+       * close() the connection right now, because this generates "connection
+       * reset by peer" errors at the client. Thus, I think these are
+       * EPOLLERRs, not EPOLLHUPs.
+       *
+       * TODO: figure out what's going on! */
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP)) {
-	
 	_LOG_INFO("hangup or error on %d", fd);
       }
       // HMM. Do we need to check or change the work object's read/write mode?

@@ -25,8 +25,14 @@ class Server
 
   int domain, listenfd, listenq, nworkers;
   char const *bindto, *ifnam;
-  char *sockdir;
 
+  /* A server bound to a socket in the filesystem needs to remember both
+   * where it is bound (sockdir) and the subtree of the filesystem it considers
+   * root (mntdir). This is because if the server does a soft reboot,
+   * it will have to chdir to sockdir, bind the socket there, then chdir to
+   * mntdir to service requests from there. */
+  char *sockdir; // not const because it uses get_current_dir_name
+  char const *mntdir;
 
   /* These are hooks into beginning and end of the server's main loop. The idea
    * is that the server should tear down and rebuild all its resources

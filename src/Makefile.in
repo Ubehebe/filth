@@ -185,7 +185,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CPPFLAGS = -D $(LOG)
+AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 BASE = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp
 ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
 	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp HTTP_Work.cpp \
@@ -541,6 +541,7 @@ uninstall-am: uninstall-binPROGRAMS
 	uninstall-am uninstall-binPROGRAMS
 
 
+# Just so we can say e.g. "make LOG=_LOG_DEBUG" on the command line.
 LOG ?= _LOG_FATAL
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

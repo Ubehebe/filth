@@ -26,7 +26,7 @@ class client:
             name = random.choice(list(files.keys()))
             (sz, stuff) = files[name]
             sock = socket.socket(socket.AF_UNIX)
-            sock.connect("./bucket")
+            sock.connect("bucket")
             sock.sendall(name + "\r\n")
             torecv = sz + 2 + len(name)
             recvd = bytearray()
@@ -39,7 +39,7 @@ class client:
                     retries += 1
                     recvd = bytearray()
                     sock = socket.socket(socket.AF_UNIX)
-                    sock.connect("./bucket")
+                    sock.connect("bucket")
                     sock.sendall(name + "\r\n")
             nread += torecv
             if recvd[(2+len(name)):] != stuff:
@@ -94,35 +94,35 @@ if len(sys.argv) != 2:
 pid = os.fork()
 
 if pid == 0:
-#    os.execv("./../bin/cash", ["cash", "-n./bucket", "-m/tmp", "-s" + sys.argv[1]])
-    os.execvp("valgrind", ["valgrind", "./../bin/cash", "-n./bucket", "-m/tmp",
+    os.execvp("valgrind", ["valgrind", "./standalone-cache", "-n./bucket", "-m/tmp",
                            "-s" + sys.argv[1]])
 else:
     print("waiting for cache to start up")
     time.sleep(5)
     cacheszmb = int(sys.argv[1]) * (1<<20)
 
-    create_files(cacheszmb)
-    print("simple concurrent test:")
-    before = resource.getrusage(resource.RUSAGE_SELF)
-    result = concurrent_test(10,100)
-    after = resource.getrusage(resource.RUSAGE_SELF)
-    if result:
-        print("passed")
-    else:
-        print("FAILED")
-    print(str(retries) + " retries, "
-          + str(nread/(after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime))
-          + "bytes/s")
+#    create_files(cacheszmb)
+#    print("simple concurrent test:")
+#    before = resource.getrusage(resource.RUSAGE_SELF)
+#    result = concurrent_test(10,100)
+#    after = resource.getrusage(resource.RUSAGE_SELF)
+#    if result:
+#        print("passed")
+#    else:
+#        print("FAILED")
+#    print(str(retries) + " retries, "
+#          + str(nread/(after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime))
+#          + "bytes/s")
 
-    os.kill(pid, signal.SIGUSR1)
-    time.sleep(1)
-    clear_state()
+#    os.kill(pid, signal.SIGCONT)
+#    time.sleep(1)
+#    clear_state()
 
-    create_files(2*cacheszmb, cacheszmb)
+    # Why does this not work but the one above does appear to work?
+    create_files(cacheszmb, cacheszmb)
     print("overloaded concurrent test:")
     before = resource.getrusage(resource.RUSAGE_SELF)
-    result = concurrent_test(10,10)
+    result = concurrent_test(10,100)
     after = resource.getrusage(resource.RUSAGE_SELF)
     if result:
         print("passed")

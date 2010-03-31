@@ -43,10 +43,7 @@ Server::Server(
   // For signal handlers that have to be static.
   theserver = this;
 
-  /* A domain socket server needs to remember where it's bound in the
-   * filesystem in order to unlink in the destructor. */
-  if (domain == AF_LOCAL)
-    sockdir = get_current_dir_name();
+
 
   if (_haltsigs != NULL) {
     memcpy((void *)&haltsigs, (void *)_haltsigs, sizeof(sigset_t));
@@ -61,8 +58,24 @@ Server::Server(
     exit(1);
   }
 
-  // Go to the mount point.
-  if (chdir(mount)==-1) {
+  /* For non-local sockets, go to the mount point. (For local sockets, we need
+   * to wait until we bind the socket to the filesystem.) */
+  if (domain == AF_LOCAL) {
+    // This allocates memory that needs to be freed in the destructor.
+    sockdir = get_current_dir_name();
+    // This doesn't.
+    mntdir = mount;
+    /* If the user gave a long name that got truncated to a name that already
+     * existed in the filesystem, that file could accidentally be unlinked. */
+    struct sockaddr_un sa;
+    if (strlen(bindto) > sizeof(sa.sun_path)-1) {
+      _LOG_FATAL("domain socket name %s is too long "
+		 "and don't want to silently truncate (max len %d)",
+		 bindto, sizeof(sa.sun_path)-1);
+      exit(1);
+    }
+  }
+  else if (chdir(mount)==-1) {
     _LOG_FATAL("chdir: %m");
     exit(1);
   }
@@ -123,7 +136,7 @@ Server::~Server()
     if (unlink(bindto)==-1)
       _LOG_INFO("unlink %s: %m, ignoring", bindto);
     }
-    free(sockdir);
+    free(sockdir); // because it was a strdup, basically
   }
 }
 
@@ -271,16 +284,23 @@ void Server::setup_AF_INET6()
 
 void Server::setup_AF_LOCAL()
 {
+  if (chdir(sockdir)==-1) {
+    _LOG_FATAL("chdir: %m");
+    exit(1);
+  }
+
   struct sockaddr_un sa;
   memset((void *)&sa, 0, sizeof(sa));
   sa.sun_family = AF_LOCAL;
     
+  // We have already checked (in the constructor) that bindto isn't truncated.
   strncpy(sa.sun_path, bindto, sizeof(sa.sun_path)-1);
 
-  if (strlen(bindto) > sizeof(sa.sun_path)-1) {
-    _LOG_INFO("domain socket name %s is too long, truncating to %s",
-	      bindto, sa.sun_path);
-  }
+  /* We might be doing a soft reboot of the server, and the previous socket
+   * might still be bound in the filesystem, so get rid of it. This won't
+   * accidentally unlink a file that happens to have the same name as
+   * the desired socket; the server constructor checks for that. */
+  unlink(sa.sun_path);
 
   // This will fail if the path exists, which is what we want.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {
@@ -288,5 +308,10 @@ void Server::setup_AF_LOCAL()
     exit(1);
   }
   _LOG_INFO("listening on %s", sa.sun_path);
+
+  if (chdir(mntdir)==-1) {
+    _LOG_FATAL("chdir: %m");
+    exit(1);
+  }
 }
 

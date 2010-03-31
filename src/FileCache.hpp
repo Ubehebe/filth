@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
-#include "DoubleLockedQueue.hpp"
+#include "LockFreeQueue.hpp"
 #include "Locks.hpp"
 #include "logging.h"
 #include "FindWork.hpp"
@@ -44,7 +44,7 @@ protected:
   typedef std::unordered_map<std::string, cinfo *> cache;
   cache c;
   RWLock clock;
-  DoubleLockedQueue<std::string> toevict;
+  LockFreeQueue<std::string> toevict;
   size_t cur, max;
   FindWork &fwork;
 

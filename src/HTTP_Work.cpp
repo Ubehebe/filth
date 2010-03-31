@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <errno.h>
 #include <iostream>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -13,14 +15,13 @@
 using namespace std;
 using namespace HTTP_constants;
 
-DoubleLockedQueue<void *> HTTP_Work::store;
+LockFreeQueue<void *> HTTP_Work::store;
 Scheduler *HTTP_Work::sch = NULL;
 FileCache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), req_line_done(false),
-    status_line_done(false), resource(NULL)
+  : Work(fd, m), status_line_done(false), resource(NULL)
 {
 }
 
@@ -32,8 +33,8 @@ HTTP_Work::~HTTP_Work()
   st->erase(fd);
 }
 
-// Returns true if we don't need to parse anything more, false otherwise.
-bool HTTP_Work::parse()
+// Returns true if we've finished chunking the request into lines, false else.
+bool HTTP_Work::rdlines()
 {
   string line;
 
@@ -41,40 +42,44 @@ bool HTTP_Work::parse()
    * *((general-header | request-header | entity-header) CRLF)
    * CRLF [message-body] */
 
-  try {
-    /* Get a line until there are no more lines, or we hit the CRLF line.
-     * Thus we're ignoring the message body for now. */
-    while (getline(pbuf, line, '\r') && line.length() > 0) {
-      _LOG_DEBUG("parse: line %s", line.c_str());
-      /* If the line isn't properly terminated, save it and report that we
-       * need more text from the client in order to parse. */
-      if (pbuf.peek() != '\n') {
-	pbuf.clear();
-	pbuf.str(line);
-	return false;
-      }
-      pbuf.ignore(); // Ignore the \n (the \r is already consumed)
-      (req_line_done) ? parse_header(line) : parse_req_line(line);
-    }
-    pbuf.clear();
-    // We got to the empty (CRLF) line.
-    if (line.length() == 0 && pbuf.peek() == '\n') {
-      _LOG_DEBUG("parse %d: complete", fd);
-      pbuf.str("");
-      stat = OK;
-      return true;
-    }
-    else {
-      _LOG_DEBUG("parse %d: line not properly terminated: %s",
-		 fd, line.c_str());
+  /* Get a line until there are no more lines, or we hit the CRLF line.
+   * Thus we're ignoring the message body for now. */
+  while (getline(pbuf, line, '\r') && line.length() > 0) {
+    _LOG_DEBUG("parse: line %s", line.c_str());
+    /* If the line isn't properly terminated, save it and report that we
+     * need more text from the client in order to parse. */
+    if (pbuf.peek() != '\n') {
+      pbuf.clear();
       pbuf.str(line);
       return false;
     }
+    pbuf.ignore(); // Ignore the \n (the \r is already consumed)
+    req.push_back(line);
   }
-  // Any failure in parsing should stop the worker immediately.
-  catch (HTTP_Parse_Err e) {
-    stat = e.stat;
+  pbuf.clear();
+  // We got to the empty (CRLF) line.
+  if (line.length() == 0 && pbuf.peek() == '\n') {
+    stat = OK;
     return true;
+  } else {
+    _LOG_DEBUG("line not properly terminated: %s", fd, line.c_str());
+    pbuf.str(line);
+    return false;
+  }
+}
+
+/* RFC 2616 sec. 5: Request = Request-Line
+ * *((general-header | request-header | entity-header) CRLF)
+ * CRLF [message-body] */
+void HTTP_Work::parse_req()
+{
+  // Any failure in parsing should stop the worker immediately.
+  try {
+    parse_req_line(req.front());
+    for (list<string>::iterator it = ++req.begin(); it != req.end(); ++it)
+      parse_header(*it);
+  } catch (HTTP_Parse_Err e) {
+    stat = e.stat;
   }
 }
 
@@ -91,9 +96,9 @@ void HTTP_Work::parse_req_line(string &line)
   tmp >> version;
   if (version != HTTP_Version)
     throw HTTP_Parse_Err(HTTP_Version_Not_Supported);
-  req_line_done = true;
 }
 
+// The only function seen by the Worker.
 void HTTP_Work::operator()()
 {
   int err;
@@ -106,7 +111,8 @@ void HTTP_Work::operator()()
      * complete. But when we add more asynchronous/nonblocking I/O on
      * the server side (e.g. wait for a CGI program to return), we would want
      * the write to be scheduled only when all the resources are ready. */
-    if (parse()) {
+    if (rdlines()) {
+      parse_req();
       format_status_line();
       m = write;
     }
@@ -135,11 +141,28 @@ void HTTP_Work::operator()()
   }
 }
 
+// RFC 2396, sec. 2.4.1.
+string &HTTP_Work::uri_hex_escape(string &uri)
+{
+  size_t start = 0;
+  stringstream hexbuf;
+  int c;
+  while ((start = uri.find('%', start)) != uri.npos) {
+    // Every % needs two additional chars.
+    if (start + 2 >= uri.length())
+      throw HTTP_Parse_Err(Bad_Request);
+    hexbuf << uri[start+1] << uri[start+2];
+    hexbuf >> hex >> c;
+    uri.replace(start, 3, 1, (char) c);
+  }
+  return uri;
+}
+
 void HTTP_Work::parse_uri(string &uri)
 {
   _LOG_DEBUG("parse_uri %s", uri.c_str());
   // Malformed or dangerous URI.
-  if (uri[0] != '/' || uri.find("..") != string::npos)
+  if (uri[0] != '/' || uri.find("..") != uri.npos)
     throw HTTP_Parse_Err(Bad_Request);
 
   // Break the URI into a path and a query.
@@ -163,6 +186,7 @@ void HTTP_Work::parse_uri(string &uri)
   case EACCES:
     throw HTTP_Parse_Err(Forbidden);
   case EINVAL:
+    // In cache but invalidated; try again soon.
     sleep(1);
     goto parse_uri_tryagain;
   case EISDIR:
@@ -172,6 +196,7 @@ void HTTP_Work::parse_uri(string &uri)
   case ENOMEM:
     throw HTTP_Parse_Err(Internal_Server_Error);
   case ESPIPE:
+    // This is where to add support for dynamic resources.
     throw HTTP_Parse_Err(Not_Implemented);
   default:
     throw HTTP_Parse_Err(Internal_Server_Error);
