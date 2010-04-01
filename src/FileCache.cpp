@@ -7,11 +7,8 @@
 #include "FileCache.hpp"
 #include "logging.h"
 
-/* INCORRECT!
- * This works fine when the cumulative size of the files being served is
- * at most the size of the cache, but this starts returning ENOMEMs indefinitely
- * when we load the cache more. Obviously what this means is that the
- * eviction mechanism is screwed up. */
+/* TODO: I'm not sure the LRU eviction policy is for the best. Perhaps
+ * best-fit eviction would be better? */
 
 using namespace std;
 
@@ -125,6 +122,10 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     if (__sync_fetch_and_add(&it->second->invalid, 0)!=0) {
       _SYNC_INC_STAT(invalid_hits);
       clock.unlock();
+      /* We need to do this because the invalidated resource could be sitting
+       * in the eviction queue with a reference count of 0; nothing else
+       * is forcing it to be evicted. */
+      evict();
       return EINVAL;
     }
     else {

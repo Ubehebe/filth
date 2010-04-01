@@ -94,16 +94,19 @@ void inotifyFileCache::operator()()
     else if (iev.mask & IN_IGNORED) {
       continue;
     }
+    /* TODO: when modifying a watched file on disk, I get _two_ events,
+     * both with the IN_MODIFY bit set. Two invalidations instead of one seems
+     * harmless for our purposes, but it indicates I don't understand the
+     * inotify API all that well. */
     else if ((wit = wmap.find(iev.wd)) != wmap.end()) {
-      // We don't check iev.mask flags here, but we could.
       if ((cit = c.find(wit->second)) != c.end()) {
 	__sync_fetch_and_add(&cit->second->invalid, 1);
 	_SYNC_INC_STAT(invalidations);
 	_LOG_DEBUG("invalidated %s", wit->second.c_str());
       }
       else {
-	_LOG_INFO("unexpected: %s modified on disk, but not found in cache",
-		  (wit->second).c_str());
+	_LOG_INFO("unexpected: %s modified on disk, but not found in cache, "
+		  "continuing ", (wit->second).c_str());
       }
     }
     else {

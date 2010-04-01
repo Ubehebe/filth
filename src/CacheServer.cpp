@@ -39,10 +39,10 @@ void CacheServer::operator()()
 {
   if (perform_startup) {
     fwork = new CacheFindWork(*sch);
-    /* Need to do this now because the inotifyFileCache constructor registers
+    /* Need to do this now because the inotifyinotifyFileCache constructor registers
      * callbacks with the scheduler. */
     sch->setfwork(fwork);
-    cache = new FileCache(cachesz, *fwork);
+    cache = new inotifyFileCache(cachesz, *fwork, *sch);
     fwork->setcache(*cache);
     sch->push_sighandler(sigflush, flush);
   } else {
