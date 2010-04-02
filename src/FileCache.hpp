@@ -1,6 +1,7 @@
 #ifndef FILECACHE_HPP
 #define FILECACHE_HPP
 
+#include <algorithm>
 #include <list>
 #include <stdint.h>
 #include <string>
@@ -21,7 +22,7 @@
  * NOTE:
  * I designed this cache to be hard-wired into a server. An alternative is to
  * regard the cache itself as a kind of server; the "main" server parses full
- * requests, and dispatches requests to cacheable resources to the cache
+ * requests, and dispatches requests for cacheable resources to the cache
  * server. The parsing done by the cache server would then be very simple.
  * This would also make the cache much easier to test separately, since
  * it is exposed as a process of its own. To this end, I designed a cache
@@ -49,23 +50,19 @@ protected:
   {
     char *buf;
     int refcnt;
-    int invalid; // Rather than bool so we can use atomic builtins.
+    bool invalid;
     size_t sz;
-    cinfo(size_t sz);
+    cinfo(std::string &path, size_t sz);
     virtual ~cinfo();
   };
-#ifdef _COLLECT_STATS
-  uint32_t hits, misses, evictions, invalid_hits, invalidations, failures, flushes;
-#endif // _COLLECT_STATS
+  virtual cinfo *mkcinfo(std::string &path, size_t sz);
   typedef std::unordered_map<std::string, cinfo *> cache;
   cache c;
   RWLock clock;
   LockFreeQueue<std::string> toevict;
   size_t cur, max;
   FindWork &fwork;
-
   bool evict();
-  virtual cinfo *mkcinfo(std::string &path, size_t sz);
 
 public:
   FileCache(size_t max, FindWork &fwork);
@@ -74,6 +71,9 @@ public:
   void release(std::string &path);
   size_t getmax() const { return max; }
   void flush();
+#ifdef _COLLECT_STATS
+  uint32_t hits, misses, evictions, invalid_hits, invalidations, failures, flushes;
+#endif // _COLLECT_STATS
 };
 
 #endif // FILECACHE_HPP

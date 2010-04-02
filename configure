@@ -4107,7 +4107,7 @@ CPPFLAGS=-I'$(abs_top_builddir)'/data
 # We use some of the C++ Technical Report 1 features.
 CXXFLAGS=-std=c++0x
 
-LDFLAGS=-lpthread
+LIBS='-lmagic -lpthread'
 
 
 # Checks for header files.

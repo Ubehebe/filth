@@ -51,15 +51,11 @@ void FileCache::flush()
   clock.unlock();
 }
 
-FileCache::cinfo::cinfo(size_t sz)
+// We don't do anything with path just yet.
+FileCache::cinfo::cinfo(string &path, size_t sz)
   : sz(sz), refcnt(1), invalid(0)
 {
   buf = new char[sz];
-}
-
-FileCache::cinfo *FileCache::mkcinfo(string &path, size_t sz)
-{
-  return new cinfo(sz); // No need to store path yet
 }
 
 FileCache::cinfo::~cinfo()
@@ -97,6 +93,11 @@ bool FileCache::evict()
     clock.unlock();
     goto evict_tryagain;
   }
+}
+
+FileCache::cinfo *FileCache::mkcinfo(string &path, size_t sz)
+{
+  return new cinfo(path, sz);
 }
 
 /* N.B. this function passes path directly to the kernel.

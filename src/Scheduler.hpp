@@ -9,7 +9,6 @@
 #include "Callback.hpp"
 #include "ConcurrentQueue.hpp"
 #include "logging.h"
-#include "Factory.hpp"
 #include "FindWork.hpp"
 
 /* N.B. Keep in mind that if the scheduler uses old-fashioned signal

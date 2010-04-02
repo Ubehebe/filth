@@ -15,7 +15,7 @@ inotifyFileCache::watchmap *inotifyFileCache::inotify_cinfo::wmap = NULL;
 FileCache::cinfo *inotifyFileCache::mkcinfo(string &path, size_t sz)
 {
   // If this fails, it will be caught by base class.
-  inotify_cinfo *ans = new inotify_cinfo(sz);
+  inotify_cinfo *ans = new inotify_cinfo(path, sz);
   if ((ans->watchd = inotify_add_watch(inotifyfd, path.c_str(),
 				       IN_MODIFY|IN_DELETE_SELF|IN_MOVE_SELF))
       ==-1) {
@@ -41,7 +41,7 @@ inotifyFileCache::inotify_cinfo::~inotify_cinfo()
 }
 
 inotifyFileCache::inotifyFileCache(size_t max, FindWork &fwork, Scheduler &sch)
-  : FileCache(max, fwork), sch(sch)
+  : MIME_FileCache(max, fwork), sch(sch)
 {
   if ((inotifyfd = inotify_init())==-1) {
     _LOG_FATAL("inotify_init: %m");

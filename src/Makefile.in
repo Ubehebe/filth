@@ -61,13 +61,15 @@ am_ess_a_byte_OBJECTS = $(am__objects_1) FileCache.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
 	HTTP_Server.$(OBJEXT) HTTP_Work.$(OBJEXT) \
-	inotifyFileCache.$(OBJEXT)
+	inotifyFileCache.$(OBJEXT) Magic.$(OBJEXT) \
+	MIME_FileCache.$(OBJEXT)
 ess_a_byte_OBJECTS = $(am_ess_a_byte_OBJECTS)
 ess_a_byte_LDADD = $(LDADD)
 am_standalone_cache_OBJECTS = $(am__objects_1) Cache_cmdline.$(OBJEXT) \
 	Cache_main.$(OBJEXT) CacheFindWork.$(OBJEXT) \
 	CacheServer.$(OBJEXT) CacheWork.$(OBJEXT) FileCache.$(OBJEXT) \
-	inotifyFileCache.$(OBJEXT)
+	inotifyFileCache.$(OBJEXT) Magic.$(OBJEXT) \
+	MIME_FileCache.$(OBJEXT)
 standalone_cache_OBJECTS = $(am_standalone_cache_OBJECTS)
 standalone_cache_LDADD = $(LDADD)
 am_thread_pool_test_OBJECTS = Locks.$(OBJEXT) ThreadPoolTest.$(OBJEXT)
@@ -189,14 +191,14 @@ AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 BASE = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp
 ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
 	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp HTTP_Work.cpp \
-	inotifyFileCache.cpp
+	inotifyFileCache.cpp Magic.cpp MIME_FileCache.cpp
 
 concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp
 concurrent_queue_endless_test_SOURCES = endless_test.c
 thread_pool_test_SOURCES = Locks.cpp ThreadPoolTest.cpp
 standalone_cache_SOURCES = $(BASE) Cache_cmdline.cpp Cache_main.cpp \
 	CacheFindWork.cpp CacheServer.cpp CacheWork.cpp FileCache.cpp \
-	inotifyFileCache.cpp
+	inotifyFileCache.cpp Magic.cpp MIME_FileCache.cpp
 
 all: all-am
 
@@ -305,6 +307,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_constants.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Locks.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/MIME_FileCache.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Magic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Scheduler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ThreadPoolTest.Po@am__quote@
