@@ -39,10 +39,15 @@ void CacheWork::operator()()
       inbuf.str(path);
     }
     else {
-      err = cache->reserve(path, resource, resourcesz);
+      
+      FileCache::cinfo *c;
+      int err;
+      c = cache->reserve(path, err);
       
       switch (err) {
       case 0:
+	resource = c->buf;
+	resourcesz = *const_cast<size_t *>(&c->sz);
 	break;
       case ENOMEM:
       case EINVAL:
@@ -57,7 +62,7 @@ void CacheWork::operator()()
 	break;
       }
       statln = path + "\r\n";
-      out = const_cast<char *>(statln.c_str());
+      out = statln.c_str();
       outsz = statln.length();
       m = Work::write;
     }

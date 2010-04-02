@@ -22,7 +22,7 @@ public:
   Work(int fd, mode m);
   virtual ~Work();
   int rduntil(std::stringstream &inbuf, char *rdbuf, size_t rdbufsz);
-  int wruntil(char *&outbuf, size_t &towrite);
+  int wruntil(char const *&outbuf, size_t &towrite);
 };
 
 #endif // WORK_HPP

@@ -14,15 +14,20 @@ class inotifyFileCache : public Callback, public MIME_FileCache
   inotifyFileCache(inotifyFileCache const &);
   inotifyFileCache &operator=(inotifyFileCache const &);
   typedef std::unordered_map<uint32_t, std::string> watchmap;
-  struct inotify_cinfo : MIME_FileCache::cinfo
+public:
+  class inotify_cinfo : public MIME_FileCache::MIME_cinfo
   {
+    friend class inotifyFileCache;
     static int inotifyfd;
     static watchmap *wmap;
     uint32_t watchd;
+
+  public:
     inotify_cinfo(std::string &path, size_t sz)
-      : MIME_FileCache::cinfo(path, sz) {}
+      : MIME_FileCache::MIME_cinfo(path, sz) {}
     ~inotify_cinfo();
-  }; 
+  };
+private:
   virtual FileCache::cinfo *mkcinfo(std::string &path, size_t sz);
   watchmap wmap;
   Scheduler &sch;

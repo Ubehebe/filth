@@ -42,19 +42,36 @@ class FileCache
   FileCache(FileCache const&);
   FileCache &operator=(FileCache const&);
 
-protected:
+public:
   /* Note that this base class has the concept of a cache entry being
    * invalid, but no mechanism to actually invalidate cache entries.
-   * We leave that up to derived classes. */
-  struct cinfo
+   * We leave that up to derived classes.
+   *
+   * TODO: the inheritance from cinfo is much too permissive. A client
+   * who gets a cinfo object from reserve should be able to see the buffer,
+   * size, and metadata defined in classes derived from cinfo (e.g. MIME
+   * types), but should never be able to modify the buffer, invalidate, etc.
+   * Clean this up! */
+  class cinfo
   {
-    char *buf;
-    int refcnt;
+    friend class FileCache;
+    /* I didn't know you could do forward friend declarations like this.
+     * We need it because the inotify file cache has to be able to invalidate
+     * cache entries. */
+    friend class inotifyFileCache;
+    char * const _buf;
     bool invalid;
-    size_t sz;
+    int refcnt;
+  protected:
+    void invalidate() { __sync_fetch_and_or(&invalid, true); }
+
+  public:
+    char const * const buf; // public version of _buf
+    size_t const sz;
     cinfo(std::string &path, size_t sz);
     virtual ~cinfo();
   };
+protected:
   virtual cinfo *mkcinfo(std::string &path, size_t sz);
   typedef std::unordered_map<std::string, cinfo *> cache;
   cache c;
@@ -67,7 +84,7 @@ protected:
 public:
   FileCache(size_t max, FindWork &fwork);
   ~FileCache();
-  int reserve(std::string &path, char *& resource, size_t &sz);
+  cinfo *reserve(std::string &path, int &err);
   void release(std::string &path);
   size_t getmax() const { return max; }
   void flush();

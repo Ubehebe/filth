@@ -155,7 +155,8 @@ void Server::serve()
     if (onstartup != NULL)
       (*onstartup)();
     
-    for (uint8_t sig=1; sig<sigmax; ++sig) {
+    // No signal has value 0. NSIG is defined in signal.h.
+    for (uint8_t sig=1; sig<NSIG; ++sig) {
       if (sigismember(&haltsigs, sig)) {
 	sch->push_sighandler(sig, halt);
       }

@@ -49,10 +49,6 @@ class Server
   sigset_t haltsigs;
   static Server *theserver;
 
-  /* For use in interating over a sigset_t. According to man 7 signal this
-   * covers all the signals except the real-time ones. */
-  static const uint8_t sigmax = 1<<5;
-
 protected:
   Scheduler *sch;
 

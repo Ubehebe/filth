@@ -21,7 +21,8 @@ FileCache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), status_line_done(false), resource(NULL)
+  : Work(fd, m), status_line_done(false), resource(NULL),
+    resourcesz(0), outgoing_offset(NULL), outgoing_offset_sz(0)
 {
 }
 
@@ -178,11 +179,26 @@ void HTTP_Work::parse_uri(string &uri)
     path = uri.substr(1);
   }
 
+  MIME_FileCache::MIME_cinfo *c;
+  int err;
  parse_uri_tryagain:
-  int err = cache->reserve(path, resource, resourcesz);
+  /* TODO: the dynamic cast should be avoidable with proper use of
+   * polymorphism. If reserve took a _pointer_ to the base class cinfo, we
+   * could use polymorphism, but because the pointer is passed by value, we
+   * don't see the changes. If reserve took a _reference_ to the base class
+   * cinfo, we could see the changes, but we would have to already have
+   * initialized the object. This is a problem because the object has const
+   * data, but we want to reassign this data here. What we really want is
+   * to pass a _reference to a pointer_ to the base class cinfo, but then
+   * we apparently can't use polymorphism at all. What a mess. */
+  c = dynamic_cast<MIME_FileCache::MIME_cinfo *>(cache->reserve(path, err));
 
   switch (err) {
-  case 0: break;
+  case 0:
+    resource = c->buf;
+    resourcesz = *const_cast<size_t *>(&c->sz);
+    _LOG_DEBUG("MIME type %s", c->MIME_type);
+    break;
   case EACCES:
     throw HTTP_Parse_Err(Forbidden);
   case EINVAL:

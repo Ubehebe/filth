@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "DoubleLockedQueue.hpp"
+#include "FindWork.hpp"
 #include "logging.h"
 
 template<size_t SZ> class rawbytes

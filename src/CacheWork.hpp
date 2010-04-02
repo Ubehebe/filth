@@ -25,7 +25,8 @@ class CacheWork : public Work
   char rdbuf[rdbufsz];
   std::string path, statln;
   size_t resourcesz, outsz;
-  char *resource, *out;
+  char const *resource;
+  char const *out;
   bool path_written;
   int err;
   

@@ -37,8 +37,9 @@ int Work::rduntil(std::stringstream &inbuf, char *rdbuf, size_t rdbufsz)
   return errno;
 }
 
-int Work::wruntil(char *&outbuf, size_t &towrite)
+int Work::wruntil(char const *&outbuf, size_t &towrite)
 {
+  if (towrite == 0) return 0;
   ssize_t nwritten;
   while (true) {
     if ((nwritten = ::write(fd, (void *) outbuf, towrite))>0) {

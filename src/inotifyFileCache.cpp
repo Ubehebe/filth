@@ -100,7 +100,7 @@ void inotifyFileCache::operator()()
      * inotify API all that well. */
     else if ((wit = wmap.find(iev.wd)) != wmap.end()) {
       if ((cit = c.find(wit->second)) != c.end()) {
-	__sync_fetch_and_add(&cit->second->invalid, 1);
+	cit->second->invalidate();
 	_SYNC_INC_STAT(invalidations);
 	_LOG_DEBUG("invalidated %s", wit->second.c_str());
       }

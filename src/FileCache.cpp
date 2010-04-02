@@ -53,14 +53,14 @@ void FileCache::flush()
 
 // We don't do anything with path just yet.
 FileCache::cinfo::cinfo(string &path, size_t sz)
-  : sz(sz), refcnt(1), invalid(0)
+  : sz(sz), refcnt(1), invalid(false),
+    _buf(new char[sz]), buf(static_cast<char const *const>(_buf))
 {
-  buf = new char[sz];
 }
 
 FileCache::cinfo::~cinfo()
 {
-  delete[] buf;
+  delete[] _buf;
 }
 
 bool FileCache::evict()
@@ -114,28 +114,30 @@ FileCache::cinfo *FileCache::mkcinfo(string &path, size_t sz)
  *	couldn't get enough room for resource from the kernel
  * Also any of the open or stat errors??
  */
-int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
+FileCache::cinfo *FileCache::reserve(std::string &path, int &err)
 {
   cache::iterator it;
+  cinfo *ans = NULL;
   
   clock.rdlock();
   if ((it = c.find(path)) != c.end()) {
-    if (__sync_fetch_and_add(&it->second->invalid, 0)!=0) {
+    if (it->second->invalid) {
       _SYNC_INC_STAT(invalid_hits);
       clock.unlock();
       /* We need to do this because the invalidated resource could be sitting
        * in the eviction queue with a reference count of 0; nothing else
        * is forcing it to be evicted. */
       evict();
-      return EINVAL;
+      err = EINVAL;
+      return NULL;
     }
     else {
       __sync_fetch_and_add(&it->second->refcnt, 1);
-      resource = it->second->buf;
-      sz = it->second->sz;
+      ans = it->second;
       _SYNC_INC_STAT(hits);
       clock.unlock();
-      return 0;
+      err = 0;
+      return ans;
     }
   }
   clock.unlock();
@@ -145,28 +147,33 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
 
   if (stat(path.c_str(), &statbuf)==-1) {
     _SYNC_INC_STAT(failures);
-    return errno;
+    err = errno;
+    return NULL;
   }
   else if (S_ISDIR(statbuf.st_mode)) {
     _SYNC_INC_STAT(failures);
-    return EISDIR;
+    err = EISDIR;
+    return NULL;
   }
   else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode)) {
     _SYNC_INC_STAT(failures);
-    return ESPIPE;
+    err = ESPIPE;
+    return NULL;
   }
   else if ((fd = open(path.c_str(), O_RDONLY)) ==-1) {
     _SYNC_INC_STAT(failures);
-    return errno;
+    err = errno;
+    return NULL;
   }
 
-  sz = statbuf.st_size;
+  size_t sz = statbuf.st_size;
 
   // Don't even try if it can't physically fit in cache.
   if (sz > max) {
     close(fd);
     _SYNC_INC_STAT(failures);
-    return ENOMEM;
+    err = ENOMEM;
+    return NULL;
   }
   
  reserve_tryagain:
@@ -182,7 +189,8 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     else {
       close(fd);
       _SYNC_INC_STAT(failures);
-      return ENOMEM;
+      err = ENOMEM;
+      return NULL;
     }
   }
 
@@ -195,9 +203,10 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     __sync_sub_and_fetch(&cur, sz);
     close(fd);
     _SYNC_INC_STAT(failures);
-    return ENOMEM;
+    err = ENOMEM;
+    return NULL;
   }
-  char *ctmp = tmp->buf;
+  char *ctmp = tmp->_buf;
   size_t toread = sz;
   ssize_t nread;
 
@@ -238,17 +247,17 @@ int FileCache::reserve(std::string &path, char *&resource, size_t &sz)
     delete tmp;
     __sync_sub_and_fetch(&cur, sz);
     it->second->refcnt++;
-    sz = it->second->sz;
-    resource = it->second->buf;
+    ans = it->second;
     _SYNC_INC_STAT(hits);
   }
   else {
     c[path] = tmp;
-    resource = tmp->buf;
+    ans = tmp;
     _SYNC_INC_STAT(misses);
   }
   clock.unlock();
-  return 0;
+  err = 0;
+  return ans;
 }
 
 void FileCache::release(std::string &path)
@@ -259,8 +268,7 @@ void FileCache::release(std::string &path)
   doenq = ((it = c.find(path)) != c.end()
 	   && __sync_sub_and_fetch(&it->second->refcnt, 1)==0);
   // If the file has been invalidated, we want to evict it ASAP.
-  doevict = (it != c.end() &&
-	     __sync_add_and_fetch(&it->second->invalid, 0) == 1);
+  doevict = (it != c.end() && it->second->invalid);
   clock.unlock();
   if (doenq) {
     toevict.enq(path);

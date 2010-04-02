@@ -8,13 +8,13 @@
 #include <sys/types.h>
 #include <unordered_map>
 
-#include "FileCache.hpp"
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
-#include "Workmap.hpp"
 #include "LockFreeQueue.hpp"
+#include "MIME_FileCache.hpp"
 #include "Scheduler.hpp"
 #include "Work.hpp"
+#include "Workmap.hpp"
 
 class HTTP_Work : public Work
 {
@@ -34,7 +34,7 @@ private:
   char rdbuf[rdbufsz]; // Buffer to use to read from client...and response??
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
-  char *resource; // Raw pointer to resource contents
+  char const *resource; // Raw pointer to resource contents
   std::stringstream pbuf; // Buffer to use in parsing
   std::list<std::string> req; // Store the request as a list of lines.
   HTTP_constants::status stat; // Status code we'll return to client
@@ -42,7 +42,7 @@ private:
   size_t resourcesz; // Size of resource (for static only??)
   size_t statlnsz; // Size of status line
   bool status_line_done;
-  char *outgoing_offset;
+  char const *outgoing_offset;
   size_t outgoing_offset_sz;
   
   void format_status_line();

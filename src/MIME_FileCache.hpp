@@ -10,18 +10,20 @@ class MIME_FileCache : public FileCache
 {
   MIME_FileCache(MIME_FileCache const &);
   MIME_FileCache &operator=(MIME_FileCache const &);
-protected:
-  struct MIME_cinfo : FileCache::cinfo
+  Magic lookup;
+  virtual FileCache::cinfo *mkcinfo(std::string &path, size_t sz);
+public:
+  class MIME_cinfo : public FileCache::cinfo
   {
-    static Magic lookup;
+    friend class MIME_FileCache;
+    static Magic *lookup;
+  public:
     char const *MIME_type;
     MIME_cinfo(std::string &path, size_t sz);
     ~MIME_cinfo();
   };
-  virtual FileCache::cinfo *mkcinfo(std::string &path, size_t sz);
-public:
   MIME_FileCache(size_t max, FindWork &fwork);
-  ~MIME_FileCache();
+  ~MIME_FileCache() {}
 };
 
 #endif // MIME_FILECACHE_HPP
