@@ -2,10 +2,12 @@
 #include <errno.h>
 #include <iostream>
 #include <stdlib.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "config.h" // For PACKAGE_NAME from the build system
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Parse_Err.hpp"
 #include "HTTP_Work.hpp"
@@ -21,8 +23,9 @@ FileCache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), status_line_done(false), resource(NULL),
-    resourcesz(0), outgoing_offset(NULL), outgoing_offset_sz(0)
+  : Work(fd, m), resp_headers_done(false), resource(NULL),
+    resourcesz(0), outgoing_offset(NULL), outgoing_offset_sz(0), cl_sz(0),
+    cl_max_fwds(0)
 {
 }
 
@@ -88,13 +91,14 @@ void HTTP_Work::parse_req()
 void HTTP_Work::parse_req_line(string &line)
 {
   _LOG_DEBUG("parse_req_line %d: %s", fd, line.c_str());
-  istringstream tmp(line);
-  tmp >> meth;
+  pbuf.clear();
+  pbuf.str(line);
+  pbuf >> meth;
   string uri;
-  tmp >> uri;
+  pbuf >> uri;
   parse_uri(uri);
   string version;
-  tmp >> version;
+  pbuf >> version;
   if (version != HTTP_Version)
     throw HTTP_Parse_Err(HTTP_Version_Not_Supported);
 }
@@ -114,7 +118,7 @@ void HTTP_Work::operator()()
      * the write to be scheduled only when all the resources are ready. */
     if (rdlines()) {
       parse_req();
-      format_status_line();
+      prepare_resp();
       m = write;
     }
     sch->reschedule(this);
@@ -126,8 +130,8 @@ void HTTP_Work::operator()()
     }
     // If we're here, we're guaranteed outgoing_offset_sz == 0...right?
     else if (err == 0) {
-      if (!status_line_done) {
-	status_line_done = true;
+      if (!resp_headers_done) {
+	resp_headers_done = true;
 	outgoing_offset = resource;
 	outgoing_offset_sz = resourcesz;
 	sch->reschedule(this);
@@ -142,7 +146,7 @@ void HTTP_Work::operator()()
   }
 }
 
-// RFC 2396, sec. 2.4.1.
+// RFC 2396, sec. 2.4.1. We don't use this yet...
 string &HTTP_Work::uri_hex_escape(string &uri)
 {
   size_t start = 0;
@@ -197,7 +201,7 @@ void HTTP_Work::parse_uri(string &uri)
   case 0:
     resource = c->buf;
     resourcesz = *const_cast<size_t *>(&c->sz);
-    _LOG_DEBUG("MIME type %s", c->MIME_type);
+    MIME_type = c->MIME_type;
     break;
   case EACCES:
     throw HTTP_Parse_Err(Forbidden);
@@ -221,42 +225,178 @@ void HTTP_Work::parse_uri(string &uri)
 
 void HTTP_Work::parse_header(string &line)
 {
-  istringstream tmp(line);
-  header h;
+  _LOG_DEBUG("parse_header %s", line.c_str());
+  pbuf.clear();
+  pbuf.str(line);
+  /* Initialization just to avoid valgrind complaints. All the actual failures
+   * should be caught by the exception handling. */
+  header h = static_cast<header>(0);
   try {
-    tmp >> h;
+    pbuf >> h;
   }
-  // For now, silently ignore headers we don't implement.
   catch (HTTP_Parse_Err e) {
-    if (e.stat != Not_Implemented)
+    if (e.stat == Not_Implemented)
+      return; // Silently ignore headers we don't implement.
+    else
       throw e;
+  }
+  
+  // Comments in this block refer to sections of RFC 2616.
+  switch (h) {
+  case Accept:
+    /* 14.1: "If an Accept header field is present, and if the server cannot
+     * send a response which is acceptable according to the combined
+     * Accept field value, then the server SHOULD send a 406 (not acceptable)
+     * response." Because it says SHOULD, not MUST, we don't need to touch
+     * this header. */
+    break;
+  case Accept_Charset:
+    /* 14.2: "If an Accept-Charset header is present, and the server cannot
+     * send a response which is acceptable according to the Accept-Charset
+     * header, then the server SHOULD send an error response with the 406
+     * (not acceptable) status code, though the sending of an unacceptable
+     * response is also allowed." We choose the latter. */
+    break;
+  case Accept_Encoding:
+    /* 14.3: "If an Accept-Encoding field is present in a request, and if the
+     * server cannot send a response which is acceptable to the Accept-Encoding
+     * header, then the server SHOULD send an error response with the 406
+     * (Not Acceptable) status code." We choose not to. */
+    break;
+  case Accept_Language:
+    /* 14.4: "If an Accept-Language header is present, then all languages which
+     * are assigned a quality factory greater than 0 are acceptable." Note
+     * that this does not imply that it is unacceptable to send a resource in
+     * a language with a quality factory of 0. Thus, we ignore this header. */
+    break;
+  case Allow:
+    /* 14.7: "The Allow header field MAY be provided with a PUT request to
+     * recommend the methods to be supported by the new or modified resource.
+     * The server is not required to support these methods and SHOULD include
+     * an Allow header in the response giving the actual supported methods." */
+    break;
+  case Connection:
+    /* 14.10: "HTTP/1.1 defines the "close" connection option for the sender to
+     * signal that the connection will be closed after completion of the
+     * response. */
+    if (line.find("close") != line.npos)
+      closeme = true;
+    break;
+  case Content_Encoding:
+    /* 14.11: "If the content-encoding of an entity in a request message is not
+     * acceptable to the origin server, the server SHOULD respond with a
+     * status code of 415 (Unsupported Media Type)." We choose not to. */
+    break;
+  case Content_Language:
+    /* 14.12 says nothing about when this MUST be read. */
+    break;
+  case Content_Length:
+    /* 14.13: Content-Length = "Content-Length" ":" 1*DIGIT
+     * We will need this when we start reading the bodies of requests. */
+    pbuf >> cl_sz;
+    break;
+  case Content_Location:
+    /* 14.13: "The meaning of the Content-Location header in PUT or POST
+     * requests is undefined; server are free to ignore it in those cases." */
+    break;
+  case Content_Type:
+    // 14.17: Content-Type = "Content-Type" ":" media-type
+    pbuf >> cl_content_type;
+    break;
+  case Date:
+    /* 14.18: "Clients SHOULD only send a Date header field in messages that
+     * include an entity-body, as in the case of the PUT and POST requests,
+     * and even then it is optional." So we ignore it. */
+    break;
+  case Expect:
+    /* 14.20: Expect = "Expect" ":" 1#expectation
+     * expectation = "100-continue" | expectation-extension
+     *
+     * "A server that does not understand or is unable to comply with any of the
+     * expectation values in the Expect field of a request MUST respond with
+     * appropriate error status. The server MUST respond with a 417
+     * (Expectation Failed) status if any of the expectations cannot be met or,
+     * if there are other problems with the request, some other 4xx status."
+     * Also: "Comparison of expectation values is case-insensitive for
+     * unquoted strings (including the 100-continue token)".
+     * 
+     * The behavior of 100-continue is governed by 8.2.3. */
+    pbuf >> line;
+    if (strcasecmp("100-continue", line.c_str())==0)
+      throw HTTP_Parse_Err(Continue);
+    else if (line.length() > 0)
+      throw HTTP_Parse_Err(Expectation_Failed);
+    break;
+  case Expires:
+    /* 14.21. Only useful for proxies? Dunno. */
+    pbuf >> cl_expires;
+    break;
+  case From:
+    /* 14.22 */
+    pbuf >> cl_from;
+    break;
+  case Host:
+    /* 14.23 */
+    pbuf >> cl_host;
+    break;
+  case Max_Forwards:
+    /* 14.31 */
+    pbuf >> cl_max_fwds;
+    break;
+  case Pragma:
+    /* 14.32: "All pragma directives specify optional behavior from the
+     * viewpoint of the protocol; however, [...] Pragma directives MUST be
+     * passed through by a proxy or gateway application, regardless of their
+     * significance to that application, since the directives might be applicable
+     * to all recipients along the the request/response chain. */
+    pbuf >> cl_pragma;
+    break;
+  case Referer:
+    /* 14.36 */
+    pbuf >> cl_referer;
+    break;
+  case Upgrade:
+    /* 14.42: "Upgrade cannot be used to insist on a protocol change; its
+     * acceptance and use by the server is optional." So we don't do it. */
+    break;
+  case User_Agent:
+    /* 14.43 */
+    pbuf >> cl_user_agent;
+    break;
+  default:
+    break;
   }
 }
 
-/* RFC 2616 sec. 6.1:
- * Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF */
-inline void HTTP_Work::format_status_line()
+/* RFC 2616 sec. 6: Response =
+ * Status-Line *((general-header | response-header | entity-header) CRLF) CRLF
+ * [message-body]
+ */
+inline void HTTP_Work::prepare_resp()
 {
-  /* For now we put the CRLF separating the response headers from the
-   * response message body on the end of the status line. Will need to
-   * change once we reply with additional response headers...*/
-  // Note that we reuse the read buffer, which ought not to be in use now...
-  snprintf(rdbuf, rdbufsz, "%s %d %s\r\n\r\n",
-	   HTTP_Version,
-	   status_vals[stat],
-	   status_strs[stat]);
-  char *tmp = rdbuf;
-  // Dirty trick...
-  while ((tmp = strchr(tmp, '_'))!=NULL)
-    *tmp = ' ';
-  _LOG_DEBUG("format_status_line %d: %s", fd, rdbuf);
-  statlnsz = strlen(rdbuf);
-  outgoing_offset = rdbuf;
-  // For now, just copy any error response to the message body itself.
-  if (stat != OK) {
-    resource = rdbuf;
-    resourcesz = statlnsz;
+  pbuf.clear();
+  pbuf.str("");
+
+  /* Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+   * Note that we have defined operator<< for statuses so it outputs exactly
+   * Status-Code SP Reason-Phrase. */
+  pbuf << HTTP_Version << ' ' << stat << CRLF
+       << Date << date() << CRLF
+       << Server << PACKAGE_NAME << CRLF;
+
+  if (stat == OK) {
+    pbuf << Content_Length << resourcesz << CRLF
+	 << Content_Type << MIME_type << CRLF
+	 << CRLF;
   }
+  // For now, just repeat the error in the message body.
+  else {
+    pbuf << CRLF << stat << CRLF;
+  }
+  
+  pbuf.get(rdbuf, rdbufsz, '\0');
+  outgoing_offset_sz = strlen(rdbuf);
+  outgoing_offset = rdbuf;
 }
 
 void *HTTP_Work::operator new(size_t sz)

@@ -5,14 +5,17 @@
 #include "Work.hpp"
 
 Work::Work(int fd, mode m)
-  : fd(fd), m(m), deleteme(false)
+  : fd(fd), m(m), deleteme(false), closeme(false)
 {
+  // N.B. the connection will NOT be closed by default!
 }
 
 Work::~Work()
 {
-  _LOG_DEBUG("close %d", fd);
-  close(fd);
+  if (closeme) {
+    _LOG_DEBUG("close %d", fd);
+    close(fd);
+  }
 }
 
 /* Read until we would block.

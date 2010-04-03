@@ -56,7 +56,8 @@ am_concurrent_queue_test_OBJECTS = ConcurrentQueueTest.$(OBJEXT) \
 concurrent_queue_test_OBJECTS = $(am_concurrent_queue_test_OBJECTS)
 concurrent_queue_test_LDADD = $(LDADD)
 am__objects_1 = Locks.$(OBJEXT) Scheduler.$(OBJEXT) Server.$(OBJEXT) \
-	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT)
+	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT) \
+	Time_nonthreadsafe.$(OBJEXT)
 am_ess_a_byte_OBJECTS = $(am__objects_1) FileCache.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
@@ -188,7 +189,9 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
-BASE = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp
+BASE = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp \
+	Time_nonthreadsafe.cpp
+
 ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
 	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp HTTP_Work.cpp \
 	inotifyFileCache.cpp Magic.cpp MIME_FileCache.cpp
@@ -312,6 +315,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Scheduler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ThreadPoolTest.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Time_nonthreadsafe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Worker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/endless_test.Po@am__quote@

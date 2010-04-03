@@ -18,7 +18,7 @@ class Work : public Callback
 public:
   enum mode { read, write } m;
   int fd;
-  bool deleteme;
+  bool deleteme, closeme;
   Work(int fd, mode m);
   virtual ~Work();
   int rduntil(std::stringstream &inbuf, char *rdbuf, size_t rdbufsz);

@@ -1,0 +1,10 @@
+/* RFC 2616, sec. 6.2. The second field means "is implemented". */
+DEFINE_ME(Accept_Ranges, 0) /* TODO */
+DEFINE_ME(Age, 0) /* TODO */
+DEFINE_ME(ETag, 0) /* TODO */
+DEFINE_ME(Location, 0) /* TODO */
+DEFINE_ME(Proxy_Authenticate, 0) /* TODO */
+DEFINE_ME(Retry_After, 0) /* TODO--use with cache */
+DEFINE_ME(Server, 1)
+DEFINE_ME(Vary, 0) /* TODO */
+DEFINE_ME(WWW_Authenticate, 0) /* TODO */

@@ -23,11 +23,18 @@ namespace HTTP_constants
 #undef DEFINE_ME
     };
 
-  // Accept, Allow, etc.
+  // General, entity, and request headers.
   enum header
     {
 #define DEFINE_ME(name, ignore) name,
 #include "HTTP_headers.def"
+#undef DEFINE_ME
+    };
+
+  enum resp_header
+    {
+#define DEFINE_ME(name, ignore) name,
+#include "HTTP_resp_headers.def"
 #undef DEFINE_ME
     };
 
@@ -36,10 +43,14 @@ namespace HTTP_constants
   std::istream &operator>>(std::istream &i, method &m);
   std::ostream &operator<<(std::ostream &o, method &m);
   std::istream &operator>>(std::istream &i, header &h);
-  std::ostream &operator<<(std::ostream &o, header &h);
+  /* Value, not reference. Otherwise things like o << Content_Length
+   * would be interpreted as putting an integer into the stream! */
+  std::ostream &operator<<(std::ostream &o, header h);
+  std::ostream &operator<<(std::ostream &o, resp_header h);
 
   // These guys are all defined in HTTP_constants.cpp to avoid linker errors.
   extern char const *HTTP_Version;
+  extern char const *CRLF;
   extern size_t const num_status;
   extern uint16_t const status_vals[];
   extern char const *status_strs[];
@@ -49,7 +60,9 @@ namespace HTTP_constants
   extern bool const header_is_implemented[];
   extern size_t const num_header;
   extern char const *header_strs[];
-
+  extern bool const resp_header_is_implemented[];
+  extern size_t const num_resp_header;
+  extern char const *resp_header_strs[];
 };
 
 #endif // HTTP_CONSTANTS_HPP

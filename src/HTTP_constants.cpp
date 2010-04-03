@@ -4,6 +4,8 @@
 #include "HTTP_Parse_Err.hpp"
 #include "logging.h"
 
+using namespace std;
+
 /* TODO: All the operator>>'s, and certainly all
  * the operator<<'s, work the same way, with some
  * minor details. Is there a way to templatize them
@@ -12,6 +14,7 @@
 namespace HTTP_constants
 {
   char const *HTTP_Version = "HTTP/1.1";
+  char const *CRLF = "\r\n";
 
   size_t const num_status =
 #define DEFINE_ME(blah1,blah2) +1
@@ -67,14 +70,39 @@ namespace HTTP_constants
 #undef DEFINE_ME
   };
 
-  std::ostream& operator<<(std::ostream &o, status &s)
+  size_t const num_resp_header = 
+#define DEFINE_ME(ignore1, ignore2) +1
+#include "HTTP_resp_headers.def"
+#undef DEFINE_ME
+    ;
+
+  char const *resp_header_strs[] = {
+#define DEFINE_ME(name, ignore) #name,
+#include "HTTP_resp_headers.def"
+#undef DEFINE_ME
+  };
+
+  bool const resp_header_is_implemented[] = {
+#define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
+#include "HTTP_resp_headers.def"
+#undef DEFINE_ME
+  };
+
+  // Output is like "404 Not Found".
+  ostream& operator<<(ostream &o, status &s)
   {
-    return o << status_strs[s];
+    o << status_vals[s] << ' ';
+    char const *tmp = status_strs[s];
+    while (*tmp) {
+      o << ((*tmp == '_') ? ' ' : *tmp);
+      ++tmp;
+    }
+    return o;
   }
 
-  std::istream& operator>>(std::istream &i, method &m)
+  istream& operator>>(istream &i, method &m)
   {
-    std::string tmp;
+    string tmp;
     i >> tmp;
     for (int j=0; j<num_method; ++j) {
       // Methods are case-sensitive; RFC 2616 sec. 5.1.1.
@@ -88,19 +116,19 @@ namespace HTTP_constants
     throw HTTP_Parse_Err(Bad_Request);
   }
 
-  std::ostream &operator<<(std::ostream &o, method &m)
+  ostream &operator<<(ostream &o, method &m)
   {
     return o << method_strs[m];
   }
 
-  std::istream &operator>>(std::istream &i, header &h)
+  istream &operator>>(istream &i, header &h)
   {
-    std::string tmp;
+    string tmp;
     i >> tmp;
 
-    // Dirty trick...
-    std::string::size_type hyphen = -1;
-    while ((hyphen = tmp.find('-', hyphen+1)) != std::string::npos) {
+    // Dirty trick to replace hyphens by underscores.
+    string::size_type hyphen = -1;
+    while ((hyphen = tmp.find('-', hyphen+1)) != tmp.npos) {
       tmp[hyphen] = '_';
     }
     tmp.erase(tmp.end()-1); // Because of the colon.
@@ -113,12 +141,34 @@ namespace HTTP_constants
 	} else throw HTTP_Parse_Err(Not_Implemented);
       }
     }
-    // If we don't recognize the header, keep parsing and hope for the best.
   }
 
-  std::ostream &operator<<(std::ostream &o, header &h)
+  /* Value, not reference. Otherwise things like o << Content_Length
+   * would be interpreted as putting an integer into the stream! */
+  ostream &operator<<(ostream &o, header h)
   {
-    return o << header_strs[h];
+    // Dirty trick to replace underscores by hyphens
+    char const *tmp = header_strs[h];
+    while (*tmp) {
+      o << ((*tmp == '_') ? '-' : *tmp);
+      ++tmp;
+    }
+    // Tack on the colon and space.
+    return o << ": ";
+  }
+
+  /* Value, not reference. Otherwise things like o << Content_Length
+   * would be interpreted as putting an integer into the stream! */
+  ostream &operator<<(ostream &o, resp_header h)
+  {
+    // Dirty trick to replace underscores by hyphens
+    char const *tmp = resp_header_strs[h];
+    while (*tmp) {
+      o << ((*tmp == '_') ? '-' : *tmp);
+      ++tmp;
+    }
+    // Tack on the colon and space.
+    return o << ": ";
   }
 
 };

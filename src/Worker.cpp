@@ -25,16 +25,11 @@ void Worker::work()
       try {
 	(*w)();
       }
-      // ?????
       catch (SocketErr e) {
 	w->deleteme = true;
       }
-      if (w->deleteme) {
-	/* Purely for debugging with overloaded operator delete. If operator
-	   delete sees deleteme == true, it's already been deleted = a bug. */
-	w->deleteme = false;
+      if (w->deleteme)
 	delete w;
-      }
     }
   }
   _LOG_INFO("worker retiring");

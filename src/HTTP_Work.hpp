@@ -13,6 +13,7 @@
 #include "LockFreeQueue.hpp"
 #include "MIME_FileCache.hpp"
 #include "Scheduler.hpp"
+#include "Time_nonthreadsafe.hpp"
 #include "Work.hpp"
 #include "Workmap.hpp"
 
@@ -31,7 +32,9 @@ class HTTP_Work : public Work
 
 private:
   // Internal state.
+  Time_nonthreadsafe date;
   char rdbuf[rdbufsz]; // Buffer to use to read from client...and response??
+  char const *MIME_type;
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
   char const *resource; // Raw pointer to resource contents
@@ -39,13 +42,20 @@ private:
   std::list<std::string> req; // Store the request as a list of lines.
   HTTP_constants::status stat; // Status code we'll return to client
   HTTP_constants::method meth; // Method (GET, POST, etc.)
+
+  /* Stuff reported by the _client_ in the request headers.
+   * TODO: this stuff is more useful when we think about proxies, right? */
+  size_t cl_sz, cl_max_fwds;
+  std::string cl_content_type, cl_expires, cl_from,
+				   cl_host, cl_pragma, cl_referer, cl_user_agent;
+
   size_t resourcesz; // Size of resource (for static only??)
-  size_t statlnsz; // Size of status line
-  bool status_line_done;
+  bool resp_headers_done;
   char const *outgoing_offset;
   size_t outgoing_offset_sz;
+
   
-  void format_status_line();
+  void prepare_resp();
   bool rdlines();
   void parse_req();
   void parse_req_line(std::string &line);

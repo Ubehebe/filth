@@ -1,41 +1,46 @@
-/* RFC 2616, sections 4.5 (general-header, 0), 5.3 (request-header, 0),
- * 7.1 (entity-header, 0). In particular, not section 6.2 (response-header, 0).
- * The second field means "is implemented". */
-DEFINE_ME(Accept, 0)
-DEFINE_ME(Accept_Charset, 0)
-DEFINE_ME(Accept_Encoding, 0)
-DEFINE_ME(Accept_Language, 0)
-DEFINE_ME(Allow, 0)
-DEFINE_ME(Authorization, 0)
-DEFINE_ME(Cache_Control, 0)
-DEFINE_ME(Connection, 0)
-DEFINE_ME(Content_Encoding, 0)
-DEFINE_ME(Content_Language, 0)
-DEFINE_ME(Content_Length, 0)
-DEFINE_ME(Content_Location, 0)
-DEFINE_ME(Content_MD5, 0)
-DEFINE_ME(Content_Range, 0)
-DEFINE_ME(Content_Type, 0)
-DEFINE_ME(Date, 0)
-DEFINE_ME(Expect, 0)
-DEFINE_ME(Expires, 0)
-DEFINE_ME(From, 0)
-DEFINE_ME(Host, 0)
-DEFINE_ME(If_Match, 0)
-DEFINE_ME(If_Modified_Since, 0)
-DEFINE_ME(If_None_Match, 0)
-DEFINE_ME(If_Range, 0)
-DEFINE_ME(If_Unmodified_Since, 0)
-DEFINE_ME(Last_Modified, 0)
-DEFINE_ME(Max_Forwards, 0)
-DEFINE_ME(Pragma, 0)
-DEFINE_ME(Proxy_Authorization, 0)
-DEFINE_ME(Range, 0)
-DEFINE_ME(Referer, 0)
-DEFINE_ME(TE, 0)
-DEFINE_ME(Trailer, 0)
-DEFINE_ME(Transfer_Encoding, 0)
-DEFINE_ME(Upgrade, 0)
-DEFINE_ME(User_Agent, 0)
-DEFINE_ME(Via, 0)
-DEFINE_ME(Warning, 0)
+/* Any header that can appear in a request: RFC 2616, sections 4.5 
+ * (general-header), 5.3 (request-header), 7.1 (entity-header). In particular,
+ * not section 6.2 (response-header).
+ * The second field means "is implemented for requests". "Is implemented"
+ * does not imply that the server does anything useful with it.
+ * Also, the level of suport for general- and entity-headers in responses
+ * may be different. */
+
+DEFINE_ME(Accept, 1)
+DEFINE_ME(Accept_Charset, 1)
+DEFINE_ME(Accept_Encoding, 1)
+DEFINE_ME(Accept_Language, 1)
+DEFINE_ME(Allow, 1)
+DEFINE_ME(Authorization, 0) /* TODO */
+DEFINE_ME(Cache_Control, 0) /* TODO */
+DEFINE_ME(Connection, 1)
+DEFINE_ME(Content_Encoding, 1)
+DEFINE_ME(Content_Language, 1)
+DEFINE_ME(Content_Length, 1)
+DEFINE_ME(Content_Location, 1)
+DEFINE_ME(Content_MD5, 0) /* INSECURE, NOT SUPPORTED: wikipedia MD5! */
+DEFINE_ME(Content_Range, 0) /* TODO */
+DEFINE_ME(Content_Type, 1)
+DEFINE_ME(Date, 1)
+DEFINE_ME(Expect, 1)
+DEFINE_ME(Expires, 1)
+DEFINE_ME(From, 1)
+DEFINE_ME(Host, 1)
+DEFINE_ME(If_Match, 0) /* TODO */
+DEFINE_ME(If_Modified_Since, 0) /* TODO */
+DEFINE_ME(If_None_Match, 0) /* TODO */
+DEFINE_ME(If_Range, 0) /* TODO */
+DEFINE_ME(If_Unmodified_Since, 0) /* TODO */
+DEFINE_ME(Last_Modified, 0) /* TODO */
+DEFINE_ME(Max_Forwards, 1)
+DEFINE_ME(Pragma, 1)
+DEFINE_ME(Proxy_Authorization, 0) /* TODO */
+DEFINE_ME(Range, 0) /* TODO */
+DEFINE_ME(Referer, 1)
+DEFINE_ME(TE, 0) /* TODO */
+DEFINE_ME(Trailer, 0) /* TODO */
+DEFINE_ME(Transfer_Encoding, 0) /* TODO */
+DEFINE_ME(Upgrade, 1)
+DEFINE_ME(User_Agent, 1)
+DEFINE_ME(Via, 0) /* TODO */
+DEFINE_ME(Warning, 0) /* TODO */

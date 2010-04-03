@@ -14,7 +14,7 @@ class Magic
   Mutex l;
   magic_t m;
 public:
-  Magic(int flags=MAGIC_MIME_ENCODING, char const *database=NULL);
+  Magic(int flags=MAGIC_MIME_TYPE, char const *database=NULL);
   ~Magic();
   char const *operator()(char const *filename);
   void setflags(int flags);
