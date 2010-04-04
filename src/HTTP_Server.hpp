@@ -9,12 +9,12 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "Cache.hpp"
 #include "Callback.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_constants.hpp"
 #include "Workmap.hpp"
 #include "HTTP_FindWork.hpp"
-#include "inotifyFileCache.hpp"
 #include "logging.h"
 #include "Server.hpp"
 #include "ServerErrs.hpp"
@@ -26,7 +26,7 @@ class HTTP_Server : public Server, public Callback
 
   // These are pointers because they can get torn down and rebuilt.
   HTTP_FindWork *fwork;
-  inotifyFileCache *cache;
+  HTTP_Cache *cache;
 
   static HTTP_Server *theserver; // For non-signalfd-based signal handling
   static void flush(int ignore=-1);

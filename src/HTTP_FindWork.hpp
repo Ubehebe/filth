@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "FileCache.hpp"
+#include "HTTP_Cache.hpp"
 #include "FindWork_prealloc.hpp"
 #include "Workmap.hpp"
 #include "HTTP_Work.hpp"
@@ -16,7 +16,7 @@ class HTTP_FindWork : public FindWork_prealloc<HTTP_Work>
   HTTP_FindWork &operator=(HTTP_FindWork const&);
 public:
   HTTP_FindWork(size_t req_prealloc, Scheduler &sch);
-  void setcache(FileCache &cache);
+  void setcache(HTTP_Cache &cache);
   
   Work *operator()(int fd, Work::mode m);
 };

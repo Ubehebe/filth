@@ -29,10 +29,8 @@ void HTTP_Server::operator()()
 {
   if (perform_startup) {
     fwork = new HTTP_FindWork(req_prealloc_MB * (1<<20), *sch);
-    /* Need to do this now because the inotifyFileCache constructor registers
-     * callbacks with the scheduler. */
     sch->setfwork(fwork);
-    cache = new inotifyFileCache(cacheszMB * (1<<20), *fwork, *sch);
+    cache = new HTTP_Cache(cacheszMB * (1<<20));
     fwork->setcache(*cache);
     sch->push_sighandler(sigflush, flush);
   } else {
@@ -51,7 +49,7 @@ HTTP_Server::~HTTP_Server()
 
 void HTTP_Server::flush(int ignore)
 {
-  theserver->cache->flush();
+  // ?  theserver->cache->flush();
   theserver->sch->halt();
   _INC_STAT(theserver->flushes);
 }

@@ -10,9 +10,9 @@ AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 
 BASE=Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp \
 	Time_nonthreadsafe.cpp
-ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
-	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp HTTP_Work.cpp \
-	inotifyFileCache.cpp Magic.cpp MIME_FileCache.cpp
+ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_cmdline.cpp \
+	HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp \
+	HTTP_Work.cpp Magic.cpp
 
 concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp
 

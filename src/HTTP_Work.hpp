@@ -11,7 +11,7 @@
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
 #include "LockFreeQueue.hpp"
-#include "MIME_FileCache.hpp"
+#include "HTTP_Cache.hpp"
 #include "Scheduler.hpp"
 #include "Time_nonthreadsafe.hpp"
 #include "Work.hpp"
@@ -27,7 +27,7 @@ class HTTP_Work : public Work
   static LockFreeQueue<void *> store; // For operator new/delete
   static size_t const rdbufsz = 1<<12; // 4K
   static Scheduler *sch;
-  static FileCache *cache;
+  static HTTP_Cache *cache;
   static Workmap *st;
 
 private:
@@ -37,7 +37,7 @@ private:
   char const *MIME_type;
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
-  char const *resource; // Raw pointer to resource contents
+  char const *response; // Raw pointer to resource contents
   std::stringstream pbuf; // Buffer to use in parsing
   std::list<std::string> req; // Store the request as a list of lines.
   HTTP_constants::status stat; // Status code we'll return to client
@@ -49,13 +49,13 @@ private:
   std::string cl_content_type, cl_expires, cl_from,
 				   cl_host, cl_pragma, cl_referer, cl_user_agent;
 
-  size_t resourcesz; // Size of resource (for static only??)
-  bool resp_headers_done;
+  size_t responsesz; // Size of resource (for static only??)
+  bool dohdrs;
   char const *outgoing_offset;
   size_t outgoing_offset_sz;
 
   
-  void prepare_resp();
+  void prepare_resp_hdrs();
   bool rdlines();
   void parse_req();
   void parse_req_line(std::string &line);

@@ -18,6 +18,7 @@ private:
   char const *fmt;
 public:
   Time_nonthreadsafe(char const *fmt = RFC822) : fmt(fmt) {}
+  time_t now() { return time(&_t); }
   char const *operator()()
   {
     time(&_t);

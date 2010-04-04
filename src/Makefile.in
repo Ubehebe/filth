@@ -58,12 +58,10 @@ concurrent_queue_test_LDADD = $(LDADD)
 am__objects_1 = Locks.$(OBJEXT) Scheduler.$(OBJEXT) Server.$(OBJEXT) \
 	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT) \
 	Time_nonthreadsafe.$(OBJEXT)
-am_ess_a_byte_OBJECTS = $(am__objects_1) FileCache.$(OBJEXT) \
+am_ess_a_byte_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
-	HTTP_Server.$(OBJEXT) HTTP_Work.$(OBJEXT) \
-	inotifyFileCache.$(OBJEXT) Magic.$(OBJEXT) \
-	MIME_FileCache.$(OBJEXT)
+	HTTP_Server.$(OBJEXT) HTTP_Work.$(OBJEXT) Magic.$(OBJEXT)
 ess_a_byte_OBJECTS = $(am_ess_a_byte_OBJECTS)
 ess_a_byte_LDADD = $(LDADD)
 am_standalone_cache_OBJECTS = $(am__objects_1) Cache_cmdline.$(OBJEXT) \
@@ -192,9 +190,9 @@ AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 BASE = Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp \
 	Time_nonthreadsafe.cpp
 
-ess_a_byte_SOURCES = $(BASE) FileCache.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
-	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp HTTP_Work.cpp \
-	inotifyFileCache.cpp Magic.cpp MIME_FileCache.cpp
+ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_cmdline.cpp \
+	HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp HTTP_Server.cpp \
+	HTTP_Work.cpp Magic.cpp
 
 concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp
 concurrent_queue_endless_test_SOURCES = endless_test.c
@@ -303,6 +301,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Cache_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ConcurrentQueueTest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/FileCache.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_CacheEntry.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_FindWork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Work.Po@am__quote@

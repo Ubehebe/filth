@@ -7,7 +7,7 @@ HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler &sch)
   HTTP_Work::st = &st;
 }
 
-void HTTP_FindWork::setcache(FileCache &cache)
+void HTTP_FindWork::setcache(HTTP_Cache &cache)
 {
   HTTP_Work::cache = &cache;
 }

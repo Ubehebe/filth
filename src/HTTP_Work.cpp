@@ -9,6 +9,7 @@
 
 #include "config.h" // For PACKAGE_NAME from the build system
 #include "HTTP_cmdline.hpp"
+#include "HTTP_Origin_Server.hpp"
 #include "HTTP_Parse_Err.hpp"
 #include "HTTP_Work.hpp"
 #include "logging.h"
@@ -19,21 +20,19 @@ using namespace HTTP_constants;
 
 LockFreeQueue<void *> HTTP_Work::store;
 Scheduler *HTTP_Work::sch = NULL;
-FileCache *HTTP_Work::cache = NULL;
+HTTP_Cache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), resp_headers_done(false), resource(NULL),
-    resourcesz(0), outgoing_offset(NULL), outgoing_offset_sz(0), cl_sz(0),
+  : Work(fd, m), dohdrs(true), response(NULL),
+    responsesz(0), outgoing_offset(NULL), outgoing_offset_sz(0), cl_sz(0),
     cl_max_fwds(0)
 {
 }
 
 HTTP_Work::~HTTP_Work()
 {
-  // If we're using the cache, tell it we're done.
-  if (resource != NULL && stat == OK)
-    cache->release(path);
+  cache->unget(path); // fails if path isn't in cache, which is fine
   st->erase(fd);
 }
 
@@ -118,7 +117,8 @@ void HTTP_Work::operator()()
      * the write to be scheduled only when all the resources are ready. */
     if (rdlines()) {
       parse_req();
-      prepare_resp();
+      if (dohdrs)
+	prepare_resp_hdrs();
       m = write;
     }
     sch->reschedule(this);
@@ -130,14 +130,14 @@ void HTTP_Work::operator()()
     }
     // If we're here, we're guaranteed outgoing_offset_sz == 0...right?
     else if (err == 0) {
-      if (!resp_headers_done) {
+      /*    RECTIFY  if (!resp_headers_done) {
 	resp_headers_done = true;
 	outgoing_offset = resource;
 	outgoing_offset_sz = resourcesz;
 	sch->reschedule(this);
       } else {
 	deleteme = true;
-      }
+	} */
     }
     else {
       throw SocketErr("write", err);
@@ -183,32 +183,32 @@ void HTTP_Work::parse_uri(string &uri)
     path = uri.substr(1);
   }
 
-  MIME_FileCache::MIME_cinfo *c;
-  int err;
+  HTTP_CacheEntry *c = NULL;
  parse_uri_tryagain:
-  /* TODO: the dynamic cast should be avoidable with proper use of
-   * polymorphism. If reserve took a _pointer_ to the base class cinfo, we
-   * could use polymorphism, but because the pointer is passed by value, we
-   * don't see the changes. If reserve took a _reference_ to the base class
-   * cinfo, we could see the changes, but we would have to already have
-   * initialized the object. This is a problem because the object has const
-   * data, but we want to reassign this data here. What we really want is
-   * to pass a _reference to a pointer_ to the base class cinfo, but then
-   * we apparently can't use polymorphism at all. What a mess. */
-  c = dynamic_cast<MIME_FileCache::MIME_cinfo *>(cache->reserve(path, err));
+  /* Response is in the cache, ready to go.
+   * TODO: support synthesis of responses from fragments in cache. */
+  if (cache->get(path, c)) {
+    // RECTIFY    response = c->getbuf();
+    responsesz = c->sz;
+  }
 
-  switch (err) {
-  case 0:
-    resource = c->buf;
-    resourcesz = *const_cast<size_t *>(&c->sz);
-    MIME_type = c->MIME_type;
-    break;
+  /* Get the response from the origin server, put it in cache if appropriate,
+   * and return it. */
+  else {
+    int err = HTTP_Origin_Server::request(path, c);
+    switch (err) {
+    case 0:
+      // RECTIFY      response = c->getbuf();
+      responsesz = c->sz;
+      break;
+    default:
+      break;
+    }
+
+  }
+  /* RECTIFY
   case EACCES:
     throw HTTP_Parse_Err(Forbidden);
-  case EINVAL:
-    // In cache but invalidated; try again soon.
-    sleep(1);
-    goto parse_uri_tryagain;
   case EISDIR:
     throw HTTP_Parse_Err(Not_Implemented);
   case ENOENT:
@@ -220,7 +220,7 @@ void HTTP_Work::parse_uri(string &uri)
     throw HTTP_Parse_Err(Not_Implemented);
   default:
     throw HTTP_Parse_Err(Internal_Server_Error);
-  }
+    }*/
 }
 
 void HTTP_Work::parse_header(string &line)
@@ -372,7 +372,7 @@ void HTTP_Work::parse_header(string &line)
  * Status-Line *((general-header | response-header | entity-header) CRLF) CRLF
  * [message-body]
  */
-inline void HTTP_Work::prepare_resp()
+inline void HTTP_Work::prepare_resp_hdrs()
 {
   pbuf.clear();
   pbuf.str("");
@@ -385,9 +385,11 @@ inline void HTTP_Work::prepare_resp()
        << Server << PACKAGE_NAME << CRLF;
 
   if (stat == OK) {
-    pbuf << Content_Length << resourcesz << CRLF
-	 << Content_Type << MIME_type << CRLF
-	 << CRLF;
+    // RECTIFY
+    //    pbuf << Content_Length << resourcesz << CRLF
+    //	 << Content_Type << MIME_type << CRLF
+    //	 << CRLF;
+    
   }
   // For now, just repeat the error in the message body.
   else {
