@@ -122,10 +122,12 @@ void HTTP_Work::operator()()
     if (!inhdrs_done) {
       if (rdlines()) {
 	parse_req();
+	// If there's no body to read, schedule a write.
 	if (cl_sz == 0)
 	  m = write;
       }
     }
+    // Finished reading the request body, so schedule a write.
     else if (cl_sz == 0) {
        req_body = pbuf.str();
        m = write;

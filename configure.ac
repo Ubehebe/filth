@@ -14,7 +14,7 @@ AC_PROG_CC
 AC_SUBST(CPPFLAGS, [-I'$(abs_top_builddir)'/data])
 # We use some of the C++ Technical Report 1 features.
 AC_SUBST(CXXFLAGS, [-std=c++0x])
-AC_SUBST(LIBS, ['-lmagic -lpthread'])
+AC_SUBST(LIBS, ['-lmagic -lpthread -lz'])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h sys/time.h syslog.h unistd.h])

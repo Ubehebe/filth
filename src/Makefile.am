@@ -8,10 +8,10 @@ bin_PROGRAMS=ess-a-byte
 LOG ?= _LOG_FATAL
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 
-BASE=Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp Work.cpp Worker.cpp \
-	Time_nr.cpp
-ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_cmdline.cpp \
-	HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
+BASE=Compressor_nr.cpp Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp \
+	Work.cpp Worker.cpp Time_nr.cpp
+ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
+	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
 	HTTP_Origin_Server.cpp HTTP_Server.cpp HTTP_Work.cpp
 
 #concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp

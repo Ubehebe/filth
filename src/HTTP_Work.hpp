@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unordered_map>
 
+#include "Compressor_nr.hpp"
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
 #include "LockFreeQueue.hpp"
@@ -35,6 +36,7 @@ private:
   // Internal state.
   Time_nr date; // For doing timestamps
   Magic_nr MIME; // For doing MIME type lookups
+  Compressor_nr compress; // For gzip, deflate, etc.
   char rdbuf[rdbufsz]; // General-purpose raw buffer
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
