@@ -24,7 +24,8 @@ HTTP_Cache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), cl_sz(0), cl_max_fwds(0), stat(OK), hdrs_done(false)
+  : Work(fd, m), cl_sz(0), cl_max_fwds(0), stat(OK),
+    inhdrs_done(false), outhdrs_done(false)
 {
 }
 
@@ -58,8 +59,8 @@ bool HTTP_Work::rdlines()
   }
   pbuf.clear();
   // We got to the empty (CRLF) line.
-  // TODO: we'll actually need to read beyond this for the message body!
   if (line.length() == 0 && pbuf.peek() == '\n') {
+    inhdrs_done = true;
     return true;
   } else {
     _LOG_DEBUG("line not properly terminated: %s", line.c_str());
@@ -77,9 +78,11 @@ void HTTP_Work::parse_req()
     parse_req_line(req.front());
     for (req_type::iterator it = ++req.begin(); it != req.end(); ++it)
       parse_header(*it);
+    
     negotiate_content();
   }
-  // Any failure in parsing should stop the worker immediately.
+  /* Any failure in parsing should cause the worker immediately to prepare a
+   * failure message. */
   catch (HTTP_Parse_Err e) {
     stat = e.stat;
   }
@@ -107,16 +110,25 @@ void HTTP_Work::operator()()
   int err;
   switch(m) {
   case Work::read:
-    err = rduntil(pbuf, rdbuf, rdbufsz);
+    err = (!inhdrs_done) 
+      ? rduntil(pbuf, rdbuf, rdbufsz) // Read headers
+      : rduntil(pbuf, rdbuf, rdbufsz, cl_sz); // Read body
     if (err != 0 && err != EAGAIN && err != EWOULDBLOCK)
       throw SocketErr("read", err);
     /* TODO: right now we schedule a write immediately after the reading is
      * complete. But when we add more asynchronous/nonblocking I/O on
      * the server side (e.g. wait for a CGI program to return), we would want
      * the write to be scheduled only when all the resources are ready. */
-    if (rdlines()) {
-      parse_req();
-      m = write;
+    if (!inhdrs_done) {
+      if (rdlines()) {
+	parse_req();
+	if (cl_sz == 0)
+	  m = write;
+      }
+    }
+    else if (cl_sz == 0) {
+       req_body = pbuf.str();
+       m = write;
     }
     sch->reschedule(this);
     break;
@@ -128,8 +140,8 @@ void HTTP_Work::operator()()
     // If we're here, we're guaranteed outsz == 0...right?
     else if (err == 0 && outsz == 0) {
       // Done sending headers, now send body.
-      if (!hdrs_done) {
-	hdrs_done = true;
+      if (!outhdrs_done) {
+	outhdrs_done = true;
 	out = resp_body;
 	outsz = resp_body_sz;
 	sch->reschedule(this);
@@ -322,8 +334,7 @@ void HTTP_Work::parse_header(string &line)
     /* 14.12 says nothing about when this MUST be read. */
     break;
   case Content_Length:
-    /* 14.13: Content-Length = "Content-Length" ":" 1*DIGIT
-     * We will need this when we start reading the bodies of requests. */
+    // 14.13: Content-Length = "Content-Length" ":" 1*DIGIT
     pbuf >> cl_sz;
     break;
   case Content_Location:

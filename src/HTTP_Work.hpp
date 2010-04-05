@@ -40,10 +40,12 @@ private:
   std::string query; // The stuff after the "?" in a URI; to pass to resource
   std::stringstream pbuf; // Buffer to use in parsing
 
-  /* The raw request is stored as a list of strings in case we have to
-   * forward it on. */
+  /* The raw request headers are stored as a list of strings in case 
+   * we have to forward them on. */
   typedef std::list<std::string> req_type;
   req_type req; 
+  // The request body (if any) is stored as-is.
+  std::string req_body;
 
   // Pointers to buffers involved in writing
 
@@ -63,7 +65,8 @@ private:
   size_t outsz;
 
   // Know when to switch from headers to body.
-  bool hdrs_done;
+  bool inhdrs_done, outhdrs_done;
+
 
   HTTP_constants::status stat; // Status code we'll return to client
   HTTP_constants::method meth; // Method (GET, POST, etc.)
@@ -75,6 +78,7 @@ private:
 				   cl_host, cl_pragma, cl_referer, cl_user_agent;
   
   bool rdlines();
+  void rdbody();
   void parse_req();
   void parse_req_line(std::string &line);
   void parse_header(std::string &line);

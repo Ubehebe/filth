@@ -1,7 +1,7 @@
 #ifndef WORK_HPP
 #define WORK_HPP
 
-#include <sstream>
+#include <iostream>
 
 #include "Callback.hpp"
 
@@ -21,7 +21,10 @@ public:
   bool deleteme, closeme;
   Work(int fd, mode m);
   virtual ~Work();
-  int rduntil(std::stringstream &inbuf, char *rdbuf, size_t rdbufsz);
+  // "Header" semantics.
+  int rduntil(std::ostream &inbuf, char *rdbuf, size_t rdbufsz);
+  // "Body" semantics.
+  int rduntil(std::ostream &inbuf, char *rdbuf, size_t rdbufsz, size_t &tord);
   int wruntil(char const *&outbuf, size_t &towrite);
 };
 
