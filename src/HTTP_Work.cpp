@@ -24,7 +24,7 @@ HTTP_Cache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), cl_sz(0), cl_max_fwds(0), stat(OK)
+  : Work(fd, m), cl_sz(0), cl_max_fwds(0), stat(OK), hdrs_done(false)
 {
 }
 
@@ -46,7 +46,6 @@ bool HTTP_Work::rdlines()
   /* Get a line until there are no more lines, or we hit the CRLF line.
    * Thus we're ignoring the message body for now. */
   while (getline(pbuf, line, '\r') && line.length() > 0) {
-    _LOG_DEBUG("parse: line %s", line.c_str());
     /* If the line isn't properly terminated, save it and report that we
      * need more text from the client in order to parse. */
     if (pbuf.peek() != '\n') {
@@ -128,13 +127,14 @@ void HTTP_Work::operator()()
     }
     // If we're here, we're guaranteed outsz == 0...right?
     else if (err == 0 && outsz == 0) {
-      // Finished sending the headers, now send the body (if any).
-      if (resp_body_sz > 0) {
+      // Done sending headers, now send body.
+      if (!hdrs_done) {
+	hdrs_done = true;
 	out = resp_body;
 	outsz = resp_body_sz;
 	sch->reschedule(this);
       }
-      // Finished sending the body (or no body exists), we're done.
+      // Done sending body.
       else {
 	deleteme = true;
       }
@@ -187,54 +187,71 @@ void HTTP_Work::parse_uri(string &uri)
  * if need be, to find the resource. */
 void HTTP_Work::negotiate_content()
 {
-
+ negotiate_startover:
 
   HTTP_CacheEntry *c = NULL;
-  
+  int err;
+  pbuf.str("");
+  pbuf.clear();
+
   // Ask the cache if we have a response ready to go.
   if (cache->get(path, c)) {
-    pbuf.str("");
-    pbuf.clear();
-    pbuf << *c; // Pushes the status line, then all the headers
-    /* The label is here instead of above the conditional because even if we
-     * succeed in getting the resource from the origin server, there's no
-     * guarantee it ever makes it into the cache. */
-  negotiate_done:
-     /* This will silently truncate the headers if they are longer than rdbufsz.
-     * How okay is that? */
-    pbuf.get(rdbuf, rdbufsz, '\0');
-    out = resp_hdrs = static_cast<char const *>(rdbuf);
-    outsz = resp_hdrs_sz = strlen(rdbuf);
-    if (outsz == rdbufsz-1)
-      _LOG_INFO("headers at least %d bytes long; may have silently truncated",
-		outsz);
+    if (c->response_is_fresh() || HTTP_Origin_Server::validate(path, c)) {
+      pbuf << *c; // Pushes the status line, then all the headers
+      _LOG_DEBUG("%s", pbuf.str().c_str());
+      resp_body = c->getbuf();
+      resp_body_sz = const_cast<size_t &>(c->sz);
+    }
+    else {
+      cache->advise_evict(path);
+      goto negotiate_startover;
+    }
   }
 
   // If not, ask the origin server.
+  else if ((err = HTTP_Origin_Server::request(path, c))==0) {
+    c->pushstat(stat);
+    c->pushhdr(Content_Type, MIME(path.c_str()));
+    c->pushhdr(Date, date());
+    c->pushhdr(Last_Modified, date(c->last_modified));
+    c->pushhdr(Server, PACKAGE_NAME);
+    // Might not succeed...
+    cache->put(path, c, c->sz);
+    pbuf << *c; // Pushes the status line, then all the headers
+    _LOG_DEBUG("%s", pbuf.str().c_str());
+    resp_body = c->getbuf();
+    resp_body_sz = const_cast<size_t &>(c->sz);
+  }
+  
   else {
-    int err = HTTP_Origin_Server::request(path, c);
-    pbuf << HTTP_Version << ' ' << stat << CRLF
-	 << Date << date() << CRLF
-	 << Server << PACKAGE_NAME << CRLF;
-
+    // Make more elaborate?
     switch (err) {
-    case 0:
-      c->pushstatln(pbuf);
-      // Might not succeed...
-      cache->put(path, c, c->sz);
-      pbuf.str("");
-      pbuf.clear();
-      pbuf << *c; // Pushes the status line, then all the headers
-      resp_body = c->getbuf();
-      resp_body_sz = const_cast<size_t &>(c->sz);
+    case ENOENT:
+      stat = Not_Found;
+      break;
+    case EACCES:
+      stat = Forbidden;
       break;
     default:
-      resp_body = NULL;
-      resp_body_sz = 0;
+      stat = Internal_Server_Error;
       break;
     }
-    goto negotiate_done;
+    pbuf << HTTP_Version << ' ' << stat << CRLF
+	 << Date << date() << CRLF
+	 << Server << PACKAGE_NAME << CRLF
+	 << Content_Length << 0 << CRLF
+	 << CRLF;
+    resp_body = NULL;
+    resp_body_sz = 0;
   }
+
+  // In all three branches, the headers are now flat in pbuf.
+  pbuf.get(rdbuf, rdbufsz, '\0');
+  out = resp_hdrs = static_cast<char const *>(rdbuf);
+  outsz = resp_hdrs_sz = strlen(rdbuf);
+  if (outsz == rdbufsz-1)
+    _LOG_INFO("headers at least %d bytes long; may have silently truncated",
+	      outsz);
 }
 
 void HTTP_Work::parse_header(string &line)

@@ -35,7 +35,7 @@ void HTTP_Server::operator()()
     sch->push_sighandler(sigflush, flush);
   } else {
     /* Delete the work stuff before the cache because when a work object
-     * is deleted, it tries to remove itself from the cache. */
+     * is deleted, it tries to un-reserve its resources in the cache. */
     delete fwork;
     delete cache;
   }
@@ -49,7 +49,7 @@ HTTP_Server::~HTTP_Server()
 
 void HTTP_Server::flush(int ignore)
 {
-  // ?  theserver->cache->flush();
+  theserver->cache->flush();
   theserver->sch->halt();
   _INC_STAT(theserver->flushes);
 }

@@ -138,16 +138,4 @@ namespace HTTP_constants
     // Tack on the colon and space.
     return o << ": ";
   }
-
-  ostream &operator<<(ostream &o, header &h)
-  {
-    // Dirty trick to replace underscores by hyphens
-    char const *tmp = header_strs[h];
-    while (*tmp) {
-      o << ((*tmp == '_') ? '-' : *tmp);
-      ++tmp;
-    }
-    // Tack on the colon and space.
-    return o << ": ";
-  }
 };

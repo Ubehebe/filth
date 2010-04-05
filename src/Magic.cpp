@@ -1,9 +1,11 @@
 #include <stdlib.h>
 
 #include "logging.h"
-#include "Magic.hpp"
+#include "Magic_nr.hpp"
 
-Magic::Magic(int flags, char const *database)
+using namespace std;
+
+Magic_nr::Magic_nr(int flags, char const *database)
 {
   /* TODO: libmagic has these weird error reporting functions,
    * magic_error, magic_errno that I think retrieve errno from inside
@@ -18,15 +20,12 @@ Magic::Magic(int flags, char const *database)
   }
 }
 
-Magic::~Magic()
+Magic_nr::~Magic_nr()
 {
-  // Just grab the lock so it will wait in case anyone else is using it.
-  l.lock();
   magic_close(m);
-  l.unlock();
 }
 
-void Magic::setflags(int flags)
+void Magic_nr::setflags(int flags)
 {
   if (magic_setflags(m, flags)==-1) {
     _LOG_FATAL("magic_setflags: %m");
@@ -35,10 +34,7 @@ void Magic::setflags(int flags)
 }
 
 // returns NULL on error
-char const *Magic::operator()(char const *filename)
+char const *Magic_nr::operator()(char const *filename) const
 {
-  l.lock();
-  char const *ans = magic_file(m, filename);
-  l.unlock();
-  return ans;
+  return magic_file(m, filename);
 }

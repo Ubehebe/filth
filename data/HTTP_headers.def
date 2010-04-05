@@ -20,7 +20,7 @@ DEFINE_ME(Content_MD5, 0) /* INSECURE, NOT SUPPORTED: wikipedia MD5! */
 DEFINE_ME(Content_Range, 0) /* TODO */
 DEFINE_ME(Content_Type, 1)
 DEFINE_ME(Date, 1)
-DEFINE_ME(ETag, 0) /* RESPONSEONLY */
+DEFINE_ME(ETag, 0) /* responses only */
 DEFINE_ME(Expect, 1)
 DEFINE_ME(Expires, 1)
 DEFINE_ME(From, 1)
@@ -30,7 +30,7 @@ DEFINE_ME(If_Modified_Since, 0) /* TODO */
 DEFINE_ME(If_None_Match, 0) /* TODO */
 DEFINE_ME(If_Range, 0) /* TODO */
 DEFINE_ME(If_Unmodified_Since, 0) /* TODO */
-DEFINE_ME(Last_Modified, 0) /* TODO */
+DEFINE_ME(Last_Modified, 1) 
 DEFINE_ME(Location, 0) /* RESPONSEONLY */
 DEFINE_ME(Max_Forwards, 1)
 DEFINE_ME(Pragma, 1)

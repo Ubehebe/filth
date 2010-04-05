@@ -12,8 +12,9 @@
 #include "HTTP_constants.hpp"
 #include "LockFreeQueue.hpp"
 #include "HTTP_Cache.hpp"
+#include "Magic_nr.hpp"
 #include "Scheduler.hpp"
-#include "Time_nonthreadsafe.hpp"
+#include "Time_nr.hpp"
 #include "Work.hpp"
 #include "Workmap.hpp"
 
@@ -32,7 +33,8 @@ class HTTP_Work : public Work
 
 private:
   // Internal state.
-  Time_nonthreadsafe date; // For doing timestamps
+  Time_nr date; // For doing timestamps
+  Magic_nr MIME; // For doing MIME type lookups
   char rdbuf[rdbufsz]; // General-purpose raw buffer
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
@@ -59,6 +61,9 @@ private:
    * out = resp_body and outsz = resp_body_sz. */
   char const *out;
   size_t outsz;
+
+  // Know when to switch from headers to body.
+  bool hdrs_done;
 
   HTTP_constants::status stat; // Status code we'll return to client
   HTTP_constants::method meth; // Method (GET, POST, etc.)

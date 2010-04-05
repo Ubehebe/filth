@@ -39,7 +39,6 @@ namespace HTTP_constants
   /* Value, not reference. Otherwise things like o << Content_Length
    * would be interpreted as putting an integer into the stream! */
   std::ostream &operator<<(std::ostream &o, header h);
-  std::ostream &operator<<(std::ostream &o, header &h);
 
   // These guys are all defined in HTTP_constants.cpp to avoid linker errors.
   extern char const *HTTP_Version;
