@@ -42,7 +42,8 @@ namespace HTTP_Origin_Server
 
     try {
       tmp = new HTTP_CacheEntry(statbuf.st_size);
-    } catch (std::bad_alloc) {
+    }
+    catch (std::bad_alloc) {
       close(fd);
       return ENOMEM;
     }

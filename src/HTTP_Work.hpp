@@ -32,14 +32,34 @@ class HTTP_Work : public Work
 
 private:
   // Internal state.
-  Time_nonthreadsafe date;
-  char rdbuf[rdbufsz]; // Buffer to use to read from client...and response??
-  char const *MIME_type;
+  Time_nonthreadsafe date; // For doing timestamps
+  char rdbuf[rdbufsz]; // General-purpose raw buffer
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
-  char const *response; // Raw pointer to resource contents
   std::stringstream pbuf; // Buffer to use in parsing
-  std::list<std::string> req; // Store the request as a list of lines.
+
+  /* The raw request is stored as a list of strings in case we have to
+   * forward it on. */
+  typedef std::list<std::string> req_type;
+  req_type req; 
+
+  // Pointers to buffers involved in writing
+
+  // Points to buffer containing response headers (never NULL)
+  char const *resp_hdrs;
+  size_t resp_hdrs_sz;
+
+  // Points to buffer containing response body (can be NULL)
+  char const *resp_body;
+  size_t resp_body_sz;
+
+  /* Before we start writing a response, we set
+   * out = resp_hdrs and outsz = resp_hdrs_sz. After we have finished writing
+   * the headers, we set
+   * out = resp_body and outsz = resp_body_sz. */
+  char const *out;
+  size_t outsz;
+
   HTTP_constants::status stat; // Status code we'll return to client
   HTTP_constants::method meth; // Method (GET, POST, etc.)
 
@@ -48,19 +68,13 @@ private:
   size_t cl_sz, cl_max_fwds;
   std::string cl_content_type, cl_expires, cl_from,
 				   cl_host, cl_pragma, cl_referer, cl_user_agent;
-
-  size_t responsesz; // Size of resource (for static only??)
-  bool dohdrs;
-  char const *outgoing_offset;
-  size_t outgoing_offset_sz;
-
   
-  void prepare_resp_hdrs();
   bool rdlines();
   void parse_req();
   void parse_req_line(std::string &line);
   void parse_header(std::string &line);
   void parse_uri(std::string &uri);
+  void negotiate_content();
   std::string &uri_hex_escape(std::string &uri);
   
 public:

@@ -1,6 +1,7 @@
 #ifndef HTTP_CACHE_ENTRY_HPP
 #define HTTP_CACHE_ENTRY_HPP
 
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <time.h>
@@ -15,13 +16,19 @@ namespace HTTP_Origin_Server
   int request(std::string &path, HTTP_CacheEntry *result);
 };
 
+std::ostream &operator<<(std::ostream &o, HTTP_CacheEntry &c);
+
 class HTTP_CacheEntry
 {
+  // friend so it can write _buf.
   friend int HTTP_Origin_Server::request(std::string &, HTTP_CacheEntry *);
-  typedef std::unordered_map<int, std::string> hdrmap_type;
+  // friend so it can lock and unlock.
+  friend std::ostream &operator<<(std::ostream &, HTTP_CacheEntry &);
+  typedef std::unordered_map<HTTP_constants::header, std::string> hdrmap_type;
   hdrmap_type hdrs;
+  std::string statln;
   // Because multiple workers could have a pointer to the same cache entry
-  Mutex hdrlock; 
+  RWLock hdrlock; 
   char *_buf;
   time_t date_value; // Date header
   time_t age_value; // Age header
@@ -44,7 +51,24 @@ public:
   size_t const sz;
   HTTP_CacheEntry(size_t sz) : sz(sz), _buf(new char[sz]) {}
   ~HTTP_CacheEntry() { delete[] _buf; }
+  // Should these return errors if they're already here?
+  // TODO: turn into IO manipulators, so we can say e.g. entry << header << blah
+  void pushhdr(HTTP_constants::header h, std::string &val)
+  {
+    hdrlock.wrlock();
+    hdrs[h] = val; // copies val, which is what we want
+    hdrlock.unlock();  
+  }
+  void pushstatln(std::istream &i)
+  {
+    hdrlock.wrlock();
+    getline(i, statln, '\r');
+    hdrlock.unlock();
+  }
+  char const *getbuf() { return static_cast<char const *>(_buf); }
 };
+
+
 
 
 #endif // HTTP_CACHE_ENTRY_HPP

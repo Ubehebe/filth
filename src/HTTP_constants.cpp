@@ -70,24 +70,6 @@ namespace HTTP_constants
 #undef DEFINE_ME
   };
 
-  size_t const num_resp_header = 
-#define DEFINE_ME(ignore1, ignore2) +1
-#include "HTTP_resp_headers.def"
-#undef DEFINE_ME
-    ;
-
-  char const *resp_header_strs[] = {
-#define DEFINE_ME(name, ignore) #name,
-#include "HTTP_resp_headers.def"
-#undef DEFINE_ME
-  };
-
-  bool const resp_header_is_implemented[] = {
-#define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
-#include "HTTP_resp_headers.def"
-#undef DEFINE_ME
-  };
-
   // Output is like "404 Not Found".
   ostream& operator<<(ostream &o, status &s)
   {
@@ -157,12 +139,10 @@ namespace HTTP_constants
     return o << ": ";
   }
 
-  /* Value, not reference. Otherwise things like o << Content_Length
-   * would be interpreted as putting an integer into the stream! */
-  ostream &operator<<(ostream &o, resp_header h)
+  ostream &operator<<(ostream &o, header &h)
   {
     // Dirty trick to replace underscores by hyphens
-    char const *tmp = resp_header_strs[h];
+    char const *tmp = header_strs[h];
     while (*tmp) {
       o << ((*tmp == '_') ? '-' : *tmp);
       ++tmp;
@@ -170,5 +150,4 @@ namespace HTTP_constants
     // Tack on the colon and space.
     return o << ": ";
   }
-
 };

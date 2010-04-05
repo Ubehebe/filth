@@ -1,6 +1,9 @@
 #include "HTTP_CacheEntry.hpp"
 #include "logging.h"
 
+using namespace std;
+using namespace HTTP_constants;
+
 inline time_t HTTP_CacheEntry::now()
 {
   return ::time(NULL);
@@ -41,4 +44,14 @@ inline time_t HTTP_CacheEntry::freshness_lifetime()
 inline bool HTTP_CacheEntry::response_is_fresh()
 {
   return freshness_lifetime() > current_age();
+}
+
+ostream &operator<<(ostream &o, HTTP_CacheEntry &c)
+{
+  c.hdrlock.rdlock();
+  o << c.statln;
+  for (HTTP_CacheEntry::hdrmap_type::iterator it = c.hdrs.begin(); it != c.hdrs.end(); ++it)
+    o << it->first << it->second;
+  c.hdrlock.unlock();
+  return o;
 }

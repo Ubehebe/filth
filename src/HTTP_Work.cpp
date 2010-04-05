@@ -2,7 +2,7 @@
 #include <errno.h>
 #include <iostream>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -24,9 +24,7 @@ HTTP_Cache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
-  : Work(fd, m), dohdrs(true), response(NULL),
-    responsesz(0), outgoing_offset(NULL), outgoing_offset_sz(0), cl_sz(0),
-    cl_max_fwds(0)
+  : Work(fd, m), cl_sz(0), cl_max_fwds(0), stat(OK)
 {
 }
 
@@ -61,8 +59,8 @@ bool HTTP_Work::rdlines()
   }
   pbuf.clear();
   // We got to the empty (CRLF) line.
+  // TODO: we'll actually need to read beyond this for the message body!
   if (line.length() == 0 && pbuf.peek() == '\n') {
-    stat = OK;
     return true;
   } else {
     _LOG_DEBUG("line not properly terminated: %s", line.c_str());
@@ -76,12 +74,14 @@ bool HTTP_Work::rdlines()
  * CRLF [message-body] */
 void HTTP_Work::parse_req()
 {
-  // Any failure in parsing should stop the worker immediately.
   try {
     parse_req_line(req.front());
-    for (list<string>::iterator it = ++req.begin(); it != req.end(); ++it)
+    for (req_type::iterator it = ++req.begin(); it != req.end(); ++it)
       parse_header(*it);
-  } catch (HTTP_Parse_Err e) {
+    negotiate_content();
+  }
+  // Any failure in parsing should stop the worker immediately.
+  catch (HTTP_Parse_Err e) {
     stat = e.stat;
   }
 }
@@ -117,27 +117,27 @@ void HTTP_Work::operator()()
      * the write to be scheduled only when all the resources are ready. */
     if (rdlines()) {
       parse_req();
-      if (dohdrs)
-	prepare_resp_hdrs();
       m = write;
     }
     sch->reschedule(this);
     break;
   case Work::write:
-    err = wruntil(outgoing_offset, outgoing_offset_sz);
+    err = wruntil(out, outsz);
     if (err == EAGAIN || err == EWOULDBLOCK) {
       sch->reschedule(this);
     }
-    // If we're here, we're guaranteed outgoing_offset_sz == 0...right?
-    else if (err == 0) {
-      /*    RECTIFY  if (!resp_headers_done) {
-	resp_headers_done = true;
-	outgoing_offset = resource;
-	outgoing_offset_sz = resourcesz;
+    // If we're here, we're guaranteed outsz == 0...right?
+    else if (err == 0 && outsz == 0) {
+      // Finished sending the headers, now send the body (if any).
+      if (resp_body_sz > 0) {
+	out = resp_body;
+	outsz = resp_body_sz;
 	sch->reschedule(this);
-      } else {
+      }
+      // Finished sending the body (or no body exists), we're done.
+      else {
 	deleteme = true;
-	} */
+      }
     }
     else {
       throw SocketErr("write", err);
@@ -165,6 +165,7 @@ string &HTTP_Work::uri_hex_escape(string &uri)
 
 void HTTP_Work::parse_uri(string &uri)
 {
+  // TODO: throws bad request for proxy-type resources. Support?
   _LOG_DEBUG("parse_uri %s", uri.c_str());
   // Malformed or dangerous URI.
   if (uri[0] != '/' || uri.find("..") != uri.npos)
@@ -174,53 +175,66 @@ void HTTP_Work::parse_uri(string &uri)
   string::size_type qpos;
   if (uri == "/") {
     path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
-  }
-  else if ((qpos = uri.find('?')) != string::npos) {
+  } else if ((qpos = uri.find('?')) != string::npos) {
     path = uri.substr(1, qpos-1);
     query = uri.substr(qpos+1);
-  }
-  else {
+  } else {
     path = uri.substr(1);
   }
+}
+
+/* After parsing is complete, we talk to the cache and the origin server,
+ * if need be, to find the resource. */
+void HTTP_Work::negotiate_content()
+{
+
 
   HTTP_CacheEntry *c = NULL;
- parse_uri_tryagain:
-  /* Response is in the cache, ready to go.
-   * TODO: support synthesis of responses from fragments in cache. */
+  
+  // Ask the cache if we have a response ready to go.
   if (cache->get(path, c)) {
-    // RECTIFY    response = c->getbuf();
-    responsesz = c->sz;
+    pbuf.str("");
+    pbuf.clear();
+    pbuf << *c; // Pushes the status line, then all the headers
+    /* The label is here instead of above the conditional because even if we
+     * succeed in getting the resource from the origin server, there's no
+     * guarantee it ever makes it into the cache. */
+  negotiate_done:
+     /* This will silently truncate the headers if they are longer than rdbufsz.
+     * How okay is that? */
+    pbuf.get(rdbuf, rdbufsz, '\0');
+    out = resp_hdrs = static_cast<char const *>(rdbuf);
+    outsz = resp_hdrs_sz = strlen(rdbuf);
+    if (outsz == rdbufsz-1)
+      _LOG_INFO("headers at least %d bytes long; may have silently truncated",
+		outsz);
   }
 
-  /* Get the response from the origin server, put it in cache if appropriate,
-   * and return it. */
+  // If not, ask the origin server.
   else {
     int err = HTTP_Origin_Server::request(path, c);
+    pbuf << HTTP_Version << ' ' << stat << CRLF
+	 << Date << date() << CRLF
+	 << Server << PACKAGE_NAME << CRLF;
+
     switch (err) {
     case 0:
-      // RECTIFY      response = c->getbuf();
-      responsesz = c->sz;
+      c->pushstatln(pbuf);
+      // Might not succeed...
+      cache->put(path, c, c->sz);
+      pbuf.str("");
+      pbuf.clear();
+      pbuf << *c; // Pushes the status line, then all the headers
+      resp_body = c->getbuf();
+      resp_body_sz = const_cast<size_t &>(c->sz);
       break;
     default:
+      resp_body = NULL;
+      resp_body_sz = 0;
       break;
     }
-
+    goto negotiate_done;
   }
-  /* RECTIFY
-  case EACCES:
-    throw HTTP_Parse_Err(Forbidden);
-  case EISDIR:
-    throw HTTP_Parse_Err(Not_Implemented);
-  case ENOENT:
-    throw HTTP_Parse_Err(Not_Found);
-  case ENOMEM:
-    throw HTTP_Parse_Err(Internal_Server_Error);
-  case ESPIPE:
-    // This is where to add support for dynamic resources.
-    throw HTTP_Parse_Err(Not_Implemented);
-  default:
-    throw HTTP_Parse_Err(Internal_Server_Error);
-    }*/
 }
 
 void HTTP_Work::parse_header(string &line)
@@ -372,34 +386,6 @@ void HTTP_Work::parse_header(string &line)
  * Status-Line *((general-header | response-header | entity-header) CRLF) CRLF
  * [message-body]
  */
-inline void HTTP_Work::prepare_resp_hdrs()
-{
-  pbuf.clear();
-  pbuf.str("");
-
-  /* Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
-   * Note that we have defined operator<< for statuses so it outputs exactly
-   * Status-Code SP Reason-Phrase. */
-  pbuf << HTTP_Version << ' ' << stat << CRLF
-       << Date << date() << CRLF
-       << Server << PACKAGE_NAME << CRLF;
-
-  if (stat == OK) {
-    // RECTIFY
-    //    pbuf << Content_Length << resourcesz << CRLF
-    //	 << Content_Type << MIME_type << CRLF
-    //	 << CRLF;
-    
-  }
-  // For now, just repeat the error in the message body.
-  else {
-    pbuf << CRLF << stat << CRLF;
-  }
-  
-  pbuf.get(rdbuf, rdbufsz, '\0');
-  outgoing_offset_sz = strlen(rdbuf);
-  outgoing_offset = rdbuf;
-}
 
 void *HTTP_Work::operator new(size_t sz)
 {

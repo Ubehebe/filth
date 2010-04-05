@@ -31,13 +31,6 @@ namespace HTTP_constants
 #undef DEFINE_ME
     };
 
-  enum resp_header
-    {
-#define DEFINE_ME(name, ignore) name,
-#include "HTTP_resp_headers.def"
-#undef DEFINE_ME
-    };
-
   // Don't need an operator>> for statuses.
   std::ostream &operator<<(std::ostream &i, status &s);
   std::istream &operator>>(std::istream &i, method &m);
@@ -46,7 +39,7 @@ namespace HTTP_constants
   /* Value, not reference. Otherwise things like o << Content_Length
    * would be interpreted as putting an integer into the stream! */
   std::ostream &operator<<(std::ostream &o, header h);
-  std::ostream &operator<<(std::ostream &o, resp_header h);
+  std::ostream &operator<<(std::ostream &o, header &h);
 
   // These guys are all defined in HTTP_constants.cpp to avoid linker errors.
   extern char const *HTTP_Version;
@@ -60,9 +53,6 @@ namespace HTTP_constants
   extern bool const header_is_implemented[];
   extern size_t const num_header;
   extern char const *header_strs[];
-  extern bool const resp_header_is_implemented[];
-  extern size_t const num_resp_header;
-  extern char const *resp_header_strs[];
 };
 
 #endif // HTTP_CONSTANTS_HPP

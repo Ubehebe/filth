@@ -101,7 +101,7 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::put(Handle &h, Stuff &s, size_t sz)
       return false;
   }
 
-  _Stuff _s = new _Stuff(s, sz);
+  _Stuff *_s = new _Stuff(s, sz);
 
   cachelock.wrlock();
   if (already = (cache.find(h) == cache.end()))
@@ -127,6 +127,7 @@ void Cache<Handle, Stuff, Stuff_is_ptr>::flush()
 template<class Handle, class Stuff, bool Stuff_is_ptr>
 bool Cache<Handle, Stuff, Stuff_is_ptr>::evict()
 {
+ evict_tryagain:
   evictlock.lock();
   if (toevict.empty()) {
     evictlock.unlock();
@@ -141,9 +142,9 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::evict()
   typename cache_type::iterator it2;
   bool found = false;
   if ((it2 = cache.find(h)) != cache.end() && it2->second->refcnt == 0) {
-    __sync_sub_and_fetch(&cur, it->second->sz);
-    delete it->second;
-    cache.erase(it);
+    __sync_sub_and_fetch(&cur, it2->second->sz);
+    delete it2->second;
+    cache.erase(it2);
     cachelock.unlock();
     return true;
   }
