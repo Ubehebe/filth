@@ -29,10 +29,9 @@ void HTTP_Server::operator()()
 {
   if (perform_startup) {
     date = new Time();
-    compress = new Compressor();
     MIME = new Magic();
     fwork = new HTTP_FindWork(req_prealloc_MB * (1<<20),
-			      sch, date, compress, MIME);
+			      sch, date, MIME);
     sch->setfwork(fwork);
     cache = new HTTP_Cache(cacheszMB * (1<<20));
     fwork->setcache(cache);
@@ -43,7 +42,6 @@ void HTTP_Server::operator()()
     delete fwork;
     delete cache;
     delete MIME;
-    delete compress;
     delete date;
   }
   perform_startup = !perform_startup;

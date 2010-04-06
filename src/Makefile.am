@@ -8,7 +8,7 @@ bin_PROGRAMS=ess-a-byte
 LOG ?= _LOG_FATAL
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 
-BASE=Compressor.cpp Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp \
+BASE=compression.cpp Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp \
 	Work.cpp Worker.cpp Time.cpp
 ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \

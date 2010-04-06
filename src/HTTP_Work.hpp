@@ -8,7 +8,6 @@
 #include <sys/types.h>
 #include <unordered_map>
 
-#include "Compressor.hpp"
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
 #include "LockFreeQueue.hpp"
@@ -41,7 +40,6 @@ private:
   static HTTP_Cache *cache;
   static Workmap *st;
   static Time *date;
-  static Compressor *compress;
   static Magic *MIME;
 
   // Internal state (Work-specific, NOT Worker-specific!)

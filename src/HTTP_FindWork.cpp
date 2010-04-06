@@ -1,13 +1,12 @@
 #include "HTTP_FindWork.hpp"
 
 HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler *sch, Time *date,
-			     Compressor *compress, Magic *MIME)
+			     Magic *MIME)
   : FindWork_prealloc<HTTP_Work>(req_prealloc)
 {
   HTTP_Work::sch = sch;
   HTTP_Work::st = &st;
   HTTP_Work::date = date;
-  HTTP_Work::compress = compress;
   HTTP_Work::MIME = MIME;
 }
 

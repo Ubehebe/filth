@@ -49,7 +49,11 @@ namespace HTTP_Origin_Server
     ssize_t nread;
 
     /* Get the file into memory with an old-fashioned blocking read.
-     * TODO: replace with asynchronous I/O? */
+     * TODO: replace with asynchronous I/O?
+     *
+     * The HTTP cache typically stores stuff already compressed. We
+     * don't do compression yet because we might need to first operate
+     * on the uncompressed file, e.g. compute a digest. */
     while (toread) {
       if ((nread = ::read(fd, (void *) ctmp, toread)) > 0) {
 	toread -= nread;

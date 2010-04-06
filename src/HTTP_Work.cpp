@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "compression.hpp"
 #include "config.h" // For PACKAGE_NAME from the build system
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Origin_Server.hpp"
@@ -23,7 +24,6 @@ Scheduler *HTTP_Work::sch = NULL;
 HTTP_Cache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
 Time *HTTP_Work::date = NULL;
-Compressor *HTTP_Work::compress = NULL;
 Magic *HTTP_Work::MIME = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)

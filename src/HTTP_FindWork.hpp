@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "Compressor.hpp"
 #include "HTTP_Cache.hpp"
 #include "HTTP_Work.hpp"
 #include "FindWork_prealloc.hpp"
@@ -16,8 +15,7 @@
 class HTTP_FindWork : public FindWork_prealloc<HTTP_Work>
 {
 public:
-  HTTP_FindWork(size_t req_prealloc, Scheduler *sch, Time *date,
-		Compressor *compress, Magic *MIME);
+  HTTP_FindWork(size_t req_prealloc, Scheduler *sch, Time *date, Magic *MIME);
   void setcache(HTTP_Cache *cache);
   Work *operator()(int fd, Work::mode m);
 private:

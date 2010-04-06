@@ -11,7 +11,6 @@
 
 #include "Cache.hpp"
 #include "Callback.hpp"
-#include "Compressor.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_constants.hpp"
 #include "HTTP_FindWork.hpp"
@@ -50,7 +49,6 @@ private:
   HTTP_FindWork *fwork;
   HTTP_Cache *cache;
   Time *date;
-  Compressor *compress;
   Magic *MIME;
 
   static HTTP_Server *theserver; // For non-signalfd-based signal handling
