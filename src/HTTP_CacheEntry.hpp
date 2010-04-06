@@ -2,6 +2,7 @@
 #define HTTP_CACHE_ENTRY_HPP
 
 #include <sstream>
+#include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <time.h>
@@ -31,7 +32,7 @@ class HTTP_CacheEntry
   hdrmap_type hdrs;
   // Because multiple workers could have a pointer to the same cache entry
   RWLock hdrlock; 
-  char *_buf;
+  uint8_t *_buf;
   time_t date_value; // Date header
   time_t age_value; // Age header
   time_t expires_value; // Expires header
@@ -66,7 +67,9 @@ public:
   size_t const sz;
   time_t last_modified; // Last-Modified header
   HTTP_CacheEntry(size_t sz, time_t last_modified)
-    : sz(sz), last_modified(last_modified), _buf(new char[sz]) {}
+    : sz(sz), last_modified(last_modified), _buf(new uint8_t[sz]) {}
+  HTTP_CacheEntry(size_t sz, time_t last_modified, uint8_t *_buf)
+    : sz(sz), last_modified(last_modified), _buf(_buf) {}
   ~HTTP_CacheEntry() { delete[] _buf; }
   // TODO: turn into IO manipulators, so we can say e.g. entry << header << blah
   void pushhdr(HTTP_constants::header h, std::string &val)
@@ -82,7 +85,7 @@ public:
     hdrlock.unlock();  
   }
   void pushstat(HTTP_constants::status stat) { this->stat = stat; }
-  char const *getbuf() { return static_cast<char const *>(_buf); }
+  uint8_t const *getbuf() { return static_cast<uint8_t const *>(_buf); }
 };
 
 #endif // HTTP_CACHE_ENTRY_HPP

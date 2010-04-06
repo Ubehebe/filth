@@ -44,7 +44,7 @@ private:
 
   // Internal state (Work-specific, NOT Worker-specific!)
 
-  char rdbuf[rdbufsz]; // General-purpose raw buffer
+  uint8_t rdbuf[rdbufsz]; // General-purpose raw buffer
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
   std::stringstream pbuf; // Buffer to use in parsing
@@ -59,18 +59,18 @@ private:
   // Pointers to buffers involved in writing
 
   // Points to buffer containing response headers (never NULL)
-  char const *resp_hdrs;
+  uint8_t const *resp_hdrs;
   size_t resp_hdrs_sz;
 
   // Points to buffer containing response body (can be NULL)
-  char const *resp_body;
+  uint8_t const *resp_body;
   size_t resp_body_sz;
 
   /* Before we start writing a response, we set
    * out = resp_hdrs and outsz = resp_hdrs_sz. After we have finished writing
    * the headers, we set
    * out = resp_body and outsz = resp_body_sz. */
-  char const *out;
+  uint8_t const *out;
   size_t outsz;
 
   // Know when to switch from headers to body.

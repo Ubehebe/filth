@@ -2,6 +2,7 @@
 
 namespace compression
 {
+  size_t compressBound(size_t srcsz) { return ::compressBound(srcsz); }
   bool compress(void *dst, size_t &dstsz, void const *src, size_t srcsz,
 		int level)
   {

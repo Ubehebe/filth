@@ -1,3 +1,6 @@
+#include <stdint.h>
+
+#include "compression.hpp"
 #include "HTTP_Origin_Server.hpp"
 
 using namespace std;
@@ -36,15 +39,16 @@ namespace HTTP_Origin_Server
       return errno;
     }
 
+    uint8_t *uncompressed;
+
     try {
-      result = new HTTP_CacheEntry(statbuf.st_size, statbuf.st_mtime);
+      uncompressed = new uint8_t[statbuf.st_size];
     }
     catch (bad_alloc) {
       close(fd);
       return ENOMEM;
     }
 
-    char *ctmp = result->_buf;
     size_t toread = statbuf.st_size;
     ssize_t nread;
 
@@ -55,9 +59,9 @@ namespace HTTP_Origin_Server
      * don't do compression yet because we might need to first operate
      * on the uncompressed file, e.g. compute a digest. */
     while (toread) {
-      if ((nread = ::read(fd, (void *) ctmp, toread)) > 0) {
+      if ((nread = ::read(fd, reinterpret_cast<void *>(uncompressed), toread)) > 0) {
 	toread -= nread;
-	ctmp += nread;
+	uncompressed += nread;
       }
       else if (nread == -1 && errno == EINTR)
 	continue;
@@ -68,10 +72,31 @@ namespace HTTP_Origin_Server
     if (nread == -1) {
       _LOG_INFO("read %s: %m, starting read over", path.c_str());
       close(fd);
-      delete result;
+      delete uncompressed;
       goto request_tryagain;
     }
     close(fd);
-    return 0; // success
+
+    uint8_t *compressed;
+    size_t compressedsz = compression::compressBound(statbuf.st_size);
+
+    try {
+      compressed = new uint8_t[compressedsz];
+    } catch (bad_alloc) {
+      delete uncompressed;
+      return ENOMEM;
+    }
+    
+    if (compression::compress(reinterpret_cast<void *>(compressed),
+			      compressedsz,
+			      reinterpret_cast<void const *>(uncompressed), statbuf.st_size)) {
+      result = new HTTP_CacheEntry(compressedsz, statbuf.st_mtime, compressed);
+      delete uncompressed;
+      return 0;
+    } else {
+      delete compressed;
+      delete uncompressed;
+      return ENOMEM;
+    }
   }
 };

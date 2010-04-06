@@ -9,8 +9,10 @@
 
 namespace compression
 {
+  size_t compressBound(size_t srcsz);
   bool compress(void *dst, size_t &dstsz, void const *src, size_t srcsz,
 		int level=Z_DEFAULT_COMPRESSION);
+
   void *compress(void const *src, size_t srcsz, size_t &dstsz,
 		 int level=Z_DEFAULT_COMPRESSION);
   bool uncompress(void *dst, size_t &dstsz, void const *src, size_t srcsz);

@@ -229,6 +229,7 @@ void HTTP_Work::negotiate_content()
   else if ((err = HTTP_Origin_Server::request(path, c))==0) {
     c->pushstat(stat);
     c->pushhdr(Content_Type, (*MIME)(path.c_str()));
+    c->pushhdr(Content_Encoding, "deflate");
     c->pushhdr(Date, (*date)());
     c->pushhdr(Last_Modified, (*date)(c->last_modified));
     c->pushhdr(Server, PACKAGE_NAME);
@@ -263,9 +264,9 @@ void HTTP_Work::negotiate_content()
   }
 
   // In all three branches, the headers are now flat in pbuf.
-  pbuf.get(rdbuf, rdbufsz, '\0');
-  out = resp_hdrs = static_cast<char const *>(rdbuf);
-  outsz = resp_hdrs_sz = strlen(rdbuf);
+  pbuf.get(reinterpret_cast<char *>(rdbuf), rdbufsz, '\0');
+  out = resp_hdrs = const_cast<uint8_t *>(rdbuf);
+  outsz = resp_hdrs_sz = strlen(reinterpret_cast<char *>(rdbuf)); // Should this work?????
   if (outsz == rdbufsz-1)
     _LOG_INFO("headers at least %d bytes long; may have silently truncated",
 	      outsz);

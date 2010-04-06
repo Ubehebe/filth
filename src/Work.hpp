@@ -2,6 +2,7 @@
 #define WORK_HPP
 
 #include <iostream>
+#include <stdint.h>
 
 #include "Callback.hpp"
 
@@ -12,9 +13,6 @@
  * way to enforce this in this base class. */
 class Work : public Callback
 {
-  Work(Work const&);
-  Work &operator=(Work const&);
-
 public:
   enum mode { read, write } m;
   int fd;
@@ -22,10 +20,13 @@ public:
   Work(int fd, mode m);
   virtual ~Work();
   // "Header" semantics.
-  int rduntil(std::ostream &inbuf, char *rdbuf, size_t rdbufsz);
+  int rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz);
   // "Body" semantics.
-  int rduntil(std::ostream &inbuf, char *rdbuf, size_t rdbufsz, size_t &tord);
-  int wruntil(char const *&outbuf, size_t &towrite);
+  int rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz, size_t &tord);
+  int wruntil(uint8_t const *&outbuf, size_t &towrite);
+private:
+  Work(Work const&);
+  Work &operator=(Work const&);
 };
 
 #endif // WORK_HPP
