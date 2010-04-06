@@ -85,6 +85,7 @@ private:
   size_t cl_sz, cl_max_fwds;
   std::string cl_content_type, cl_expires, cl_from,
 				   cl_host, cl_pragma, cl_referer, cl_user_agent;
+  HTTP_constants::content_coding cl_accept_enc;
   
   bool rdlines();
   void rdbody();

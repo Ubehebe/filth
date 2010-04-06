@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "compression.hpp"
-#include "config.h" // For PACKAGE_NAME from the build system
+#include "config.h" // For PACKAGE_NAME
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Origin_Server.hpp"
 #include "HTTP_Parse_Err.hpp"
@@ -217,7 +217,7 @@ void HTTP_Work::negotiate_content()
       pbuf << *c; // Pushes the status line, then all the headers
       _LOG_DEBUG("%s", pbuf.str().c_str());
       resp_body = c->getbuf();
-      resp_body_sz = const_cast<size_t &>(c->sz);
+      resp_body_sz = const_cast<size_t &>(c->szincache);
     }
     else {
       cache->advise_evict(path);
@@ -227,18 +227,18 @@ void HTTP_Work::negotiate_content()
 
   // If not, ask the origin server.
   else if ((err = HTTP_Origin_Server::request(path, c))==0) {
+    /* Any header that requires thread-safe state to construct (like
+     * the MIME lookup) gets pushed here. */
     c->pushstat(stat);
     c->pushhdr(Content_Type, (*MIME)(path.c_str()));
-    c->pushhdr(Content_Encoding, "deflate");
     c->pushhdr(Date, (*date)());
     c->pushhdr(Last_Modified, (*date)(c->last_modified));
-    c->pushhdr(Server, PACKAGE_NAME);
     // Might not succeed...
-    cache->put(path, c, c->sz);
+    cache->put(path, c, c->szincache);
     pbuf << *c; // Pushes the status line, then all the headers
     _LOG_DEBUG("%s", pbuf.str().c_str());
     resp_body = c->getbuf();
-    resp_body_sz = const_cast<size_t &>(c->sz);
+    resp_body_sz = const_cast<size_t &>(c->szincache);
   }
   
   else {
@@ -310,7 +310,8 @@ void HTTP_Work::parse_header(string &line)
     /* 14.3: "If an Accept-Encoding field is present in a request, and if the
      * server cannot send a response which is acceptable to the Accept-Encoding
      * header, then the server SHOULD send an error response with the 406
-     * (Not Acceptable) status code." We choose not to. */
+     * (Not Acceptable) status code." */
+    pbuf >> cl_accept_enc;    
     break;
   case Accept_Language:
     /* 14.4: "If an Accept-Language header is present, then all languages which

@@ -31,6 +31,13 @@ namespace HTTP_constants
 #undef DEFINE_ME
     };
 
+  enum content_coding
+    {
+#define DEFINE_ME(name, ignore) name,
+#include "HTTP_content_codings.def"
+#undef DEFINE_ME
+    };
+
   // Don't need an operator>> for statuses.
   std::ostream &operator<<(std::ostream &i, status &s);
   std::istream &operator>>(std::istream &i, method &m);
@@ -39,6 +46,8 @@ namespace HTTP_constants
   /* Value, not reference. Otherwise things like o << Content_Length
    * would be interpreted as putting an integer into the stream! */
   std::ostream &operator<<(std::ostream &o, header h);
+  // No operator>> for content codings; we do a strcasecmp on the header.
+  std::ostream &operator<<(std::ostream &o, content_coding c);
 
   // These guys are all defined in HTTP_constants.cpp to avoid linker errors.
   extern char const *HTTP_Version;
@@ -49,9 +58,12 @@ namespace HTTP_constants
   extern size_t const num_method;
   extern char const *method_strs[];
   extern bool const method_is_implemented[];
-  extern bool const header_is_implemented[];
   extern size_t const num_header;
   extern char const *header_strs[];
+  extern bool const header_is_implemented[];
+  extern size_t const num_content_codings;
+  extern char const *content_coding_strs[];
+  extern bool const content_coding_is_implemented[];
 };
 
 #endif // HTTP_CONSTANTS_HPP

@@ -22,6 +22,25 @@ std::ostream &operator<<(std::ostream &o, HTTP_CacheEntry &c);
 
 class HTTP_CacheEntry
 {
+public:
+  HTTP_CacheEntry(size_t szondisk,
+		  size_t szincache,
+		  time_t request_time,
+		  time_t response_time,
+		  time_t last_modified,
+		  uint8_t *_buf,
+		  HTTP_constants::content_coding c);
+  ~HTTP_CacheEntry();
+  bool response_is_fresh();
+  HTTP_constants::content_coding const enc;
+  size_t const szondisk, szincache;
+  time_t last_modified; // Last-Modified header
+  // TODO: turn into IO manipulators, so we can say e.g. entry << header << blah
+  void pushhdr(HTTP_constants::header h, std::string &val);
+  void pushhdr(HTTP_constants::header h, char const *val);
+  void pushstat(HTTP_constants::status stat);
+  uint8_t const *getbuf();
+private:
   // friend so it can write _buf.
   friend int HTTP_Origin_Server::request(std::string &, HTTP_CacheEntry *&);
   // friend so it can lock and unlock.
@@ -62,30 +81,6 @@ class HTTP_CacheEntry
   {
     return (use_max_age) ? max_age_value : expires_value - date_value;
   }
-public:
-  bool response_is_fresh() { return freshness_lifetime() > current_age(); }
-  size_t const sz;
-  time_t last_modified; // Last-Modified header
-  HTTP_CacheEntry(size_t sz, time_t last_modified)
-    : sz(sz), last_modified(last_modified), _buf(new uint8_t[sz]) {}
-  HTTP_CacheEntry(size_t sz, time_t last_modified, uint8_t *_buf)
-    : sz(sz), last_modified(last_modified), _buf(_buf) {}
-  ~HTTP_CacheEntry() { delete[] _buf; }
-  // TODO: turn into IO manipulators, so we can say e.g. entry << header << blah
-  void pushhdr(HTTP_constants::header h, std::string &val)
-  {
-    hdrlock.wrlock();
-    hdrs[static_cast<int>(h)] = val; // copies val, which is what we want
-    hdrlock.unlock();  
-  }
-  void pushhdr(HTTP_constants::header h, char const *val)
-  {
-    hdrlock.wrlock();
-    hdrs[static_cast<int>(h)] = val; // copies val, which is what we want
-    hdrlock.unlock();  
-  }
-  void pushstat(HTTP_constants::status stat) { this->stat = stat; }
-  uint8_t const *getbuf() { return static_cast<uint8_t const *>(_buf); }
 };
 
 #endif // HTTP_CACHE_ENTRY_HPP

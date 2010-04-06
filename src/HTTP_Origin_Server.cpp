@@ -1,7 +1,11 @@
 #include <stdint.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "compression.hpp"
+#include "HTTP_constants.hpp"
 #include "HTTP_Origin_Server.hpp"
+#include "logging.h"
 
 using namespace std;
 
@@ -18,7 +22,8 @@ namespace HTTP_Origin_Server
   int request(string &path, HTTP_CacheEntry *&result)
   {
     struct stat statbuf;
-    int fd;
+    int fd, ans;
+    time_t req_t = ::time(NULL);
 
   request_tryagain:
     if (stat(path.c_str(), &statbuf)==-1) {
@@ -41,10 +46,15 @@ namespace HTTP_Origin_Server
 
     uint8_t *uncompressed;
 
-    try {
-      uncompressed = new uint8_t[statbuf.st_size];
-    }
-    catch (bad_alloc) {
+    /* We use malloc/free for uncompressed and new/delete for compressed.
+     * The reason for this atrocious admixture is just that valgrind reports an
+     * (erroneous, I think) mismatched free/delete if we use new/delete for
+     * uncompressed. But we can't use malloc/free for compressed, because
+     * the compressed storage is deallocated in the HTTP_CacheEntry
+     * destructor. */
+    uncompressed
+      = reinterpret_cast<uint8_t *>(malloc(statbuf.st_size * sizeof(uint8_t)));
+    if (uncompressed == NULL) {
       close(fd);
       return ENOMEM;
     }
@@ -72,10 +82,13 @@ namespace HTTP_Origin_Server
     if (nread == -1) {
       _LOG_INFO("read %s: %m, starting read over", path.c_str());
       close(fd);
-      delete uncompressed;
+      free(uncompressed);
       goto request_tryagain;
     }
     close(fd);
+
+    // Rewind pointer.
+    uncompressed -= statbuf.st_size;
 
     uint8_t *compressed;
     size_t compressedsz = compression::compressBound(statbuf.st_size);
@@ -83,20 +96,26 @@ namespace HTTP_Origin_Server
     try {
       compressed = new uint8_t[compressedsz];
     } catch (bad_alloc) {
-      delete uncompressed;
+      free(uncompressed);
       return ENOMEM;
     }
     
     if (compression::compress(reinterpret_cast<void *>(compressed),
 			      compressedsz,
 			      reinterpret_cast<void const *>(uncompressed), statbuf.st_size)) {
-      result = new HTTP_CacheEntry(compressedsz, statbuf.st_mtime, compressed);
-      delete uncompressed;
-      return 0;
+      result = new HTTP_CacheEntry(statbuf.st_size,
+				   compressedsz,
+				   req_t,
+				   ::time(NULL),
+				   statbuf.st_mtime,
+				   compressed,
+				   HTTP_constants::deflate);
+      ans = 0;
     } else {
       delete compressed;
-      delete uncompressed;
-      return ENOMEM;
+      ans = ENOMEM;
     }
+    free(uncompressed);
+    return ans;
   }
 };

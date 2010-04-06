@@ -70,6 +70,24 @@ namespace HTTP_constants
 #undef DEFINE_ME
   };
 
+  size_t const num_content_coding = 
+#define DEFINE_ME(ignore1, ignore2) +1
+#include "HTTP_content_codings.def"
+#undef DEFINE_ME
+    ;
+
+  char const *content_coding_strs[] = {
+#define DEFINE_ME(name, ignore) #name,
+#include "HTTP_content_codings.def"
+#undef DEFINE_ME
+  };
+
+  bool const content_coding_is_implemented[] = {
+#define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
+#include "HTTP_content_codings.def"
+#undef DEFINE_ME
+  };
+
   // Output is like "404 Not Found".
   ostream& operator<<(ostream &o, status &s)
   {
@@ -137,5 +155,15 @@ namespace HTTP_constants
     }
     // Tack on the colon and space.
     return o << ": ";
+  }
+
+  istream &operator>>(istream &i, content_coding &c)
+  {
+    
+  }
+
+  ostream &operator<<(ostream &o, content_coding c)
+  {
+    return o << content_coding_strs[c];
   }
 };
