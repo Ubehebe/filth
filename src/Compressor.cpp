@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "Compressor_nr.hpp"
+#include "Compressor.hpp"
 #include "logging.h"
 
-Compressor_nr::Compressor_nr(int level)
+Compressor::Compressor(int level)
 {
   // Use default memory allocation
   strm.zalloc = Z_NULL;
@@ -16,13 +16,15 @@ Compressor_nr::Compressor_nr(int level)
   }
 }
 
-Compressor_nr::~Compressor_nr()
+Compressor::~Compressor()
 {
   deflateEnd(&strm);
 }
 
-char *Compressor_nr::operator()(char *dst, char *src, size_t sz)
+char *Compressor::operator()(char *dst, char *src, size_t sz)
 {
+  m.lock();
+
   char *toret = dst;
   strm.avail_in = strm.avail_out = sz;
   strm.next_in = reinterpret_cast<Bytef *>(src);
@@ -36,6 +38,8 @@ char *Compressor_nr::operator()(char *dst, char *src, size_t sz)
 	    reinterpret_cast<void *>(src), ndone); // OMG will this work?
     dst += ndone;
   } while (strm.avail_out == 0);
+
+  m.unlock();
 
   return toret;
 }

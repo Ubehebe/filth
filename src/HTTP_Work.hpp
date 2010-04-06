@@ -8,35 +8,44 @@
 #include <sys/types.h>
 #include <unordered_map>
 
-#include "Compressor_nr.hpp"
+#include "Compressor.hpp"
 #include "FindWork_prealloc.hpp"
 #include "HTTP_constants.hpp"
 #include "LockFreeQueue.hpp"
 #include "HTTP_Cache.hpp"
-#include "Magic_nr.hpp"
+#include "Magic.hpp"
 #include "Scheduler.hpp"
-#include "Time_nr.hpp"
+#include "Time.hpp"
 #include "Work.hpp"
 #include "Workmap.hpp"
 
 class HTTP_Work : public Work
 {
+public:
+  void operator()();
+  void *operator new(size_t sz);
+  void operator delete(void *work);
+  HTTP_Work(int fd, Work::mode m);
+  ~HTTP_Work();
+private:
+
   friend class FindWork_prealloc<HTTP_Work>;
   friend class HTTP_FindWork;
   HTTP_Work(HTTP_Work const&);
   HTTP_Work &operator=(HTTP_Work const&);
 
+  // State that is the same for all work objects.
   static LockFreeQueue<void *> store; // For operator new/delete
   static size_t const rdbufsz = 1<<12; // 4K
   static Scheduler *sch;
   static HTTP_Cache *cache;
   static Workmap *st;
+  static Time *date;
+  static Compressor *compress;
+  static Magic *MIME;
 
-private:
-  // Internal state.
-  Time_nr date; // For doing timestamps
-  Magic_nr MIME; // For doing MIME type lookups
-  Compressor_nr compress; // For gzip, deflate, etc.
+  // Internal state (Work-specific, NOT Worker-specific!)
+
   char rdbuf[rdbufsz]; // General-purpose raw buffer
   std::string path; // Path to resource
   std::string query; // The stuff after the "?" in a URI; to pass to resource
@@ -88,12 +97,7 @@ private:
   void negotiate_content();
   std::string &uri_hex_escape(std::string &uri);
   
-public:
-  void operator()();
-  void *operator new(size_t sz);
-  void operator delete(void *work);
-  HTTP_Work(int fd, Work::mode m);
-  ~HTTP_Work();
+
 };
 
 

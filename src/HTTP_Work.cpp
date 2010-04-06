@@ -22,6 +22,9 @@ LockFreeQueue<void *> HTTP_Work::store;
 Scheduler *HTTP_Work::sch = NULL;
 HTTP_Cache *HTTP_Work::cache = NULL;
 Workmap *HTTP_Work::st = NULL;
+Time *HTTP_Work::date = NULL;
+Compressor *HTTP_Work::compress = NULL;
+Magic *HTTP_Work::MIME = NULL;
 
 HTTP_Work::HTTP_Work(int fd, Work::mode m)
   : Work(fd, m), cl_sz(0), cl_max_fwds(0), stat(OK),
@@ -225,9 +228,9 @@ void HTTP_Work::negotiate_content()
   // If not, ask the origin server.
   else if ((err = HTTP_Origin_Server::request(path, c))==0) {
     c->pushstat(stat);
-    c->pushhdr(Content_Type, MIME(path.c_str()));
-    c->pushhdr(Date, date());
-    c->pushhdr(Last_Modified, date(c->last_modified));
+    c->pushhdr(Content_Type, (*MIME)(path.c_str()));
+    c->pushhdr(Date, (*date)());
+    c->pushhdr(Last_Modified, (*date)(c->last_modified));
     c->pushhdr(Server, PACKAGE_NAME);
     // Might not succeed...
     cache->put(path, c, c->sz);
@@ -251,7 +254,7 @@ void HTTP_Work::negotiate_content()
       break;
     }
     pbuf << HTTP_Version << ' ' << stat << CRLF
-	 << Date << date() << CRLF
+	 << Date << (*date)() << CRLF
 	 << Server << PACKAGE_NAME << CRLF
 	 << Content_Length << 0 << CRLF
 	 << CRLF;

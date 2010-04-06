@@ -9,14 +9,18 @@
 
 class Worker
 {
-  // No copying, no assigning.
-  Worker &operator=(Worker const&);
-  Worker(Worker const&);
-
+  /* Workers have no state.
+   * This is on purpose: we want all state to reside either in the object
+   * being worked on, so that a different worker can pick up where we
+   * leave off, or be shared among all workers. Are there times when
+   * we would genuinely need per-worker state? */ 
 public:
   Worker() {}
   static ConcurrentQueue<Work *> *q; // where to go to get work
   void work();
+private:
+  Worker &operator=(Worker const&);
+  Worker(Worker const&);
 };
 
 template<> class Factory<Worker>

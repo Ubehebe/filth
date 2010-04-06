@@ -28,16 +28,23 @@ HTTP_Server::HTTP_Server(char const *portno,
 void HTTP_Server::operator()()
 {
   if (perform_startup) {
-    fwork = new HTTP_FindWork(req_prealloc_MB * (1<<20), *sch);
+    date = new Time();
+    compress = new Compressor();
+    MIME = new Magic();
+    fwork = new HTTP_FindWork(req_prealloc_MB * (1<<20),
+			      sch, date, compress, MIME);
     sch->setfwork(fwork);
     cache = new HTTP_Cache(cacheszMB * (1<<20));
-    fwork->setcache(*cache);
+    fwork->setcache(cache);
     sch->push_sighandler(sigflush, flush);
   } else {
     /* Delete the work stuff before the cache because when a work object
      * is deleted, it tries to un-reserve its resources in the cache. */
     delete fwork;
     delete cache;
+    delete MIME;
+    delete compress;
+    delete date;
   }
   perform_startup = !perform_startup;
 }
