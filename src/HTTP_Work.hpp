@@ -27,31 +27,46 @@ public:
   static void setsch(Scheduler *sch) { HTTP_Work::sch = sch; }
 
 protected:
-  // Data set by the base class that derived classes might need.
-  typedef std::vector<std::string> reqhdrs_type;
-  reqhdrs_type reqhdrs;
-  string reqbody;
-  size_t reqbodysz;
+  typedef std::vector<std::string> req_hdrs_type;
+
+  /* The need for this shouldn't be great. If there's a parse error,
+   * just throw an HTTP_Parse_Err with the right status code and it'll
+   * get picked up automatically. This is more for situations when
+   * we want to change the status from OK although there's no error. */
   status stat;
 
-  // The main functions derived classes should override.
-  virtual void browsehdrs() {}
-  virtual void prepare_response();
+  /* The main functions derived classes should override.
+   * The reason reqhdrs isn't const in browse_req is to allow for small
+   * in-place transformations like changing case, which is handy for doing
+   * case-insensitive comparisons, as required by certain parts of the HTTP
+   * grammar. */
+  virtual void browse_req(req_hdrs_type &reqhdrs, std::string const &req_body) {}
+  virtual void prepare_response(stringstream &hdrs, uint8_t const *&body,
+				size_t &bodysz);
+  /* If anything in the above two functions throws a parse error, the base
+   * class will use this function to construct an error message. */
+  virtual void on_parse_err(status &s, stringstream &hdrs, uint8_t const *&body,
+			    size_t &bodysz);
 
-  // Convenience functions
-  virtual void parsereqln(method &meth, string &path, string &query);
-  virtual void parseuri(std::string &uri, std::string &path, std::string &query);
-  virtual string &uri_hex_escape(string &uri);
+  // Convenience functions to be called from browsehdrs and prepare_response.
+  void parsereqln(req_hdrs_type &req_hdrs, method &meth, string &path,
+		  string &query);
+  void parseuri(std::string &uri, std::string &path, std::string &query);
+  string &uri_hex_escape(string &uri);
 
 private:
   static Scheduler *sch;
-  bool reqhdrs_done, resphdrs_done;
+
+  bool req_hdrs_done, resp_hdrs_done;
   static size_t const cbufsz = 1<<12; // =(
 
   // General-purpose parsing buffers.
   stringstream parsebuf;
   uint8_t cbuf[cbufsz];
-  
+
+  req_hdrs_type req_hdrs;
+  string req_body;
+  size_t req_body_sz;
 
   // Pointers to buffers involved in writing
 

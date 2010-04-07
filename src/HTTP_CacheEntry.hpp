@@ -40,6 +40,8 @@ public:
   void pushhdr(HTTP_constants::header h, char const *val);
   void pushstat(HTTP_constants::status stat);
   uint8_t const *getbuf();
+  bool use_max_age;
+  time_t max_age_value; // max-age directive of Cache-Control header
 private:
   // friend so it can write _buf.
   friend int HTTP_Origin_Server::request(std::string &, HTTP_CacheEntry *&);
@@ -56,8 +58,6 @@ private:
   time_t age_value; // Age header
   time_t expires_value; // Expires header
 
-  bool use_max_age;
-  time_t max_age_value; // max-age directive of Cache-Control header
   time_t request_time; // When the cache made this request
   time_t response_time; // When the cache received the response
 
@@ -76,6 +76,8 @@ private:
     return corrected_received_age() + response_delay();
   }
   time_t resident_time() { return now() - response_time; }
+  // These guys are public because certain Cache-Control directives need them.
+public:
   time_t current_age() { return corrected_initial_age() + resident_time(); }
   time_t freshness_lifetime()
   {

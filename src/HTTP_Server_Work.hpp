@@ -28,9 +28,13 @@ public:
   void *operator new(size_t sz);
   void operator delete(void *work);
 
-  private:
-  void browsehdrs();
-  void prepare_response();
+private:
+  void browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
+		  std::string const &req_body);
+  void prepare_response(stringstream &hdrs,
+			uint8_t const *&body, size_t &bodysz);
+  void on_parse_err(status &s, stringstream &hdrs,
+		    uint8_t const *&body, size_t &bodysz);
 
   string path, query;
   method meth;
@@ -47,8 +51,27 @@ public:
   static Time *date;
   static Magic *MIME;
 
-  // Stuff reported by the _client_ in the request headers.
+  // Stuff reported by the client in the request headers.
   size_t cl_max_fwds;
+  struct cache_control
+  {
+    enum opts {
+      no_cache = 1<<0,
+      no_store = 1<<1,
+      no_transform = 1<<2,
+      only_if_cached = 1<<3,
+      use_max_age = 1<<4,
+      use_min_fresh = 1<<5,
+      use_max_stale = 1<<6 };
+    uint8_t flags;
+    time_t max_age, min_fresh, max_stale;
+    cache_control() : flags(0), max_age(0), min_fresh(0), max_stale(0) {}
+    inline void set(opts o) { flags |= o; }
+    inline bool isset(opts o) { return flags & o; }
+  };
+
+  cache_control cl_cache_control;
+
   HTTP_constants::content_coding cl_accept_enc;
 };
 
