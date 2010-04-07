@@ -26,7 +26,7 @@ Time *HTTP_Server_Work::date = NULL;
 Magic *HTTP_Server_Work::MIME = NULL;
 
 HTTP_Server_Work::HTTP_Server_Work(int fd, Work::mode m)
-  : HTTP_Work<HTTP_Server_Work>(fd, m)
+  : HTTP_Work(fd, m)
 {
 }
 
@@ -36,22 +36,6 @@ HTTP_Server_Work::~HTTP_Server_Work()
   st->erase(fd);
 }
 
-// RFC 2396, sec. 2.4.1. We don't use this yet...
-string &HTTP_Server_Work::uri_hex_escape(string &uri)
-{
-  size_t start = 0;
-  stringstream hexbuf;
-  int c;
-  while ((start = uri.find('%', start)) != uri.npos) {
-    // Every % needs two additional chars.
-    if (start + 2 >= uri.length())
-      throw HTTP_Parse_Err(Bad_Request);
-    hexbuf << uri[start+1] << uri[start+2];
-    hexbuf >> hex >> c;
-    uri.replace(start, 3, 1, (char) c);
-  }
-  return uri;
-}
 
 /* After parsing is complete, we talk to the cache and the origin server,
  * if need be, to find the resource. */
@@ -128,100 +112,45 @@ void HTTP_Server_Work::prepare_response()
 }
 
 // Comments in this block refer to sections of RFC 2616.
-void HTTP_Server_Work::Accept_Encoding(stringstream &buf)
+void HTTP_Server_Work::browsehdrs()
 {
-  /* 14.3: "If an Accept-Encoding field is present in a request, and if the
-   * server cannot send a response which is acceptable to the Accept-Encoding
-   * header, then the server SHOULD send an error response with the 406
-   * (Not Acceptable) status code." */
-  // TODO strcasecmp  buf >> cl_accept_enc;    
-}
-
-void HTTP_Server_Work::Connection(stringstream &buf)
-{
-  /* 14.10: "HTTP/1.1 defines the "close" connection option for the sender to
-   * signal that the connection will be closed after completion of the
-   * response. */
-  if (buf.str().find("close") != string::npos)
-    closeme = true;
-}
-void HTTP_Server_Work::Content_Length(std::stringstream &buf)
-{
-  // 14.13: Content-Length = "Content-Length" ":" 1*DIGIT
-  buf >> reqbodysz; // Protected member of the base class
-}
-
-void HTTP_Server_Work::Content_Type(std::stringstream &buf)
-{
-  // 14.17: Content-Type = "Content-Type" ":" media-type
-  getline(buf, cl_content_type);
-}
-
-void HTTP_Server_Work::Expect(stringstream &buf)
-{
-  /* 14.20: Expect = "Expect" ":" 1#expectation
-   * expectation = "100-continue" | expectation-extension
-   *
-   * "A server that does not understand or is unable to comply with any of the
-   * expectation values in the Expect field of a request MUST respond with
-   * appropriate error status. The server MUST respond with a 417
-   * (Expectation Failed) status if any of the expectations cannot be met or,
-   * if there are other problems with the request, some other 4xx status."
-   * Also: "Comparison of expectation values is case-insensitive for
-   * unquoted strings (including the 100-continue token)".
-   * 
-   * The behavior of 100-continue is governed by 8.2.3. */
-  string line;
-  getline(buf, line);
-  if (strcasecmp("100-continue", line.c_str())==0)
+  if (!reqhdrs[Accept_Encoding].empty()) {
+    stringstream tmp(reqhdrs[Accept_Encoding]);
+    /* 14.3: "If an Accept-Encoding field is present in a request, and if the
+     * server cannot send a response which is acceptable to the Accept-Encoding
+     * header, then the server SHOULD send an error response with the 406
+     * (Not Acceptable) status code." */
+    // TODO strcasecmp  buf >> cl_accept_enc;
+  }
+  if (!reqhdrs[Connection].empty()) {
+    /* 14.10: "HTTP/1.1 defines the "close" connection option for the sender to
+     * signal that the connection will be closed after completion of the
+     * response. */
+    if (reqhdrs[Connection].find("close") != string::npos)
+      closeme = true;
+  }
+  if (!reqhdrs[Expect].empty()) {
+    /* 14.20: Expect = "Expect" ":" 1#expectation
+     * expectation = "100-continue" | expectation-extension
+     *
+     * "A server that does not understand or is unable to comply with any of the
+     * expectation values in the Expect field of a request MUST respond with
+     * appropriate error status. The server MUST respond with a 417
+     * (Expectation Failed) status if any of the expectations cannot be met or,
+     * if there are other problems with the request, some other 4xx status."
+     * Also: "Comparison of expectation values is case-insensitive for
+     * unquoted strings (including the 100-continue token)".
+     * 
+     * The behavior of 100-continue is governed by 8.2.3. */
+    if (strcasecmp("100-continue", reqhdrs[Expect].c_str())==0)
       throw HTTP_Parse_Err(Continue);
-    else if (line.length() > 0)
+    else
       throw HTTP_Parse_Err(Expectation_Failed);
-}
-
-void HTTP_Server_Work::Expires(stringstream &buf)
-{
-  // 14.21. Only useful for proxies? Dunno.
-  getline(buf, cl_expires);
-}
-
-void HTTP_Server_Work::From(stringstream &buf)
-{
-  // 14.22
-  getline(buf, cl_from);
-}
-
-void HTTP_Server_Work::Host(stringstream &buf)
-{
-  // 14.23
-  getline(buf, cl_host);
-}
-
-void HTTP_Server_Work::Max_Forwards(stringstream &buf)
-{
-  // 14.31
-  buf >> cl_max_fwds;
-}
-
-void HTTP_Server_Work::Pragma(stringstream &buf)
-{
-  /* 14.32: "All pragma directives specify optional behavior from the
-   * viewpoint of the protocol; however, [...] Pragma directives MUST be
-   * passed through by a proxy or gateway application, regardless of their
-   * significance to that application, since the directives might be applicable
-   * to all recipients along the the request/response chain. */
-  getline(buf, cl_pragma);
-}
-
-void HTTP_Server_Work::Referer(stringstream &buf)
-{
-  getline(buf, cl_referer);
-}
-
-void HTTP_Server_Work::User_Agent(stringstream &buf)
-{
-  // 14.43
-  getline(buf, cl_user_agent);
+  }
+  if (!reqhdrs[Max_Forwards].empty()) {
+    stringstream tmp(reqhdrs[Max_Forwards]);
+    tmp >> cl_max_fwds;
+  }
 }
 
 void *HTTP_Server_Work::operator new(size_t sz)

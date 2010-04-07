@@ -26,7 +26,7 @@ namespace HTTP_constants
   // General, entity, and request headers.
   enum header
     {
-#define DEFINE_ME(name, ignore) name,
+#define DEFINE_ME(name) name,
 #include "HTTP_headers.def"
 #undef DEFINE_ME
     };
@@ -59,8 +59,8 @@ namespace HTTP_constants
   extern char const *method_strs[];
   extern bool const method_is_implemented[];
   extern size_t const num_header;
+  extern size_t const reqln;
   extern char const *header_strs[];
-  extern bool const header_is_implemented[];
   extern size_t const num_content_codings;
   extern char const *content_coding_strs[];
   extern bool const content_coding_is_implemented[];

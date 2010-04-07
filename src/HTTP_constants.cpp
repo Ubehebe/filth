@@ -53,19 +53,18 @@ namespace HTTP_constants
   };
 
   size_t const num_header = 
-#define DEFINE_ME(ignore1, ignore2) +1
+#define DEFINE_ME(ignore) +1
 #include "HTTP_headers.def"
 #undef DEFINE_ME
     ;
 
-  char const *header_strs[] = {
-#define DEFINE_ME(name, ignore) #name,
-#include "HTTP_headers.def"
-#undef DEFINE_ME
-  };
+  /* The request line occurs along with the headers but is not itself a header,
+   * so in data structures that include them both, this would be a natural
+   * place to put it. */
+  size_t const reqln = num_header;
 
-  bool const header_is_implemented[] = {
-#define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
+  char const *header_strs[] = {
+#define DEFINE_ME(name) #name,
 #include "HTTP_headers.def"
 #undef DEFINE_ME
   };
@@ -128,17 +127,15 @@ namespace HTTP_constants
 
     // Dirty trick to replace hyphens by underscores.
     string::size_type hyphen = -1;
-    while ((hyphen = tmp.find('-', hyphen+1)) != tmp.npos) {
+    while ((hyphen = tmp.find('-', hyphen+1)) != tmp.npos)
       tmp[hyphen] = '_';
-    }
+
     tmp.erase(tmp.end()-1); // Because of the colon.
 
     for (int j=0; j<num_header; ++j) {
       if (tmp == header_strs[j]) {
-	if (header_is_implemented[j]) {
-	  h = static_cast<header>(j);
-	  return i;
-	} else throw HTTP_Parse_Err(Not_Implemented);
+	h = static_cast<header>(j);
+	return i;
       }
     }
   }
