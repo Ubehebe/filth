@@ -12,7 +12,7 @@ BASE=compression.cpp Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp \
 	Work.cpp Worker.cpp Time.cpp
 ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
-	HTTP_Origin_Server.cpp HTTP_Server.cpp HTTP_Work.cpp
+	HTTP_Origin_Server.cpp HTTP_Server.cpp HTTP_Server_Work.cpp
 
 #concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp
 

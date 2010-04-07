@@ -2,17 +2,17 @@
 
 HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler *sch, Time *date,
 			     Magic *MIME)
-  : FindWork_prealloc<HTTP_Work>(req_prealloc)
+  : FindWork_prealloc<HTTP_Server_Work>(req_prealloc)
 {
-  HTTP_Work::sch = sch;
-  HTTP_Work::st = &st;
-  HTTP_Work::date = date;
-  HTTP_Work::MIME = MIME;
+  HTTP_Server_Work::setsch(sch);
+  HTTP_Server_Work::st = &st;
+  HTTP_Server_Work::date = date;
+  HTTP_Server_Work::MIME = MIME;
 }
 
 void HTTP_FindWork::setcache(HTTP_Cache *cache)
 {
-  HTTP_Work::cache = cache;
+  HTTP_Server_Work::cache = cache;
 }
 
 Work *HTTP_FindWork::operator()(int fd, Work::mode m)
@@ -24,7 +24,7 @@ Work *HTTP_FindWork::operator()(int fd, Work::mode m)
   if ((it = st.find(fd)) != st.end())
     return it->second;
   else {
-    HTTP_Work *w = new HTTP_Work(fd, m);
+    HTTP_Server_Work *w = new HTTP_Server_Work(fd, m);
     st[fd] = w;
     return w;
   }

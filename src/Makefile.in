@@ -52,7 +52,7 @@ am_ess_a_byte_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
 	HTTP_Origin_Server.$(OBJEXT) HTTP_Server.$(OBJEXT) \
-	HTTP_Work.$(OBJEXT)
+	HTTP_Server_Work.$(OBJEXT)
 ess_a_byte_OBJECTS = $(am_ess_a_byte_OBJECTS)
 ess_a_byte_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -165,7 +165,7 @@ BASE = compression.cpp Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp \
 
 ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
-	HTTP_Origin_Server.cpp HTTP_Server.cpp HTTP_Work.cpp
+	HTTP_Origin_Server.cpp HTTP_Server.cpp HTTP_Server_Work.cpp
 
 all: all-am
 
@@ -252,7 +252,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_FindWork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Origin_Server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Work.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Server_Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_cmdline.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_constants.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_main.Po@am__quote@
