@@ -11,7 +11,6 @@ bool operator>>(istream &input, vector<string> &hdrs)
 {
   string line;
 
-
   // Get a line until there are no more lines, or we hit the empty line.
   while (getline(input, line, '\r') && line.length() > 0) {
     /* If the line isn't properly terminated, save it and report that we
@@ -39,7 +38,9 @@ bool operator>>(istream &input, vector<string> &hdrs)
   }
   input.clear();
   // We got to the empty line.
-  if (line.length() == 0 && input.peek() == '\n') {
+  if (line.length() == 0) {
+    input.ignore();
+    input.clear();
     return true;
   } else {
     _LOG_DEBUG("line not properly terminated: %s", line.c_str());

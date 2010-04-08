@@ -26,6 +26,7 @@ Work::~Work()
 int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz)
 {
   ssize_t nread;
+  errno = 0;
   while (true) {
     if ((nread = ::read(fd, (void *)rdbuf, rdbufsz-1))>0) {
       // Needed because I think operator<< calls strlen on right operand.

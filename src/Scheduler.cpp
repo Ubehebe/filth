@@ -195,11 +195,15 @@ void Scheduler::poll()
        * in particular the events. Do we need to? */
       if ((it = fdcbs.find(fd)) != fdcbs.end())
 	(*(it->second))();
-      /* When do hangups and other errors happen? I do not know enough about
-       * TCP to know.
-       *
-       * TODO: figure out what's going on! */
+      /* TODO */
       else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP)) {
+	/* If there's currently a worker assigned to this fd, we are fine,
+	 * because its reads/writes will fail with a broken pipe error,
+	 * which will be caught by the worker, which will then close
+	 * our half of the connection and delete the associated piece of
+	 * work. But if no one is working on it, we need a way to
+	 * get rid of it. Perhaps integrate with whatever timeout mechanism
+	 * we decide on. */
 	_LOG_INFO("hangup or error on %d", fd);
       }
       // HMM. Do we need to check or change the work object's read/write mode?
