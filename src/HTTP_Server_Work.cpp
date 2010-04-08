@@ -42,77 +42,24 @@ HTTP_Server_Work::~HTTP_Server_Work()
 void HTTP_Server_Work::prepare_response(stringstream &hdrs,
 					uint8_t const *&body, size_t &bodysz)
 {
- prepare_startover:
-
   HTTP_CacheEntry *c = NULL;
   int err;
 
-  // Ask the cache if we have a response ready to go.
-  if (!cl_cache_control.isset(cache_control::no_cache)
-      && cache->get(path, c)) {
-    bool warn_stale = false;
-
-    /* 14.9.3: min-fresh "Indicates that the client is willing to accept a
-     * response whose freshness lifetime is no less than its current age
-     * plus the specified time in seconds". */
-    if (c->response_is_fresh() || HTTP_Origin_Server::validate(path, c)) {
-      if (!cl_cache_control.isset(cache_control::use_min_fresh)
-	  || c->freshness_lifetime() >=
-	  c->current_age() + cl_cache_control.min_fresh)
-	goto cache_ok;
-      hdrs << *c; // Pushes the status line, then all the headers
-      _LOG_DEBUG("%s", hdrs.str().c_str());
-      body = c->getbuf();
-      bodysz = const_cast<size_t &>(c->szincache);
-    }
-    else {
-      // This can't actually evict it until we call unget (in the destructor).
-      cache->advise_evict(path);
-    
-      /* 14.9.3: max-age "Indicates that the client is willing to accept a
-       * response whose age is no greater than the specified time in seconds.
-       * Unless max-stale directive is also included, the client is not willing
-       * to accept a stale response."
-       *
-       * "If both the new request and the cached entry include "max-age"
-       * directives, then the lesser of the two values is used for determining
-       * the freshness of the cached entry for that request." Man! */
-      if (cl_cache_control.isset(cache_control::use_max_age)) {
-	time_t lesser = cl_cache_control.max_age;
-	if (c->use_max_age && c->max_age_value < lesser)
-	  lesser = c->max_age_value;
-	if (c->current_age() <= lesser && (c->response_is_fresh()
-					   || (cl_cache_control.isset(cache_control::use_max_stale)
-					       && c->current_age() - c->freshness_lifetime()
-					       <= cl_cache_control.max_stale)))
-	  goto cache_ok;
-	else
-	  goto cache_no;
-      }
-
-      /* 14.9.3: max-stale "Indicates that the client is willing to accept a
-       * response that has exceeded its expiration time. If max-stale is
-       * assigned a value, then the client is willing to accept a response that
-       * has exceeded its expiration time by no more than the specficied number
-       * of seconds. If no value is assigned to max_stale, then the client is
-       * willing to acccept a stale response of any age." */
-      if (cl_cache_control.isset(cache_control::use_max_stale)) {
-	if (c->current_age() - c->freshness_lifetime()
-	    <= cl_cache_control.max_stale)
-	  goto cache_ok;
-	else
-	  goto cache_no;
-      }
-      else {
-	goto prepare_startover; // ???
-      }
-    }
- cache_ok:
- cache_no:
-    ;// TODO: cache is byzantine!
+  /* First ask the cache if we have a ready response, taking into account
+   * the client's caching preferences. */
+  if (consult_cache(path, c)) {
+    _LOG_DEBUG("using cache to service %s", path.c_str());
+    ; // fall through to success
   }
 
-  // If it's not in the cache, ask the origin server.
+  /* If the only-if-cache directive is set and we didn't find it in the cache,
+   * that's failure. According to 14.9.3, the correct status is, for some
+   * reason, 504 Gateway Timeout. */
+  else if (cl_cache_control.isset(cc::only_if_cached)) {
+    throw HTTP_Parse_Err(Gateway_Timeout);
+  }
+
+  /* Ask the origin server. */
   else if ((err = HTTP_Origin_Server::request(path, c))==0) {
     /* Any header that requires thread-safe state to construct (like
      * the MIME lookup) gets pushed here. */
@@ -120,35 +67,144 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
     c->pushhdr(Content_Type, (*MIME)(path.c_str()));
     c->pushhdr(Date, (*date)());
     c->pushhdr(Last_Modified, (*date)(c->last_modified));
-    // Might not succeed...
-    cache->put(path, c, c->szincache);
-    hdrs << *c; // Pushes the status line, then all the headers
-    _LOG_DEBUG("%s", hdrs.str().c_str());
-    body = c->getbuf();
-    bodysz = const_cast<size_t &>(c->szincache);
+
+    /* 14.9.2: If no-store is sent in a request, "a cache MUST NOT store
+     * any part of either this request or any response to it."
+     * Note that this seems to include any sort of header logging
+     * (user-agent, etc.) */
+    if (!cl_cache_control.isset(cc::no_store) &&
+	!cache->put(path, c, c->szincache))
+      _LOG_INFO("wanted to cache %s, but was unsuccessful", path.c_str());
   }
-  
+  else if (err == ENOENT) {
+    throw HTTP_Parse_Err(Not_Found);
+  }
+  else if (err == EACCES) {
+    throw HTTP_Parse_Err(Forbidden);
+  }
+  /*  else if (err == EISDIR)
+    // directory algorithm!
+  else if (err == EISPIPE)
+    // dynamic resource algorithm!
+    */
+  // General-purpose error.
   else {
-    // Make more elaborate?
-    switch (err) {
-    case ENOENT:
-      throw HTTP_Parse_Err(Not_Found);
-    case EACCES:
-      throw HTTP_Parse_Err(Forbidden);
-    default:
-      throw HTTP_Parse_Err(Internal_Server_Error);
-    }
+    throw HTTP_Parse_Err(Internal_Server_Error);
   }
+
+  // If we're here, c contains some kind of response.
+  hdrs << *c; // Pushes the status line, then all the headers
+  _LOG_DEBUG("%s", hdrs.str().c_str());
+  body = c->getbuf();
+  bodysz = const_cast<size_t &>(c->szincache);
+}
+
+/* Tries to make sense of RFC 2616, secs. 13 and 14.9. It's probably not
+ * 100% right though. */
+bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
+{
+  /* 14.9.4: "The request includes a "no-cache" cache-control directive" ...
+   * "The server MUST NOT use a cached copy when responding to such
+   * a request." */
+  if (cl_cache_control.isset(cc::no_cache) || !cache->get(path,c))
+    return false;
+
+  bool fresh = c->response_is_fresh();
+  bool valid = HTTP_Origin_Server::validate(path, c);
+
+  /* For use at cache_ok. I hate that C/C++ doesn't let you begin a label
+   * with a declaration. */
+  stringstream tmp;
+  string age;
+
+  /* As far as I understand, the only cache directive that can disqualify
+   * a fresh or valid cache entry (other than no-cache) is min-fresh. */
+  if ((fresh || valid) && !cl_cache_control.isset(cc::use_min_fresh))
+    return true;
+
+  /* 14.9.3: min-fresh "Indicates that the client is willing to accept a
+   * response whose freshness lifetime is no less than its current age
+   * plus the specified time in seconds". */
+  if (cl_cache_control.isset(cc::use_min_fresh)) {
+    if (c->freshness_lifetime() >=
+	c->current_age() + cl_cache_control.min_fresh)
+      goto cache_ok;
+    else
+      goto cache_no;
+  }
+    
+  /* 14.9.3: max-age "Indicates that the client is willing to accept a
+   * response whose age is no greater than the specified time in seconds.
+   * Unless max-stale directive is also included, the client is not willing
+   * to accept a stale response."
+   *
+   * "If both the new request and the cached entry include "max-age"
+   * directives, then the lesser of the two values is used for determining
+   * the freshness of the cached entry for that request." Man! */
+  if (cl_cache_control.isset(cc::use_max_age)) {
+	time_t lesser = (c->use_max_age && c->max_age_value < lesser)
+	  ? c->max_age_value
+	  : cl_cache_control.max_age;
+	if (c->current_age() <= lesser) {
+	  if (cl_cache_control.isset(cc::use_max_stale)) {
+	    if (c->current_age() - c->freshness_lifetime()
+		<= cl_cache_control.max_stale) {
+	      goto cache_ok;
+	    } else {
+	      goto cache_no;
+	    }
+	  } else {
+	    goto cache_ok;
+	  }
+	} else {
+	  goto cache_no;
+	}
+  }
+
+  /* 14.9.3: max-stale "Indicates that the client is willing to accept a
+   * response that has exceeded its expiration time. If max-stale is
+   * assigned a value, then the client is willing to accept a response that
+   * has exceeded its expiration time by no more than the specficied number
+   * of seconds. If no value is assigned to max_stale, then the client is
+   * willing to acccept a stale response of any age." */
+  if (cl_cache_control.isset(cc::use_max_stale)) {
+    if (c->current_age() - c->freshness_lifetime()
+	<= cl_cache_control.max_stale)
+      goto cache_ok;
+    else
+      goto cache_no;
+  }
+
+ cache_ok:
+  /* 13.2.3: "When a response is generated from a cache entry, the cache
+   * MUST include a single Age header field in the response with a value
+   * equal to the cache entry's current_age." */
+  tmp << c->current_age();
+  tmp >> age;
+  c->pushhdr(Age, age);
+  if (!fresh) {
+    /* Even if we're using a stale entry, we should probably tell the cache to
+     * get rid of it when it can. This is my hunch, nothing official. */
+    cache->advise_evict(path);
+    c->pushhdr(Warning, "110 " PACKAGE_NAME " \"Response is stale\"");
+  }
+  return true;
+
+ cache_no:
+  cache->unget(path);
+  return false;
 }
 
 void HTTP_Server_Work::on_parse_err(status &s, stringstream &hdrs,
 				    uint8_t const *&body, size_t &bodysz)
 {
+  
   hdrs << HTTP_Version << ' ' << s << CRLF
        << Date << (*date)() << CRLF
        << Server << PACKAGE_NAME << CRLF
        << Content_Length << 0 << CRLF
        << CRLF;
+  _LOG_DEBUG("%s", hdrs.str().c_str());
   body = NULL;
   bodysz = 0;
 }
@@ -192,22 +248,22 @@ void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
      */
     string &tmp = req_hdrs[Cache_Control];
     if (tmp.find("no-cache") != tmp.npos)
-      cl_cache_control.set(cache_control::no_cache);
+      cl_cache_control.set(cc::no_cache);
     else if (tmp.find("no-store") != tmp.npos)
-      cl_cache_control.set(cache_control::no_store);
+      cl_cache_control.set(cc::no_store);
     else if (tmp.find("no-transform") != tmp.npos)
-      cl_cache_control.set(cache_control::no_transform);
+      cl_cache_control.set(cc::no_transform);
     else if (tmp.find("only-if-cached") != tmp.npos)
-      cl_cache_control.set(cache_control::only_if_cached);
+      cl_cache_control.set(cc::only_if_cached);
     else if (tmp.find("max-age") != tmp.npos) {
-      cl_cache_control.set(cache_control::use_max_age);      
+      cl_cache_control.set(cc::use_max_age);      
       stringstream tmp2(tmp);
       tmp2 >> tmp; // gets rid of max-age
       tmp2 >> tmp; // gets rid of =
       tmp2 >> cl_cache_control.max_age;
     }
     else if (tmp.find("max-stale") != tmp.npos) {
-      cl_cache_control.set(cache_control::use_max_stale);
+      cl_cache_control.set(cc::use_max_stale);
       if (tmp.find("=") != tmp.npos) {
 	stringstream tmp2(tmp);
 	tmp2 >> tmp; // gets rid of max-stale
@@ -219,20 +275,14 @@ void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
       }
     }
     else if (tmp.find("min-fresh") != tmp.npos) {
-      cl_cache_control.set(cache_control::use_min_fresh);      
+      cl_cache_control.set(cc::use_min_fresh);      
       stringstream tmp2(tmp);
       tmp2 >> tmp; // gets rid of min-fresh
       tmp2 >> tmp; // gets rid of =
       tmp2 >> cl_cache_control.min_fresh;
     }
 
-    /* 14.9.1: "If the no-cache directive does not specify a field-name"
-     * (which it cannot in a cache-request-directive) "then a cache MUST NOT
-     * use the response to satisfy a subsequent response without successful
-     * revalidation with the origin server".
-     *
-     * 14.9.2: If no-store is sent in a request, "a cache MUST NOT store any
-     * part of either this request or any response to it". */
+
   }
 
   if (!req_hdrs[Connection].empty()) {

@@ -14,7 +14,7 @@ HTTP_CacheEntry::HTTP_CacheEntry(size_t szondisk,
 				 content_coding enc)
   : szondisk(szondisk), szincache(szincache), request_time(request_time),
     response_time(response_time), last_modified(last_modified), _buf(_buf),
-    use_max_age(false), enc(enc)
+    use_max_age(false), enc(enc), date_value(response_time), age_value(0)
 {
 }
 

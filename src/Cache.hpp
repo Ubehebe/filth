@@ -44,7 +44,7 @@ public:
   bool get(Handle &h, Stuff &s);
   void unget(Handle &h);
   void flush();
-  // Clients can advise that a cache entry be evicted.
+  // Clients can advise an eviction but not force it.
   void advise_evict(Handle &h);
   Cache(size_t sz);
   ~Cache();
@@ -107,7 +107,8 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::put(Handle &h, Stuff &s, size_t sz)
   cachelock.rdlock();
   already = (cache.find(h) != cache.end());
   cachelock.unlock();
-  if (already) return false;
+  if (already)
+    return false;
 
  put_tryagain:
   if (__sync_add_and_fetch(&cur, sz) > max) {
@@ -121,7 +122,8 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::put(Handle &h, Stuff &s, size_t sz)
   _Stuff *_s = new _Stuff(s, sz);
 
   cachelock.wrlock();
-  if (already = (cache.find(h) == cache.end()))
+  already = (cache.find(h) != cache.end());
+  if (!already)
     cache[h] = _s;
   cachelock.unlock();
   return !already;

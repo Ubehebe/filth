@@ -16,7 +16,6 @@
 #include "Magic.hpp"
 #include "Scheduler.hpp"
 #include "Time.hpp"
-#include "Work.hpp"
 #include "Workmap.hpp"
 
 class HTTP_Server_Work : public HTTP_Work
@@ -31,6 +30,7 @@ public:
 private:
   void browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
 		  std::string const &req_body);
+  bool consult_cache(std::string &path, HTTP_CacheEntry *&c);
   void prepare_response(stringstream &hdrs,
 			uint8_t const *&body, size_t &bodysz);
   void on_parse_err(status &s, stringstream &hdrs,
@@ -53,7 +53,7 @@ private:
 
   // Stuff reported by the client in the request headers.
   size_t cl_max_fwds;
-  struct cache_control
+  struct cc
   {
     enum opts {
       no_cache = 1<<0,
@@ -63,14 +63,14 @@ private:
       use_max_age = 1<<4,
       use_min_fresh = 1<<5,
       use_max_stale = 1<<6 };
-    uint8_t flags;
+    uint8_t flags; // Remember to change if more than 8 flags :)
     time_t max_age, min_fresh, max_stale;
-    cache_control() : flags(0), max_age(0), min_fresh(0), max_stale(0) {}
+    cc() : flags(0), max_age(0), min_fresh(0), max_stale(0) {}
     inline void set(opts o) { flags |= o; }
     inline bool isset(opts o) { return flags & o; }
   };
 
-  cache_control cl_cache_control;
+  cc cl_cache_control;
 
   HTTP_constants::content_coding cl_accept_enc;
 };
