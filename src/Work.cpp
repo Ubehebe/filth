@@ -22,6 +22,7 @@ Work::~Work()
  * we would block. The idea is that after every block, some other component
  * checks the ostream to see if reading is complete (e.g. in HTTP, the last line
  * is blank). */
+
 int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz)
 {
   ssize_t nread;
