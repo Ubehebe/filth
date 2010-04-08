@@ -4,25 +4,22 @@
 #include "logging.h"
 #include "Work.hpp"
 
-Work::Work(int fd, mode m)
-  : fd(fd), m(m), closeme(false)
+Work::Work(int fd, mode m, bool deleteme)
+  : fd(fd), m(m), deleteme(deleteme)
 {
-  // N.B. the connection will NOT be closed by default!
+  // the semaphore has an initial value of 1, i.e. not in use
 }
 
 Work::~Work()
 {
-  if (closeme) {
-    _LOG_DEBUG("close %d", fd);
-    close(fd);
-  }
+  _LOG_DEBUG("close %d", fd);
+  close(fd);
 }
 
 /* This call has "header" semantics, where we just keep reading bytes until
  * we would block. The idea is that after every block, some other component
  * checks the ostream to see if reading is complete (e.g. in HTTP, the last line
  * is blank). */
-
 int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz)
 {
   ssize_t nread;

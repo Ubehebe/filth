@@ -17,9 +17,6 @@ void HTTP_FindWork::setcache(HTTP_Cache *cache)
 
 Work *HTTP_FindWork::operator()(int fd, Work::mode m)
 {
-  /* TODO: think about synchronization.
-   * Note that if fd is found in the state map, the second parameter
-   * is ignored. Is this the right thing to do? */
   Workmap::iterator it;
   if ((it = st.find(fd)) != st.end())
     return it->second;

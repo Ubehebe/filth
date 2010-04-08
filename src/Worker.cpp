@@ -25,9 +25,9 @@ void Worker::work()
       }
       catch (SocketErr e) {
 	_LOG_INFO("%s (%s), closing socket %d", e.msg, strerror(e.err), w->fd);
-	w->closeme = true;
+	w->deleteme = true;
       }
-      if (w->closeme)
+      if (w->deleteme)
 	delete w;
     }
   }

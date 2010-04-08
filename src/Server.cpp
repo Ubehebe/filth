@@ -155,17 +155,16 @@ void Server::serve()
     if (onstartup != NULL)
       (*onstartup)();
     
-    // No signal has value 0. NSIG is defined in signal.h.
+    // No signal has value 0.
     for (uint8_t sig=1; sig<NSIG; ++sig) {
-      if (sigismember(&haltsigs, sig)) {
+      if (sigismember(&haltsigs, sig))
 	sch->push_sighandler(sig, halt);
-      }
     }
 
     if (sigdl_ext != -1)
       sch->push_sighandler(sigdl_ext, UNSAFE_emerg_yank_wrapper);
 
-    {
+    { // ----------------------------------------------------------------------
       Thread<Scheduler> schedth(sch, &Scheduler::poll);
       Factory<Worker> wfact(q);
       ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int);
@@ -173,7 +172,7 @@ void Server::serve()
       wths.start();
       /* The Thread and ThreadPool destructors wait for their threads 
        * to go out of scope. */
-    }
+    } // ----------------------------------------------------------------------
 
     if (onshutdown != NULL)
       (*onshutdown)();

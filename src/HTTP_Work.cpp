@@ -78,13 +78,13 @@ void HTTP_Work::operator()()
       /* Done sending body. For a persistent connection, instead of deleting,
        * we should reset the state of this object and wait for the socket to
        * become readable again, because the client is pipelining. */
-      else if (!closeme) {
+      else if (!deleteme) {
 	reset();
 	HTTP_Work::reset(); // Ensure base reset always called
 	m = read;
 	sch->reschedule(this);
       }
-      // If closeme is true, the worker will delete this piece of work.
+      // If deleteme is true, the worker will delete this piece of work.
     }
     else {
       throw SocketErr("write", err);

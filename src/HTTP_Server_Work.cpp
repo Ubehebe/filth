@@ -294,7 +294,7 @@ void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
      * signal that the connection will be closed after completion of the
      * response." */
     if (req_hdrs[Connection].find("close") != string::npos)
-      closeme = true;
+      deleteme = true;
   }
 
   if (!req_hdrs[Expect].empty()) {

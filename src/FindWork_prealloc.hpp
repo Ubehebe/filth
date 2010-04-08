@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-#include "DoubleLockedQueue.hpp"
 #include "FindWork.hpp"
 #include "logging.h"
 

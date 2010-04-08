@@ -46,8 +46,9 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = compression.$(OBJEXT) Locks.$(OBJEXT) \
-	Scheduler.$(OBJEXT) Server.$(OBJEXT) sigmasks.$(OBJEXT) \
-	Work.$(OBJEXT) Worker.$(OBJEXT) Time.$(OBJEXT) util.$(OBJEXT)
+	FindWork.$(OBJEXT) Scheduler.$(OBJEXT) Server.$(OBJEXT) \
+	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT) \
+	Time.$(OBJEXT) util.$(OBJEXT)
 am_ess_a_byte_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
@@ -161,8 +162,8 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
-BASE = compression.cpp Locks.cpp Scheduler.cpp Server.cpp sigmasks.cpp \
-	Work.cpp Worker.cpp Time.cpp util.cpp
+BASE = compression.cpp Locks.cpp FindWork.cpp Scheduler.cpp Server.cpp \
+	sigmasks.cpp Work.cpp Worker.cpp Time.cpp util.cpp
 
 ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
@@ -250,6 +251,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/FindWork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_CacheEntry.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_FindWork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Origin_Server.Po@am__quote@
