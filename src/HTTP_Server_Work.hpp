@@ -51,6 +51,7 @@ private:
   static Magic *MIME;
 
   // Stuff reported by the client in the request headers.
+
   string path, query;
   method meth;
 
