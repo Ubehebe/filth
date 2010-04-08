@@ -25,6 +25,8 @@ namespace HTTP_Origin_Server
     int fd, ans;
     time_t req_t = ::time(NULL);
 
+    errno = 0; // paranoid
+
   request_tryagain:
     if (stat(path.c_str(), &statbuf)==-1) {
       result = NULL;
