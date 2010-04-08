@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "logging.h"
 #include "Scheduler.hpp"
 #include "ServerErrs.hpp"
 #include "sigmasks.hpp"
@@ -202,10 +203,14 @@ void Scheduler::poll()
 	_LOG_INFO("hangup or error on %d", fd);
       }
       // HMM. Do we need to check or change the work object's read/write mode?
-      else if (fds[i].events & EPOLLIN)
+      else if (fds[i].events & EPOLLIN) {
+	_LOG_DEBUG("%d became readable", fd);
 	q.enq((*fwork)(fd, Work::read));
-      else if (fds[i].events & EPOLLOUT)
+      }
+      else if (fds[i].events & EPOLLOUT) {
+	_LOG_DEBUG("%d became writable", fd);
 	q.enq((*fwork)(fd, Work::write));
+      }
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
       if (!dowork) break;

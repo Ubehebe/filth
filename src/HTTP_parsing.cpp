@@ -28,6 +28,7 @@ bool operator>>(istream &input, vector<string> &hdrs)
     }
 
     else {
+      _LOG_DEBUG("%s", line.c_str());
       stringstream tmp(line);
       header h = static_cast<header>(num_header);
       tmp >> h;

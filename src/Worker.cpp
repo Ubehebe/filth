@@ -1,6 +1,4 @@
-#include <errno.h>
-#include <iostream>
-#include <unistd.h>
+#include <string.h>
 
 #include "logging.h"
 #include "ServerErrs.hpp"
@@ -26,9 +24,10 @@ void Worker::work()
 	(*w)();
       }
       catch (SocketErr e) {
-	w->deleteme = true;
+	_LOG_INFO("%s (%s), closing socket %d", e.msg, strerror(e.err), w->fd);
+	w->closeme = true;
       }
-      if (w->deleteme)
+      if (w->closeme)
 	delete w;
     }
   }

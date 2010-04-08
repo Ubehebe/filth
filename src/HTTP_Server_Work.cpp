@@ -103,6 +103,10 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
  * 100% right though. */
 bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
 {
+  /* I am still getting valgrind "uninitialized value" errors here,
+   * though not regularly, and no segfaults. */
+
+
   /* 14.9.4: "The request includes a "no-cache" cache-control directive" ...
    * "The server MUST NOT use a cached copy when responding to such
    * a request." */
@@ -120,7 +124,7 @@ bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
   /* As far as I understand, the only cache directive that can disqualify
    * a fresh or valid cache entry (other than no-cache) is min-fresh. */
   if ((fresh || valid) && !cl_cache_control.isset(cc::use_min_fresh))
-    return true;
+    goto cache_ok;
 
   /* 14.9.3: min-fresh "Indicates that the client is willing to accept a
    * response whose freshness lifetime is no less than its current age
@@ -329,4 +333,12 @@ void *HTTP_Server_Work::operator new(size_t sz)
 void HTTP_Server_Work::operator delete(void *work)
 {
   store.enq(work);
+}
+
+void HTTP_Server_Work::reset()
+{
+  path.clear();
+  query.clear();
+  cl_cache_control.clear();
+  // What about cl_accept_enc and cl_max_fwds, meth, etc.
 }

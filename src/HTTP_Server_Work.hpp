@@ -35,9 +35,8 @@ private:
 			uint8_t const *&body, size_t &bodysz);
   void on_parse_err(status &s, stringstream &hdrs,
 		    uint8_t const *&body, size_t &bodysz);
+  void reset();
 
-  string path, query;
-  method meth;
 
   friend class FindWork_prealloc<HTTP_Server_Work>;
   friend class HTTP_FindWork;
@@ -52,7 +51,9 @@ private:
   static Magic *MIME;
 
   // Stuff reported by the client in the request headers.
-  size_t cl_max_fwds;
+  string path, query;
+  method meth;
+
   struct cc
   {
     enum opts {
@@ -68,11 +69,11 @@ private:
     cc() : flags(0), max_age(0), min_fresh(0), max_stale(0) {}
     inline void set(opts o) { flags |= o; }
     inline bool isset(opts o) { return flags & o; }
+    inline void clear() { flags = 0; }
   };
-
   cc cl_cache_control;
-
   HTTP_constants::content_coding cl_accept_enc;
+  size_t cl_max_fwds;
 };
 
 

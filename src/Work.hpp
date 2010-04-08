@@ -16,7 +16,7 @@ class Work : public Callback
 public:
   enum mode { read, write } m;
   int fd;
-  bool deleteme, closeme;
+  bool closeme;
   Work(int fd, mode m);
   virtual ~Work();
   // "Header" semantics.

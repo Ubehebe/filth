@@ -1,4 +1,5 @@
 #include "HTTP_Work.hpp"
+#include "logging.h"
 
 Scheduler *HTTP_Work::sch = NULL;
 
@@ -74,12 +75,18 @@ void HTTP_Work::operator()()
 	outsz = resp_body_sz;
 	sch->reschedule(this);
       }
-      // Done sending body.
-      else {
-	deleteme = true;
+      /* Done sending body. For a persistent connection, instead of deleting,
+       * we should reset the state of this object and wait for the socket to
+       * become readable again, because the client is pipelining. */
+      else if (!closeme) {
+	reset();
+	HTTP_Work::reset(); // Ensure base reset always called
+	m = read;
       }
+      // If closeme is true, the worker will delete this piece of work.
     }
     else {
+      _LOG_DEBUG();
       throw SocketErr("write", err);
     }
   break;
@@ -158,4 +165,18 @@ void HTTP_Work::on_parse_err(status &s, stringstream &hdrs,
   stat = s;
   // This is a minimal message that can't throw anything.
   HTTP_Work::prepare_response(hdrs, body, bodysz); 
+}
+
+void HTTP_Work::reset()
+{
+  req_hdrs_done = resp_hdrs_done = false;
+  parsebuf.str("");
+  parsebuf.clear();
+  cbuf[0] = '\0'; // just paranoia
+  req_hdrs.clear();
+  req_hdrs.resize(1+num_header);
+  req_body.clear();
+  req_body_sz = 0;
+  resp_hdrs = resp_body = out = NULL;
+  resp_hdrs_sz = resp_body_sz = outsz = 0;
 }

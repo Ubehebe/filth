@@ -5,7 +5,7 @@
 #include "Work.hpp"
 
 Work::Work(int fd, mode m)
-  : fd(fd), m(m), deleteme(false), closeme(true)
+  : fd(fd), m(m), closeme(false)
 {
   // N.B. the connection will NOT be closed by default!
 }

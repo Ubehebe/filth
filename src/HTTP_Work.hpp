@@ -47,6 +47,11 @@ protected:
    * class will use this function to construct an error message. */
   virtual void on_parse_err(status &s, stringstream &hdrs, uint8_t const *&body,
 			    size_t &bodysz);
+  /* Derived classes need to override this in order to reset any state of a
+   * "piece of work" at the end of servicing a request. The reason we just
+   * don't delete this piece of work and get a new one later is because
+   * HTTP connections are persistent by default. */
+  virtual void reset();
 
   // Convenience functions to be called from browsehdrs and prepare_response.
   void parsereqln(req_hdrs_type &req_hdrs, method &meth, string &path,
