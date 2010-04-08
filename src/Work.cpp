@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "logging.h"
@@ -60,8 +59,9 @@ int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz, size_t &t
 
 int Work::wruntil(uint8_t const *&outbuf, size_t &towrite)
 {
+  if (towrite == 0) return 0;
   ssize_t nwritten;
-  while (towrite > 0) {
+  while (true) {
     if ((nwritten = ::write(fd, (void *) outbuf, towrite))>0) {
       outbuf += nwritten;
       towrite -= nwritten;
@@ -71,5 +71,5 @@ int Work::wruntil(uint8_t const *&outbuf, size_t &towrite)
       break;
     }
   }
-  return (towrite == 0) ? 0 : errno;
+  return errno;
 }

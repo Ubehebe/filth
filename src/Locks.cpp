@@ -5,18 +5,14 @@
 #include "Locks.hpp"
 #include "logging.h"
 
-/* Typically, an error on a synchronization primitive indicates a serious
- * logical flaw, such as when a thread tries to lock a regular mutex
- * twice in a row. The reason none of these functions call exit is because
- * there are rare occasions when it is appropriate to ignore such errors.
- * For example, in a last-ditch de-deadlock mechanism that rips out a thread
- * without regard to its state, a mutex could be destroyed while it is still
- * locked, which would cause an error.
- *
- * According to the syslog man pages, the format string %m is equivalent
- * to strerror(errno), which is not thread-safe. Thus there is no guarantee
- * that the error message is accurate. I'm not concerned enough to hook
- * up strerror_r to the system logger. */
+/* N.B. none of the destructors should cause fatal errors because I want to use
+ * asynchronous thread cancelation as a last-ditch deadlock escape hatch.
+ * If a thread is canceled while it's holding a lock, we want to note that but
+ * move on; ideally the lock will be destroyed and reconstructed in the next
+ * iteration of a containing loop. */
+
+/* TODO: Once I get the emergency yank working "properly", decide
+ * which of these (if any) should really be fatal errors. */
 
 Mutex::Mutex()
 {
@@ -26,7 +22,7 @@ Mutex::Mutex()
 Mutex::~Mutex()
 {
   if ((errno = pthread_mutex_destroy(&_m))!=0)
-    _LOG_INFO("pthread_mutex_destroy: %m");
+  _LOG_INFO("pthread_mutex_destroy: %m");
 }
 
 void Mutex::lock()
@@ -116,10 +112,10 @@ void Semaphore::up()
 void Semaphore::down()
 {
   while (sem_wait(&sem)==-1) {
-    if (errno != EINTR) {
+    if (errno == EINTR)
+      continue;
+    else
       _LOG_INFO("sem_wait: %m");
-      break;
-    }
   }
 }
 
