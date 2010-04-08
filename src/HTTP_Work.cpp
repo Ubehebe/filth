@@ -82,6 +82,7 @@ void HTTP_Work::operator()()
 	reset();
 	HTTP_Work::reset(); // Ensure base reset always called
 	m = read;
+	// reschedule???
       }
       // If closeme is true, the worker will delete this piece of work.
     }
