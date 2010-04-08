@@ -87,7 +87,6 @@ void HTTP_Work::operator()()
       // If closeme is true, the worker will delete this piece of work.
     }
     else {
-      _LOG_DEBUG();
       throw SocketErr("write", err);
     }
   break;

@@ -60,7 +60,6 @@ int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz, size_t &t
 
 int Work::wruntil(uint8_t const *&outbuf, size_t &towrite)
 {
-  if (towrite == 0) return 0;
   ssize_t nwritten;
   while (towrite > 0) {
     if ((nwritten = ::write(fd, (void *) outbuf, towrite))>0) {
@@ -72,5 +71,5 @@ int Work::wruntil(uint8_t const *&outbuf, size_t &towrite)
       break;
     }
   }
-  return errno;
+  return (towrite == 0) ? 0 : errno;
 }
