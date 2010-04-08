@@ -62,7 +62,7 @@ int Work::wruntil(uint8_t const *&outbuf, size_t &towrite)
 {
   if (towrite == 0) return 0;
   ssize_t nwritten;
-  while (true) {
+  while (towrite > 0) {
     if ((nwritten = ::write(fd, (void *) outbuf, towrite))>0) {
       outbuf += nwritten;
       towrite -= nwritten;
