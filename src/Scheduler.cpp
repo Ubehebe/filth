@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <iostream>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,8 +22,16 @@ using namespace std;
 
 Scheduler *Scheduler::thescheduler = NULL;
 
-Scheduler::_acceptcb::_acceptcb(Scheduler &sch, int listenfd)
-  : sch(sch), fd(listenfd)
+Scheduler::_acceptcb::_acceptcb(Scheduler &sch,
+				int listenfd,
+				int tcp_keepalive_intvl,
+				int tcp_keepalive_probes,
+				int tcp_keepalive_time)
+  : sch(sch),
+    fd(listenfd),
+    tcp_keepalive_intvl(tcp_keepalive_intvl),
+    tcp_keepalive_probes(tcp_keepalive_probes),
+    tcp_keepalive_time(tcp_keepalive_time)
 {
 #ifdef _COLLECT_STATS
   accepts = 0;
@@ -33,10 +43,16 @@ Scheduler::_acceptcb::~_acceptcb()
   _SHOW_STAT(accepts);
 }
 
-Scheduler::Scheduler(ConcurrentQueue<Work *> &q, int listenfd, int pollsz, 
-		     int maxevents)
+Scheduler::Scheduler(ConcurrentQueue<Work *> &q, int listenfd,
+		     int tcp_keepalive_intvl, int tcp_keepalive_probes,
+		     int tcp_keepalive_time, int pollsz, int maxevents)
   : q(q), maxevents(maxevents), dowork(true),
-    acceptcb(*this, listenfd), sigcb(*this, dowork, sighandlers)
+    acceptcb(*this,
+	     listenfd,
+	     tcp_keepalive_intvl,
+	     tcp_keepalive_probes,
+	     tcp_keepalive_time),
+    sigcb(*this, dowork, sighandlers)
 {
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
@@ -107,6 +123,7 @@ void Scheduler::schedule(Work *w, bool oneshot)
     e.events |= EPOLLOUT;
     break;
   }
+  e.events |= EPOLLRDHUP; // ???
   if (epoll_ctl(pollfd, EPOLL_CTL_ADD, w->fd, &e)==-1)
     throw ResourceErr("epoll_ctl (EPOLL_CTL_ADD)", errno);
 }
@@ -215,6 +232,9 @@ void Scheduler::poll()
 	_LOG_DEBUG("%d became writable", fd);
 	q.enq((*fwork)(fd, Work::write));
       }
+      else {
+	_LOG_DEBUG("???");
+      }
       /* A handler might have set dowork to false; this will cause the
        * scheduler to fall through the poll loop right away. */
       if (!dowork) break;
@@ -242,6 +262,33 @@ void Scheduler::_acceptcb::operator()()
     throw SocketErr("fcntl (F_GETFL)", errno);
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
+
+  if (tcp_keepalive_intvl != -1
+      || tcp_keepalive_probes != -1
+      || tcp_keepalive_time != -1) {
+    _LOG_DEBUG("%d %d %d", tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time);
+    int turnon = 1;
+    if (setsockopt(acceptfd, SOL_SOCKET, SO_KEEPALIVE, (void *) &turnon,
+		   (socklen_t) sizeof(turnon))==-1)
+      throw SocketErr("setsockopt (SO_KEEPALIVE)", errno);
+  }
+      
+  if (tcp_keepalive_intvl != -1
+      && setsockopt(acceptfd, IPPROTO_TCP, TCP_KEEPINTVL,
+		    (void *) &tcp_keepalive_intvl,
+		    (socklen_t) sizeof(tcp_keepalive_intvl)))
+    throw SocketErr("setsockopt (TCP_KEEPINTVL)", errno);
+  if (tcp_keepalive_probes != -1
+      && setsockopt(acceptfd, IPPROTO_TCP, TCP_KEEPCNT,
+		    (void *) &tcp_keepalive_probes,
+		    (socklen_t) sizeof(tcp_keepalive_probes)))
+    throw SocketErr("setsockopt (TCP_KEEPCNT)", errno);
+  if (tcp_keepalive_time != -1
+      && setsockopt(acceptfd, IPPROTO_TCP, TCP_KEEPIDLE,
+		    (void *) &tcp_keepalive_time,
+		    (socklen_t) sizeof(tcp_keepalive_time)))
+    throw SocketErr("setsockopt (TCP_KEEPIDLE)", errno);
+  
   sch.schedule((*fwork)(acceptfd, Work::read), true);
   _INC_STAT(accepts);
 }
@@ -291,6 +338,7 @@ void Scheduler::push_sighandler(int signo, void (*handler)(int))
       exit(1);
     }
     act.sa_handler = handler;
+    _LOG_DEBUG();
     if (sigaction(signo, &act, NULL)==-1) {
       _LOG_FATAL("sigaction: %m");
       exit(1);

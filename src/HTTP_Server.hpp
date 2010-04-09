@@ -34,7 +34,10 @@ public:
 	      int listenq,
 	      int sigflush,
 	      int sigdl_int,
-	      int sigdl_ext);
+	      int sigdl_ext,
+	      int tcp_keepalive_intvl,
+	      int tcp_keepalive_probes,
+	      int tcp_keepalive_time);
   ~HTTP_Server();
   void operator()(); // Callback into Server's main loop.
   #ifdef _COLLECT_STATS

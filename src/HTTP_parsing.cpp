@@ -39,6 +39,9 @@ bool operator>>(istream &input, vector<string> &hdrs)
   input.clear();
   // We got to the empty line.
   if (line.length() == 0) {
+    /* Late-night bug: I am seeing garbage here sometimes, depending on
+     * the user-agent (curl)! much more likely to be my fault. */
+    _LOG_DEBUG("%c", input.peek());
     input.ignore();
     input.clear();
     return true;

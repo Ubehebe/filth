@@ -33,17 +33,20 @@ Server::Server(
 	       Callback *onshutdown,
 	       sigset_t *_haltsigs,
 	       int sigdl_int,
-	       int sigdl_ext)
-
+	       int sigdl_ext,
+	       int tcp_keepalive_intvl,
+	       int tcp_keepalive_probes,
+	       int tcp_keepalive_time)
   : domain(domain), fwork(fwork), bindto(bindto),
     nworkers(nworkers), listenq(listenq), sigdl_int(sigdl_int),
     sigdl_ext(sigdl_ext), ifnam(ifnam), onstartup(onstartup),
+    tcp_keepalive_intvl(tcp_keepalive_intvl),
+    tcp_keepalive_probes(tcp_keepalive_probes),
+    tcp_keepalive_time(tcp_keepalive_time),
     onshutdown(onshutdown), _doserve(true)
 {
   // For signal handlers that have to be static.
   theserver = this;
-
-
 
   if (_haltsigs != NULL) {
     memcpy((void *)&haltsigs, (void *)_haltsigs, sizeof(sigset_t));
@@ -79,6 +82,18 @@ Server::Server(
     _LOG_FATAL("chdir: %m");
     exit(1);
   }
+}
+
+void Server::halt(int ignore)
+{ 
+  theserver->doserve(false);
+  theserver->sch->halt();
+}
+
+void Server::UNSAFE_emerg_yank_wrapper(int ignore)
+{
+  ThreadPool<Worker>::UNSAFE_emerg_yank();
+  theserver->sch->halt();
 }
 
 void Server::socket_bind_listen()
@@ -148,7 +163,11 @@ void Server::serve()
   while (_doserve) {
     socket_bind_listen();
     q = new LockFreeQueue<Work *>();
-    sch = new Scheduler(*q, listenfd);
+    sch = new Scheduler(*q,
+			listenfd,
+			tcp_keepalive_intvl,
+			tcp_keepalive_probes,
+			tcp_keepalive_time);
 
     /* This callback should create a FindWork object and let the scheduler 
      * know about it. */

@@ -1,4 +1,5 @@
-/* See cmdline.hpp for details. */
+/* See cmdline.hpp for details. Options without a short flag should
+ * go at the bottom. */
 
 DEFINE_ME_BOOL(ipv6, 6, ipv6, use IPv6, false)
 DEFINE_ME_INT(cachesz, c, cache-size, static resource cache size (MB), 10)
@@ -12,3 +13,7 @@ DEFINE_ME_INT(listenq, q, listen-queue, TCP listen queue size, 10)
 DEFINE_ME_INT(req_prealloc_sz, r, req-prealloc-size, space to preallocate for HTTP requests (MB), 10)
 DEFINE_ME_STR(sigdl_int, t, sigth, INTERNAL USE ONLY thread communication signal, USR2)
 DEFINE_ME_INT(nworkers, w, num-workers, number of worker threads, 10)
+DEFINE_ME_INT(tcp_keepalive_intvl, -, tcp-keepalive-intvl, advanced TCP option, 75)
+DEFINE_ME_INT(tcp_keepalive_probes, -, tcp-keepalive-probes, advanced TCP option, 9)
+DEFINE_ME_INT(tcp_keepalive_time, -, tcp-keepalive-time, advanced TCP option, 7200)
+

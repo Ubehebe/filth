@@ -17,6 +17,31 @@
  * if you add more, remember to check for errno==EINTRs. */
 class Scheduler
 {
+public:
+  Scheduler(ConcurrentQueue<Work *> &q, int listenfd, 
+	    int tcp_keepalive_intvl=-1, int tcp_keepalive_probes=-1,
+	    int tcp_keepalive_time=-1, int pollsz=100, int maxevents=100);
+  ~Scheduler();
+  void schedule(Work *w, bool oneshot=true);
+  void reschedule(Work *w, bool oneshot=true);
+  void push_sighandler(int signo, void (*handler)(int));
+  bool dowork;
+  /* Other modules can request that the scheduler pay attention
+   * to certain file descriptors without the scheduler having to know
+   * how to handle them. For example, a cache module can register
+   * an fd with the scheduler that becomes readable whenever a file in the
+   * cache changes on disk. */
+  void registercb(int fd, Callback *cb, Work::mode m, bool oneshot=true);
+  void poll();
+  /* Some ready-made signal handlers. The argument and return types
+   * are dictated by the sa_handler field of struct sigaction. (We wouldn't
+   * have to do this if we didn't support an alternative to signalfd.) */
+  static void halt(int ignore=-1);
+  static Scheduler *thescheduler; // For non-signalfd-based signal handling
+  void setfwork(FindWork *fwork);
+
+private:
+
   Scheduler(Scheduler const &);
   Scheduler &operator=(Scheduler const &);
 
@@ -28,13 +53,19 @@ class Scheduler
   struct _acceptcb : public Callback
   {
     int fd;
+    int tcp_keepalive_intvl, tcp_keepalive_probes,  tcp_keepalive_time;
+
 #ifdef _COLLECT_STATS
     uint32_t accepts;
 #endif // _COLLECT_STATS
     Scheduler &sch;
     FindWork *fwork;
     void operator()();
-    _acceptcb(Scheduler &sch, int listenfd);
+    _acceptcb(Scheduler &sch,
+	      int listenfd,
+	      int tcp_keepalive_intvl=-1,
+	      int tcp_keepalive_probes=-1,
+	      int tcp_keepalive_time=-1);
     ~_acceptcb();
   } acceptcb;
 
@@ -64,27 +95,7 @@ class Scheduler
      the find work object also needs to know about the  */
   FindWork *fwork;
 
-public:
-  Scheduler(ConcurrentQueue<Work *> &q, int listenfd, 
-	    int pollsz=100, int maxevents=100);
-  ~Scheduler();
-  void schedule(Work *w, bool oneshot=true);
-  void reschedule(Work *w, bool oneshot=true);
-  void push_sighandler(int signo, void (*handler)(int));
-  bool dowork;
-  /* Other modules can request that the scheduler pay attention
-   * to certain file descriptors without the scheduler having to know
-   * how to handle them. For example, a cache module can register
-   * an fd with the scheduler that becomes readable whenever a file in the
-   * cache changes on disk. */
-  void registercb(int fd, Callback *cb, Work::mode m, bool oneshot=true);
-  void poll();
-  /* Some ready-made signal handlers. The argument and return types
-   * are dictated by the sa_handler field of struct sigaction. (We wouldn't
-   * have to do this if we didn't support an alternative to signalfd.) */
-  static void halt(int ignore=-1);
-  static Scheduler *thescheduler; // For non-signalfd-based signal handling
-  void setfwork(FindWork *fwork);
+
 
 };
 

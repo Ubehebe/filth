@@ -14,6 +14,33 @@
 
 class Server
 {
+public:
+
+  /* For network sockets, bindto should be a string of a port number,
+   * like "80". For local sockets, bindto should be a filesystem path. */
+  Server(
+	 int domain,
+	 FindWork *fwork,
+	 char const *mount,
+	 char const *bindto,
+	 int nworkers,
+	 int listenq,
+	 char const *ifnam=NULL,
+	 Callback *onstartup=NULL,
+	 Callback *onshutdown=NULL,
+	 sigset_t *haltsigs=NULL,
+	 int sigdl_int=-1,
+	 int sigdl_ext=-1,
+	 int tcp_keepalive_intvl=-1,
+	 int tcp_keepalive_probes=-1,
+	 int tcp_keepalive_time=-1);
+  ~Server();
+  void serve();
+  void doserve(bool doserve) { _doserve = doserve; }
+  static void halt(int ignore=-1);
+  static void UNSAFE_emerg_yank_wrapper(int ignore=-1);
+
+private:
   Server &operator=(Server const&);
   Server(Server const&);
 
@@ -24,6 +51,9 @@ class Server
   void socket_bind_listen();
 
   int domain, listenfd, listenq, nworkers;
+
+  int tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time;
+
   char const *bindto, *ifnam;
 
   /* A server bound to a socket in the filesystem needs to remember both
@@ -52,36 +82,6 @@ class Server
 protected:
   Scheduler *sch;
 
-public:
-
-  /* For network sockets, bindto should be a string of a port number,
-   * like "80". For local sockets, bindto should be a filesystem path. */
-  Server(
-	 int domain,
-	 FindWork *fwork,
-	 char const *mount,
-	 char const *bindto,
-	 int nworkers,
-	 int listenq,
-	 char const *ifnam=NULL,
-	 Callback *onstartup=NULL,
-	 Callback *onshutdown=NULL,
-	 sigset_t *haltsigs=NULL,
-	 int sigdl_int=-1,
-	 int sigdl_ext=-1);
-  ~Server();
-  void serve();
-  void doserve(bool doserve) { _doserve = doserve; }
-  static void halt(int ignore=-1)
-  { 
-    theserver->doserve(false);
-    theserver->sch->halt();
-  }
-  static void UNSAFE_emerg_yank_wrapper(int ignore=-1)
-  {
-    ThreadPool<Worker>::UNSAFE_emerg_yank();
-    theserver->sch->halt();
-  }
 };
 
 #endif // SERVER_HPP

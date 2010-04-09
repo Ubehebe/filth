@@ -13,9 +13,13 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 int listenq,
 			 int sigflush,
 			 int sigdl_int,
-			 int sigdl_ext)
+			 int sigdl_ext,
+			 int tcp_keepalive_intvl,
+			 int tcp_keepalive_probes,
+			 int tcp_keepalive_time)
   : Server((ipv6) ? AF_INET6 : AF_INET, fwork, mount, portno, nworkers, listenq,
-	   ifnam, this, this, NULL, sigdl_int, sigdl_ext),
+	   ifnam, this, this, NULL, sigdl_int, sigdl_ext,
+	   tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time),
     req_prealloc_MB(req_prealloc_MB), cacheszMB(cacheszMB), sigflush(sigflush),
     perform_startup(true)
 {

@@ -58,7 +58,7 @@
 template<int N> struct cmdline
 {
   char const *progdesc; // one-sentence description at beginning of --help
-  char const *shorts[N]; // short form of option flag, e.g. -c
+  char const *shorts[N]; // short form of option flag, e.g. -c (- for nothing)
   char const *longs[N]; // long form of option flag, e.g. --cache
   char const *descs[N]; // description of argument given in --help
   char const *svals[N]; // string value of argument
@@ -141,7 +141,7 @@ template<int N> void cmdline<N>::parsecmdline(int argc, char **argv)
     // Short form of flag.
     else {
       for (j=0; j<N; ++j) {
-	if (tmp[1] == shorts[j][0]) {
+	if (tmp[1] == shorts[j][0] && tmp[1] != '-') {
 	  // Only boolean options can take no argument.
 	  if (strlen(tmp) < 3) {
 	    if (bvals[j])
@@ -177,8 +177,12 @@ template<int N> void cmdline<N>::print_help(char *argv0)
   /* Note that this may not actually print the default values
    * if the --help flag is not the first flag parsed. Oh well! */
   for (int i=0; i<N; ++i) {
-    printf("-%s, --%s\t%s %s%s%s\n",
-	   shorts[i], longs[i], descs[i],
+    printf("%s%s%s--%s\t%s %s%s%s\n",
+	   ((shorts[i][0] == '-') ? "" : "-"),
+	   ((shorts[i][0] == '-') ?  "" : shorts[i]),
+	   ((shorts[i][0] == '-') ? "" : ", "),
+	   longs[i],
+	   descs[i],
 	   ((bvals[i]) ? "" : "[default "),
 	   ((bvals[i]) ? "" : svals[i]),
 	   ((bvals[i]) ? "" : "]"));

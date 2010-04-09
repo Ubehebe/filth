@@ -5,6 +5,8 @@
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Server.hpp"
 
+using HTTP_cmdline::c;
+
 void logatexit()
 {
   _LOG_INFO("exiting");
@@ -19,17 +21,20 @@ int main(int argc, char **argv)
   HTTP_cmdline::cmdlinesetup(argc, argv);
   try {
     HTTP_Server(
-		HTTP_cmdline::c.svals[HTTP_cmdline::port],
-		HTTP_cmdline::c.svals[HTTP_cmdline::ifnam],
-		HTTP_cmdline::c.svals[HTTP_cmdline::mount],
-		HTTP_cmdline::c.ivals[HTTP_cmdline::nworkers],
-		HTTP_cmdline::c.bvals[HTTP_cmdline::ipv6],
-		HTTP_cmdline::c.ivals[HTTP_cmdline::cachesz],
-		HTTP_cmdline::c.ivals[HTTP_cmdline::req_prealloc_sz],
-		HTTP_cmdline::c.ivals[HTTP_cmdline::listenq],
-		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigflush]),
-		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigdl_int]),
-		HTTP_cmdline::c.sigconv(HTTP_cmdline::c.svals[HTTP_cmdline::sigdl_ext])
+		c.svals[HTTP_cmdline::port],
+		c.svals[HTTP_cmdline::ifnam],
+		c.svals[HTTP_cmdline::mount],
+		c.ivals[HTTP_cmdline::nworkers],
+		c.bvals[HTTP_cmdline::ipv6],
+		c.ivals[HTTP_cmdline::cachesz],
+		c.ivals[HTTP_cmdline::req_prealloc_sz],
+		c.ivals[HTTP_cmdline::listenq],
+		c.sigconv(c.svals[HTTP_cmdline::sigflush]),
+		c.sigconv(c.svals[HTTP_cmdline::sigdl_int]),
+		c.sigconv(c.svals[HTTP_cmdline::sigdl_ext]),
+		c.ivals[HTTP_cmdline::tcp_keepalive_intvl],
+		c.ivals[HTTP_cmdline::tcp_keepalive_probes],
+		c.ivals[HTTP_cmdline::tcp_keepalive_time]
 		).serve();
   }
   catch (ResourceErr e) {
