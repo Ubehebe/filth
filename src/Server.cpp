@@ -5,6 +5,8 @@
 #include <iostream>
 #include <list>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -112,6 +114,43 @@ void Server::socket_bind_listen()
     exit(1);
   }
 
+  if (domain != AF_LOCAL
+      && (tcp_keepalive_intvl != -1
+	  || tcp_keepalive_probes != -1
+	  || tcp_keepalive_time != -1)) {
+    _LOG_DEBUG("%d %d %d",
+	       tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time);
+    int turnon = 1;
+    if (setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (void *) &turnon,
+		   (socklen_t) sizeof(turnon))==-1) {
+      _LOG_FATAL("setsockopt (SO_KEEPALIVE): %m");
+    exit(1);
+    }
+    if (tcp_keepalive_intvl != -1
+	&& setsockopt(listenfd, SOL_TCP, TCP_KEEPINTVL,
+		      (void *) &tcp_keepalive_intvl,
+		      (socklen_t) sizeof(tcp_keepalive_intvl))==-1) {
+      _LOG_FATAL("setsockopt (TCP_KEEPINTVL): %m");
+      exit(1);
+    }
+    
+    if (tcp_keepalive_probes != -1
+	&& setsockopt(listenfd, SOL_TCP, TCP_KEEPCNT,
+		      (void *) &tcp_keepalive_probes,
+		      (socklen_t) sizeof(tcp_keepalive_probes))==-1) {
+      _LOG_FATAL("setsockopt (TCP_KEEPCNT): %m");
+      exit(1);
+    }
+    
+    if (tcp_keepalive_time != -1
+	&& setsockopt(listenfd, SOL_TCP, TCP_KEEPIDLE,
+		      (void *) &tcp_keepalive_time,
+		      (socklen_t) sizeof(tcp_keepalive_time))==-1) {
+      _LOG_FATAL("setsockopt (TCP_KEEPIDLE): %m");
+      exit(1);
+    }
+  }
+
   // Everything below should be domain-independent.
 
   // Make listening socket nonblocking.
@@ -124,10 +163,11 @@ void Server::socket_bind_listen()
     _LOG_FATAL("fcntl (F_SETFL): %m");
     exit(1);
   }
+  
   if (listen(listenfd, listenq)==-1) {
     _LOG_FATAL("listen: %m");
     exit(1);
-  }
+    }
   _LOG_DEBUG("listen fd is %d", listenfd);
 
 }

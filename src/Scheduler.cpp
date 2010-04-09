@@ -142,6 +142,7 @@ void Scheduler::reschedule(Work *w, bool oneshot)
     e.events |= EPOLLOUT;
     break;
   }
+  e.events |= EPOLLRDHUP; // ???
   if (epoll_ctl(pollfd, EPOLL_CTL_MOD, w->fd, &e)==-1)
     throw ResourceErr("epoll_ctl (EPOLL_CTL_MOD)", errno);
 }
@@ -213,17 +214,14 @@ void Scheduler::poll()
       if ((it = fdcbs.find(fd)) != fdcbs.end())
 	(*(it->second))();
       /* TODO */
-      else if ((fds[i].events & EPOLLERR) || (fds[i].events & EPOLLHUP)) {
-	/* If there's currently a worker assigned to this fd, we are fine,
-	 * because its reads/writes will fail with a broken pipe error,
-	 * which will be caught by the worker, which will then close
-	 * our half of the connection and delete the associated piece of
-	 * work. But if no one is working on it, we need a way to
-	 * get rid of it. Perhaps integrate with whatever timeout mechanism
-	 * we decide on. */
+      else if ((fds[i].events & EPOLLERR)
+	       || (fds[i].events & EPOLLHUP)
+	       || (fds[i].events & EPOLLRDHUP)) {
 	_LOG_INFO("hangup or error on %d", fd);
+	Work *tmp = (*fwork)(fd, Work::read);
+	tmp->deleteme = true;
+	q.enq(tmp);
       }
-      // HMM. Do we need to check or change the work object's read/write mode?
       else if (fds[i].events & EPOLLIN) {
 	_LOG_DEBUG("%d became readable", fd);
 	q.enq((*fwork)(fd, Work::read));
@@ -263,32 +261,6 @@ void Scheduler::_acceptcb::operator()()
   if (fcntl(acceptfd, F_SETFL, flags | O_NONBLOCK)==-1)
     throw SocketErr("fcntl (F_SETFL)", errno);
 
-  if (tcp_keepalive_intvl != -1
-      || tcp_keepalive_probes != -1
-      || tcp_keepalive_time != -1) {
-    _LOG_DEBUG("%d %d %d", tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time);
-    int turnon = 1;
-    if (setsockopt(acceptfd, SOL_SOCKET, SO_KEEPALIVE, (void *) &turnon,
-		   (socklen_t) sizeof(turnon))==-1)
-      throw SocketErr("setsockopt (SO_KEEPALIVE)", errno);
-  }
-      
-  if (tcp_keepalive_intvl != -1
-      && setsockopt(acceptfd, IPPROTO_TCP, TCP_KEEPINTVL,
-		    (void *) &tcp_keepalive_intvl,
-		    (socklen_t) sizeof(tcp_keepalive_intvl)))
-    throw SocketErr("setsockopt (TCP_KEEPINTVL)", errno);
-  if (tcp_keepalive_probes != -1
-      && setsockopt(acceptfd, IPPROTO_TCP, TCP_KEEPCNT,
-		    (void *) &tcp_keepalive_probes,
-		    (socklen_t) sizeof(tcp_keepalive_probes)))
-    throw SocketErr("setsockopt (TCP_KEEPCNT)", errno);
-  if (tcp_keepalive_time != -1
-      && setsockopt(acceptfd, IPPROTO_TCP, TCP_KEEPIDLE,
-		    (void *) &tcp_keepalive_time,
-		    (socklen_t) sizeof(tcp_keepalive_time)))
-    throw SocketErr("setsockopt (TCP_KEEPIDLE)", errno);
-  
   sch.schedule((*fwork)(acceptfd, Work::read), true);
   _INC_STAT(accepts);
 }

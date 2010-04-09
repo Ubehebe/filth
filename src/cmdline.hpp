@@ -173,7 +173,7 @@ template<int N> void cmdline<N>::unrecognized_opt(char *argv0, char *option)
 
 template<int N> void cmdline<N>::print_help(char *argv0)
 {
-  printf("Usage: %s [OPTION]\n%s\n", argv0, progdesc);
+  printf("Usage: %s [options]\n%s\n", argv0, progdesc);
   /* Note that this may not actually print the default values
    * if the --help flag is not the first flag parsed. Oh well! */
   for (int i=0; i<N; ++i) {

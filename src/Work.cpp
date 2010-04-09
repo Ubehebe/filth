@@ -12,8 +12,8 @@ Work::Work(int fd, mode m, bool deleteme)
 
 Work::~Work()
 {
-  _LOG_DEBUG("close %d", fd);
-  close(fd);
+  if (close(fd)==-1)
+    _LOG_INFO("close %d: %m", fd);
 }
 
 /* This call has "header" semantics, where we just keep reading bytes until

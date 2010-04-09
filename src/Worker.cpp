@@ -19,7 +19,11 @@ void Worker::work()
       // Put it back, for the other workers to see
       q->enq(w);
       break;
-    } else {
+    }
+    else if (w->deleteme) {
+      delete w;
+    }
+    else {
       try {
 	(*w)();
       }
