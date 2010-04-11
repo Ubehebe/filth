@@ -7,15 +7,13 @@
 #include "HTTP_Cache.hpp"
 #include "HTTP_Server_Work.hpp" // change back?
 #include "FindWork_prealloc.hpp"
-#include "Magic.hpp"
 #include "Scheduler.hpp"
-#include "Time.hpp"
 #include "Workmap.hpp"
 
 class HTTP_FindWork : public FindWork_prealloc<HTTP_Server_Work>
 {
 public:
-  HTTP_FindWork(size_t req_prealloc, Scheduler *sch, Time *date, Magic *MIME);
+  HTTP_FindWork(size_t req_prealloc, Scheduler *sch);
   void setcache(HTTP_Cache *cache);
   Work *operator()(int fd, Work::mode m);
 private:

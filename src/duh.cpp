@@ -1,11 +1,10 @@
 #include <iostream>
 #include <string>
-
-#include "Cache.hpp"
-
+#include <tuple>
 
 int main()
 {
-  Cache<int, std::string> c(1<<10);
+  std::tuple<int,int,int> t;
+  std::cout << std::get<0>(t) << std::endl;
 }
 

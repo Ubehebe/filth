@@ -18,7 +18,7 @@ namespace HTTP_constants
   // GET, PUT, etc.
   enum method
     {
-#define DEFINE_ME(name, ignore) name,
+#define DEFINE_ME(name) name,
 #include "HTTP_methods.def"
 #undef DEFINE_ME
     };
@@ -57,7 +57,6 @@ namespace HTTP_constants
   extern char const *status_strs[];
   extern size_t const num_method;
   extern char const *method_strs[];
-  extern bool const method_is_implemented[];
   extern size_t const num_header;
   extern size_t const reqln;
   extern char const *header_strs[];

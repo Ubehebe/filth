@@ -1,6 +1,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include <list>
 #include <sys/types.h>
 #include <unordered_map>
 
@@ -35,6 +36,9 @@ public:
 	 int tcp_keepalive_probes=-1,
 	 int tcp_keepalive_time=-1);
   ~Server();
+  void register_specific(pthread_key_t *k, void *(*constructor)(),
+			 void (*destructor)(void *));
+  void clear_specifics();
   void serve();
   void doserve(bool doserve) { _doserve = doserve; }
   static void halt(int ignore=-1);
@@ -55,6 +59,8 @@ private:
   int tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time;
 
   char const *bindto, *ifnam;
+
+
 
   /* A server bound to a socket in the filesystem needs to remember both
    * where it is bound (sockdir) and the subtree of the filesystem it considers
@@ -79,9 +85,10 @@ private:
   sigset_t haltsigs;
   static Server *theserver;
 
-protected:
-  Scheduler *sch;
+  std::list<specific_data> specifics;
 
+protected:
+  Scheduler *sch; // Not a great idea; accessor instead?
 };
 
 #endif // SERVER_HPP

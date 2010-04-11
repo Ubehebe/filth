@@ -226,7 +226,12 @@ void Server::serve()
     { // ----------------------------------------------------------------------
       Thread<Scheduler> schedth(sch, &Scheduler::poll);
       Factory<Worker> wfact(q);
-      ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int);
+      /* I am having problems getting polymorphism to work on the next line.
+       * Namely, you can't have a Worker2 class deriving Worker, a
+       * Factory<Worker2> class deriving Factory<Worker>, pass a
+       * Factory<Worker2> object to ThreadPool<Worker>, and expect the
+       * binding to act on the derived class. Ugh! */
+      ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int, &specifics);
       schedth.start();
       wths.start();
       /* The Thread and ThreadPool destructors wait for their threads 
@@ -374,3 +379,13 @@ void Server::setup_AF_LOCAL()
   }
 }
 
+void Server::register_specific(pthread_key_t *k, void *(*constructor)(),
+			       void (*destructor)(void *))
+{
+  specifics.push_back(specific_data(k,constructor,destructor));
+}
+
+void Server::clear_specifics()
+{
+  specifics.clear();
+}

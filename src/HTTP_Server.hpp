@@ -15,10 +15,8 @@
 #include "HTTP_constants.hpp"
 #include "HTTP_FindWork.hpp"
 #include "logging.h"
-#include "Magic.hpp"
 #include "Server.hpp"
 #include "ServerErrs.hpp"
-#include "Time.hpp"
 #include "Workmap.hpp"
 
 class HTTP_Server : public Server, public Callback
@@ -51,8 +49,6 @@ private:
   // These are pointers because they can get torn down and rebuilt.
   HTTP_FindWork *fwork;
   HTTP_Cache *cache;
-  Time *date;
-  Magic *MIME;
 
   static HTTP_Server *theserver; // For non-signalfd-based signal handling
   static void flush(int ignore=-1);
@@ -64,8 +60,6 @@ private:
 
   size_t req_prealloc_MB, cacheszMB;
   int sigflush;
-
-
 };
 
 #endif // HTTP_SERVER_HPP

@@ -11,6 +11,7 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
 
 void HTTP_Work::operator()()
 {
+  set();
   int err;
   switch(m) {
   case Work::read:
@@ -98,7 +99,6 @@ void HTTP_Work::parsereqln(req_hdrs_type &req_hdrs, method &meth,
 			   string &path, string &query)
 {
   stringstream tmp(req_hdrs[reqln]);
-  _LOG_DEBUG("parsereqln %s", tmp.str().c_str());
   tmp >> meth;
   string uri;
   tmp >> uri;
@@ -113,6 +113,13 @@ void HTTP_Work::parseuri(string &uri, string &path, string &query)
 {
   // TODO: throws bad request for proxy-type resources. Support?
   _LOG_DEBUG("rduri %s", uri.c_str());
+
+  // The asterisk is a special URI used with OPTIONS requests (RFC 2616, 9.2)
+  if (uri == "*") {
+    path = "*";
+    return;
+  }
+
   // Malformed or dangerous URI.
   if (uri[0] != '/' || uri.find("..") != uri.npos)
     throw HTTP_Parse_Err(Bad_Request);

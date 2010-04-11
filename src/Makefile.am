@@ -9,7 +9,7 @@ LOG ?= _LOG_FATAL
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 
 BASE= compression.cpp Locks.cpp FindWork.cpp Scheduler.cpp Server.cpp \
-	sigmasks.cpp Work.cpp Worker.cpp Time.cpp util.cpp
+	sigmasks.cpp Work.cpp Worker.cpp Time_nr.cpp util.cpp
 ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
 	HTTP_Origin_Server.cpp HTTP_Server.cpp HTTP_Server_Work.cpp \

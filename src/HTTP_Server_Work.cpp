@@ -22,17 +22,18 @@ using namespace HTTP_constants;
 LockFreeQueue<void *> HTTP_Server_Work::store;
 HTTP_Cache *HTTP_Server_Work::cache = NULL;
 Workmap *HTTP_Server_Work::st = NULL;
-Time *HTTP_Server_Work::date = NULL;
-Magic *HTTP_Server_Work::MIME = NULL;
+pthread_key_t HTTP_Server_Work::MIME_key;
+pthread_key_t HTTP_Server_Work::date_key;
 
 HTTP_Server_Work::HTTP_Server_Work(int fd, Work::mode m)
-  : HTTP_Work(fd, m), cl_accept_enc(HTTP_constants::identity)
+  : HTTP_Work(fd, m), cl_accept_enc(HTTP_constants::identity),
+    c(NULL), date(NULL), MIME(NULL), resp_is_cached(false)
 {
 }
 
 HTTP_Server_Work::~HTTP_Server_Work()
 {
-  cache->unget(path); // fails if path isn't in cache, which is fine
+
   st->erase(fd);
 }
 
@@ -42,13 +43,11 @@ HTTP_Server_Work::~HTTP_Server_Work()
 void HTTP_Server_Work::prepare_response(stringstream &hdrs,
 					uint8_t const *&body, size_t &bodysz)
 {
-  HTTP_CacheEntry *c = NULL;
   int err;
 
   /* First ask the cache if we have a ready response, taking into account
    * the client's caching preferences. */
-  if (consult_cache(path, c)) {
-    _LOG_DEBUG("using cache to service %s", path.c_str());
+  if (resp_is_cached = consult_cache(path, c)) {
     ; // fall through to success
   }
 
@@ -65,10 +64,13 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
      * the MIME lookup) gets pushed here. */
     c->pushstat(stat);
     c->pushhdr(Content_Type, (*MIME)(path.c_str()));
-    c->pushhdr(Date, (*date)());
-    c->pushhdr(Last_Modified, (*date)(c->last_modified));
+    c->pushhdr(Date, date->print());
+    c->pushhdr(Last_Modified, date->print(c->last_modified));
 
-    /* 14.9.2: If no-store is sent in a request, "a cache MUST NOT store
+    /* Try to put this response in the cache. It might fail if the cache
+     * is full or the method/headers do not allow caching. */
+    //    resp_is_cached = tryput(path, c, c->szincache);
+     /* 14.9.2: If no-store is sent in a request, "a cache MUST NOT store
      * any part of either this request or any response to it."
      * Note that this seems to include any sort of header logging
      * (user-agent, etc.) */
@@ -94,7 +96,6 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
 
   // If we're here, c contains some kind of response.
   hdrs << *c; // Pushes the status line, then all the headers
-  _LOG_DEBUG("%s", hdrs.str().c_str());
   body = c->getbuf();
   bodysz = const_cast<size_t &>(c->szincache);
 }
@@ -103,10 +104,6 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
  * 100% right though. */
 bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
 {
-  /* I am still getting valgrind "uninitialized value" errors here,
-   * though not regularly, and no segfaults. */
-
-
   /* 14.9.4: "The request includes a "no-cache" cache-control directive" ...
    * "The server MUST NOT use a cached copy when responding to such
    * a request." */
@@ -204,7 +201,7 @@ void HTTP_Server_Work::on_parse_err(status &s, stringstream &hdrs,
 {
   
   hdrs << HTTP_Version << ' ' << s << CRLF
-       << Date << (*date)() << CRLF
+       << Date << date->print() << CRLF
        << Server << PACKAGE_NAME << CRLF
        << Content_Length << 0 << CRLF
        << CRLF;
@@ -218,6 +215,7 @@ void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
 				  string const &req_body)
 {
   parsereqln(req_hdrs, meth, path, query);
+  
   if (path == "/")
     path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
 
@@ -285,8 +283,6 @@ void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
       tmp2 >> tmp; // gets rid of =
       tmp2 >> cl_cache_control.min_fresh;
     }
-
-
   }
 
   if (!req_hdrs[Connection].empty()) {
@@ -337,8 +333,32 @@ void HTTP_Server_Work::operator delete(void *work)
 
 void HTTP_Server_Work::reset()
 {
+  if (resp_is_cached)
+    cache->unget(path);
+  //  else
+  //    delete c;
+
   path.clear();
   query.clear();
   cl_cache_control.clear();
+  c = NULL;
+  date = NULL;
+  MIME = NULL;
   // What about cl_accept_enc and cl_max_fwds, meth, etc.
+}
+
+bool HTTP_Server_Work::tryput(string &path, HTTP_CacheEntry *c, size_t sz)
+{
+  // 9.2: "Responses to this method [OPTIONS] are not cacheable."
+  //  if (meth == OPTIONS)
+  //    return false;
+  //  if (meth == POST)
+
+
+}
+
+void HTTP_Server_Work::set()
+{
+  date = reinterpret_cast<Time_nr *>(pthread_getspecific(date_key));
+  MIME = reinterpret_cast<Magic_nr *>(pthread_getspecific(MIME_key));
 }

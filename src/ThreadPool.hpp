@@ -13,25 +13,30 @@
 
 template<class T> class ThreadPool : public Callback
 {
-  Mutex m;
-  CondVar done;
-  std::list<Thread<T> *> threads;
-  static void pthread_exit_wrapper(int ignore) { (*thethreadpool)(); pthread_exit(NULL); }
-  int sigkill;
 public:
-  ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1);
+  ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1,
+	     std::list<specific_data> *specifics=NULL);
   ~ThreadPool();
+  void register_specific(pthread_key_t *k, void *(*constructor)(),
+			 void (*destructor)(void *));
   static void UNSAFE_emerg_yank(int ignore=-1);
   void start();
   void operator()(); // cleanup callback
-
   static ThreadPool<T> *thethreadpool;
+private:
+  Mutex m;
+  CondVar done;
+  std::list<Thread<T> *> threads;
+  std::list<specific_data> specifics;
+  static void pthread_exit_wrapper(int ignore) { (*thethreadpool)(); pthread_exit(NULL); }
+  int sigkill;
 };
 
 template<class T> ThreadPool<T> *ThreadPool<T>::thethreadpool;
 
 template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
-					    void (T::*todo)(), int nthreads, int sigkill)
+					    void (T::*todo)(), int nthreads, int sigkill,
+					    std::list<specific_data> *specifics)
   : done(m), sigkill(sigkill)
 {
   thethreadpool = this;
@@ -65,9 +70,18 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
 	      strsignal(sigkill));
   }
 
+  if (specifics != NULL) {
+    for (std::list<specific_data>::iterator it = specifics->begin();
+	 it != specifics->end(); ++it)
+      if ((errno = pthread_key_create(it->k, it->destructor)) != 0) {
+	_LOG_FATAL("pthread_key_create: %m");
+	exit(1);
+      }
+  }
+
   m.lock();
   for (int i=0; i<nthreads; ++i)
-    threads.push_back(new Thread<T>(f, todo, &toblock, true, this));
+    threads.push_back(new Thread<T>(f, todo, &toblock, true, this, specifics));
   m.unlock();
 }
 
@@ -128,6 +142,13 @@ template<class T> void ThreadPool<T>::UNSAFE_emerg_yank(int ignore)
     }
     thethreadpool->m.unlock();
   }
+}
+
+template<class T> void ThreadPool<T>::register_specific(pthread_key_t *k,
+							void *(*constructor)(),
+							void (*destructor)(void *))
+{
+  specifics.push_back(specific_data(k, constructor, destructor));
 }
 
 #endif // THREAD_POOL_HPP

@@ -13,9 +13,9 @@
 #include "LockFreeQueue.hpp"
 #include "HTTP_Cache.hpp"
 #include "HTTP_Work.hpp"
-#include "Magic.hpp"
+#include "Magic_nr.hpp"
 #include "Scheduler.hpp"
-#include "Time.hpp"
+#include "Time_nr.hpp"
 #include "Workmap.hpp"
 
 class HTTP_Server_Work : public HTTP_Work
@@ -23,7 +23,7 @@ class HTTP_Server_Work : public HTTP_Work
 public:
   HTTP_Server_Work(int fd, Work::mode m);
   ~HTTP_Server_Work();
-
+  
   void *operator new(size_t sz);
   void operator delete(void *work);
 
@@ -31,15 +31,17 @@ private:
   void browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
 		  std::string const &req_body);
   bool consult_cache(std::string &path, HTTP_CacheEntry *&c);
+  bool tryput(std::string &path, HTTP_CacheEntry *c, size_t sz);
   void prepare_response(stringstream &hdrs,
 			uint8_t const *&body, size_t &bodysz);
   void on_parse_err(status &s, stringstream &hdrs,
 		    uint8_t const *&body, size_t &bodysz);
+  void set();
   void reset();
-
 
   friend class FindWork_prealloc<HTTP_Server_Work>;
   friend class HTTP_FindWork;
+  friend class HTTP_Server;
   HTTP_Server_Work(HTTP_Server_Work const&);
   HTTP_Server_Work &operator=(HTTP_Server_Work const&);
 
@@ -47,13 +49,25 @@ private:
   static LockFreeQueue<void *> store; // For operator new/delete
   static HTTP_Cache *cache;
   static Workmap *st;
-  static Time *date;
-  static Magic *MIME;
+
+  static pthread_key_t MIME_key;
+  static pthread_key_t date_key;
+
+  // State borrowed from the Worker object that we use.
+  Time_nr *date;
+  Magic_nr *MIME;
 
   // Stuff reported by the client in the request headers.
 
   string path, query;
   method meth;
+
+  /* Normally the response either comes straight from the cache or
+   * comes from disk and is left in the cache for later use, but if neither of
+   * these is true we need to remember to delete it ourselves. */
+  bool resp_is_cached;
+  HTTP_CacheEntry *c;
+  
 
   struct cc
   {

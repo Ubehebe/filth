@@ -35,19 +35,13 @@ namespace HTTP_constants
   };
 
   size_t const num_method = 
-#define DEFINE_ME(ignore1, ignore2) +1
+#define DEFINE_ME(ignore) +1
 #include "HTTP_methods.def"
 #undef DEFINE_ME
     ;
 
   char const *method_strs[] = {
-#define DEFINE_ME(name, ignore) #name,
-#include "HTTP_methods.def"
-#undef DEFINE_ME
-  };
-
-  bool const method_is_implemented[] = {
-#define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
+#define DEFINE_ME(name) #name,
 #include "HTTP_methods.def"
 #undef DEFINE_ME
   };
@@ -106,10 +100,8 @@ namespace HTTP_constants
     for (int j=0; j<num_method; ++j) {
       // Methods are case-sensitive; RFC 2616 sec. 5.1.1.
       if (tmp == method_strs[j]) {
-	if (method_is_implemented[j]) {
-	  m = static_cast<method>(j);
-	  return i;
-	} else throw HTTP_Parse_Err(Not_Implemented);
+	m = static_cast<method>(j);
+	return i;
       }
     }
     throw HTTP_Parse_Err(Bad_Request);

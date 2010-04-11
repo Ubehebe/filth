@@ -48,7 +48,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = compression.$(OBJEXT) Locks.$(OBJEXT) \
 	FindWork.$(OBJEXT) Scheduler.$(OBJEXT) Server.$(OBJEXT) \
 	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT) \
-	Time.$(OBJEXT) util.$(OBJEXT)
+	Time_nr.$(OBJEXT) util.$(OBJEXT)
 am_ess_a_byte_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
@@ -163,7 +163,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 BASE = compression.cpp Locks.cpp FindWork.cpp Scheduler.cpp Server.cpp \
-	sigmasks.cpp Work.cpp Worker.cpp Time.cpp util.cpp
+	sigmasks.cpp Work.cpp Worker.cpp Time_nr.cpp util.cpp
 
 ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp HTTP_FindWork.cpp HTTP_main.cpp \
@@ -265,7 +265,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Locks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Scheduler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Time.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Time_nr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Worker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/compression.Po@am__quote@

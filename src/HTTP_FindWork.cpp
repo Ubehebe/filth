@@ -1,13 +1,10 @@
 #include "HTTP_FindWork.hpp"
 
-HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler *sch, Time *date,
-			     Magic *MIME)
+HTTP_FindWork::HTTP_FindWork(size_t req_prealloc, Scheduler *sch)
   : FindWork_prealloc<HTTP_Server_Work>(req_prealloc)
 {
   HTTP_Server_Work::setsch(sch);
   HTTP_Server_Work::st = &st;
-  HTTP_Server_Work::date = date;
-  HTTP_Server_Work::MIME = MIME;
 }
 
 void HTTP_FindWork::setcache(HTTP_Cache *cache)
