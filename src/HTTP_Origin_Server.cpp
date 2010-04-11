@@ -1,6 +1,10 @@
+#include <dirent.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "compression.hpp"
 #include "HTTP_constants.hpp"
@@ -32,9 +36,7 @@ namespace HTTP_Origin_Server
       result = NULL;
       return errno;
     }
-    // Will eventually want to replace this with a custom page.
     else if (S_ISDIR(statbuf.st_mode)) {
-      result = NULL;
       return EISDIR;
     }
     else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode)) {
@@ -120,4 +122,69 @@ namespace HTTP_Origin_Server
     free(uncompressed);
     return ans;
   }
+
+  int dirtoHTML(string &path, HTTP_CacheEntry *&result)
+  {
+    DIR *dirp;
+    if ((dirp = opendir(path.c_str()))==NULL) {
+      result = NULL;
+      return errno;
+    }
+    // Copied from readdir_r man page. Ugh.
+    struct dirent *entry;
+    if ((entry = (struct dirent *) malloc(offsetof(struct dirent, d_name)
+					  + pathconf(path.c_str(), _PC_NAME_MAX) + 1))
+	==NULL) {
+      result = NULL;
+      return ENOMEM;
+    }
+    struct dirent *dir_res;
+    int ans;
+    string tmp = "<html><head></head><body>";
+
+    while ((ans = readdir_r(dirp, entry, &dir_res))==0 && dir_res != NULL) {
+      tmp += "<p><a href=\"/"
+	+ path
+	+ "/"
+	+ dir_res->d_name + "\">"
+	+ dir_res->d_name + "</a></p>";
+    }
+    closedir(dirp);
+    free(entry);
+    if (ans != 0) {
+      result = NULL;
+      return ans;
+    }
+    tmp += "</body></html>";
+    char const *tmps = tmp.c_str();
+
+    uint8_t *compressed;
+    size_t srcsz = strlen(tmps);
+    size_t compressedsz = compression::compressBound(srcsz);
+
+    try {
+      compressed = new uint8_t[compressedsz];
+    } catch (bad_alloc) {
+      return ENOMEM;
+    }
+
+    time_t now = ::time(NULL);
+    
+    if (compression::compress(reinterpret_cast<void *>(compressed),
+			      compressedsz,
+			      reinterpret_cast<void const *>(tmps), srcsz)) {
+      result = new HTTP_CacheEntry(srcsz,
+				   compressedsz,
+				   now,
+				   now,
+				   now,
+				   compressed,
+				   HTTP_constants::deflate);
+      ans = 0;
+    } else {
+      delete compressed;
+      ans = ENOMEM;
+    }
+    return ans;
+  }    
 };

@@ -30,8 +30,8 @@ public:
 private:
   void browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
 		  std::string const &req_body);
-  bool consult_cache(std::string &path, HTTP_CacheEntry *&c);
-  bool tryput(std::string &path, HTTP_CacheEntry *c, size_t sz);
+  bool cache_get(std::string &path, HTTP_CacheEntry *&c);
+  bool cache_put(std::string &path, HTTP_CacheEntry *c, size_t sz);
   void prepare_response(stringstream &hdrs,
 			uint8_t const *&body, size_t &bodysz);
   void on_parse_err(status &s, stringstream &hdrs,

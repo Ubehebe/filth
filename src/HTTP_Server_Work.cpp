@@ -40,11 +40,17 @@ HTTP_Server_Work::~HTTP_Server_Work()
 void HTTP_Server_Work::prepare_response(stringstream &hdrs,
 					uint8_t const *&body, size_t &bodysz)
 {
+  /* 9.9: "This specification reserves the method name CONNECT for use with
+   * a proxy that can dynamically switch to being a tunnel". I have no idea
+   * what that means and I'm not going to support it. */
+  if (meth == CONNECT)
+    throw HTTP_Parse_Err(Method_Not_Allowed);
+
   int err;
 
   /* First ask the cache if we have a ready response, taking into account
    * the client's caching preferences. */
-  if (resp_is_cached = consult_cache(path, c)) {
+  if (resp_is_cached = cache_get(path, c)) {
     ; // fall through to success
   }
 
@@ -59,21 +65,19 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
   else if ((err = HTTP_Origin_Server::request(path, c))==0) {
     /* Any header that requires thread-safe state to construct (like
      * the MIME lookup) gets pushed here. */
-    c->pushstat(stat);
-    c->pushhdr(Content_Type, (*MIME)(path.c_str()));
-    c->pushhdr(Date, date->print());
-    c->pushhdr(Last_Modified, date->print(c->last_modified));
+    *c << stat;
+    *c << make_pair(Content_Type, (*MIME)(path.c_str()));
+    *c << make_pair(Date, date->print());
+    *c << make_pair(Last_Modified, date->print(c->last_modified));
+    c->use_expires = true;
+    // HTTP_cmdline::cache_expires is given in seconds.
+    c->expires_value = ::time(NULL)
+      + 60*HTTP_cmdline::c.ivals[HTTP_cmdline::cache_expires];
+    *c << make_pair(Expires, date->print(c->expires_value));
 
     /* Try to put this response in the cache. It might fail if the cache
      * is full or the method/headers do not allow caching. */
-    //    resp_is_cached = tryput(path, c, c->szincache);
-     /* 14.9.2: If no-store is sent in a request, "a cache MUST NOT store
-     * any part of either this request or any response to it."
-     * Note that this seems to include any sort of header logging
-     * (user-agent, etc.) */
-    if (!cl_cache_control.isset(cc::no_store) &&
-	!cache->put(path, c, c->szincache))
-      _LOG_INFO("wanted to cache %s, but was unsuccessful", path.c_str());
+    resp_is_cached = cache_put(path, c, c->szincache);
   }
   else if (err == ENOENT) {
     throw HTTP_Parse_Err(Not_Found);
@@ -81,8 +85,21 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
   else if (err == EACCES) {
     throw HTTP_Parse_Err(Forbidden);
   }
-  /*  else if (err == EISDIR)
-    // directory algorithm!
+  else if (err == EISDIR && HTTP_Origin_Server::dirtoHTML(path, c)==0) {
+        /* Any header that requires thread-safe state to construct (like
+     * the MIME lookup) gets pushed here. */
+    *c << stat;
+    *c << make_pair(Content_Type, "text/html");
+    *c << make_pair(Date, date->print());
+    c->use_expires = true;
+    // HTTP_cmdline::cache_expires is given in seconds.
+    c->expires_value = ::time(NULL)
+      + 60*HTTP_cmdline::c.ivals[HTTP_cmdline::cache_expires];
+    *c << make_pair(Expires, date->print(c->expires_value));
+
+    resp_is_cached = false; // Don't cache directory pages!
+  }
+  /*
   else if (err == EISPIPE)
     // dynamic resource algorithm!
     */
@@ -92,14 +109,21 @@ void HTTP_Server_Work::prepare_response(stringstream &hdrs,
   }
 
   // If we're here, c contains some kind of response.
-  hdrs << *c; // Pushes the status line, then all the headers
-  body = c->getbuf();
-  bodysz = const_cast<size_t &>(c->szincache);
+  if (meth == HEAD) {
+    *c << HTTP_CacheEntry::as_HEAD;
+    body = NULL;
+    bodysz = 0;
+  }
+  else {
+    body = c->getbuf();
+    bodysz = const_cast<size_t &>(c->szincache);
+  }
+    hdrs << *c; // Pushes the status line, then all the headers
 }
 
 /* Tries to make sense of RFC 2616, secs. 13 and 14.9. It's probably not
  * 100% right though. */
-bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
+bool HTTP_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
 {
   /* 14.9.4: "The request includes a "no-cache" cache-control directive" ...
    * "The server MUST NOT use a cached copy when responding to such
@@ -108,7 +132,6 @@ bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
     return false;
 
   bool fresh = c->response_is_fresh();
-  bool valid = HTTP_Origin_Server::validate(path, c);
 
   /* For use at cache_ok. I hate that C/C++ doesn't let you begin a label
    * with a declaration. */
@@ -117,7 +140,8 @@ bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
 
   /* As far as I understand, the only cache directive that can disqualify
    * a fresh or valid cache entry (other than no-cache) is min-fresh. */
-  if ((fresh || valid) && !cl_cache_control.isset(cc::use_min_fresh))
+  if ((fresh || HTTP_Origin_Server::validate(path,c)) 
+      && !cl_cache_control.isset(cc::use_min_fresh))
     goto cache_ok;
 
   /* 14.9.3: min-fresh "Indicates that the client is willing to accept a
@@ -179,12 +203,12 @@ bool HTTP_Server_Work::consult_cache(string &path, HTTP_CacheEntry *&c)
    * equal to the cache entry's current_age." */
   tmp << c->current_age();
   tmp >> age;
-  c->pushhdr(Age, age);
+  *c << make_pair(Age, age.c_str());
   if (!fresh) {
     /* Even if we're using a stale entry, we should probably tell the cache to
      * get rid of it when it can. This is my hunch, nothing official. */
     cache->advise_evict(path);
-    c->pushhdr(Warning, "110 " PACKAGE_NAME " \"Response is stale\"");
+    *c << make_pair(Warning, "110 " PACKAGE_NAME " \"Response is stale\"");
   }
   return true;
 
@@ -212,6 +236,8 @@ void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
 				  string const &req_body)
 {
   parsereqln(req_hdrs, meth, path, query);
+
+
   
   if (path == "/")
     path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
@@ -344,13 +370,29 @@ void HTTP_Server_Work::reset()
   // What about cl_accept_enc and cl_max_fwds, meth, etc.
 }
 
-bool HTTP_Server_Work::tryput(string &path, HTTP_CacheEntry *c, size_t sz)
+bool HTTP_Server_Work::cache_put(string &path, HTTP_CacheEntry *c, size_t sz)
 {
-  // 9.2: "Responses to this method [OPTIONS] are not cacheable."
-  //  if (meth == OPTIONS)
-  //    return false;
-  //  if (meth == POST)
+  /* 9.2: "Responses to this method [OPTIONS] are not cacheable."
+   * 9.6: "Responses to this method [PUT] are not cacheable."
+   * 9.7: "Responses to this method [DELETE] are not cacheable."
+   * 9.8: "Responses to this method [TRACE] MUST NOT be cached." */
+  if (meth == DELETE || meth == OPTIONS || meth == PUT || meth == TRACE)
+    return false;
+  /* 9.5: "Responses to this method [POST] are not cacheable, unless the
+   * response includes appropriate Cache-Control or Expires header fields".
+   * 14.21: "The presence of an Expires header field with a date value of some
+   * time in the future on a response that would otherwise by default be
+   * non-cacheable indicates that the response is cacheable, unless indicated
+   * otherwise by a Cache-Control header field." */
+  if (meth == POST && (!c->use_expires || c->expires_value < ::time(NULL)))
+    return false;
+  /* 14.9.2: If no-store is sent in a request, "a cache MUST NOT store
+   * any part of either this request or any response to it."
+   * Note that this seems to include any sort of header logging
+   * (user-agent, etc.) */
+  if (cl_cache_control.isset(cc::no_store))
+    return false;
 
-
+  return cache->put(path, c, c->szincache);
 }
 

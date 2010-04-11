@@ -23,6 +23,7 @@ std::ostream &operator<<(std::ostream &o, HTTP_CacheEntry &c);
 class HTTP_CacheEntry
 {
 public:
+  enum manip { as_HEAD };
   HTTP_CacheEntry(size_t szondisk,
 		  size_t szincache,
 		  time_t request_time,
@@ -31,17 +32,25 @@ public:
 		  uint8_t *_buf,
 		  HTTP_constants::content_coding c);
   ~HTTP_CacheEntry();
+
   bool response_is_fresh();
   HTTP_constants::content_coding const enc;
   size_t const szondisk, szincache;
   time_t last_modified; // Last-Modified header
-  // TODO: turn into IO manipulators, so we can say e.g. entry << header << blah
-  void pushhdr(HTTP_constants::header h, std::string &val);
-  void pushhdr(HTTP_constants::header h, char const *val);
-  void pushstat(HTTP_constants::status stat);
+  HTTP_CacheEntry &operator<<(std::pair<HTTP_constants::header,
+			      std::string &> p);
+  HTTP_CacheEntry &operator<<(std::pair<HTTP_constants::header,
+			      char const *> p);
+  HTTP_CacheEntry &operator<<(HTTP_constants::status &stat);
+  HTTP_CacheEntry &operator<<(manip m);
+
+  //  void pushhdr(HTTP_constants::header h, std::string &val);
+  //  void pushhdr(HTTP_constants::header h, char const *val);
+  //  void pushstat(HTTP_constants::status stat);
   uint8_t const *getbuf();
-  bool use_max_age;
+  bool use_max_age, use_expires;
   time_t max_age_value; // max-age directive of Cache-Control header
+  time_t expires_value; // Expires header
 private:
   // friend so it can write _buf.
   friend int HTTP_Origin_Server::request(std::string &, HTTP_CacheEntry *&);
@@ -52,16 +61,16 @@ private:
   typedef std::unordered_map<int, std::string> hdrmap_type;
   hdrmap_type hdrs;
   // Because multiple workers could have a pointer to the same cache entry
-  RWLock hdrlock; 
+  RWLock metadata;
   uint8_t *_buf;
   time_t date_value; // Date header
   time_t age_value; // Age header
-  time_t expires_value; // Expires header
-
+  
   time_t request_time; // When the cache made this request
   time_t response_time; // When the cache received the response
 
   HTTP_constants::status stat; // Generates status line
+  bool omit_body;
 
   // These are all given in RFC 2616, secs. 13.2.3-4.
   time_t now() { return ::time(NULL); }
