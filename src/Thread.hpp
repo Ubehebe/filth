@@ -18,10 +18,14 @@
 
 /* Wrapper around posix threads to do the most common thing:
  * set up a thread to execute a nullary member function.
- * The constructors provide most of the common thread options, with the notable
- * exception of cancelation cleanup handling (pthread_cleanup_push/pop).
+ * The constructors provide most of the common thread options, with two
+ * exceptions. One is cancelation cleanup handling (pthread_cleanup_push/pop).
  * The reason is that glibc has a long-running bug that makes these functions
- * unreliable. See http://sourceware.org/bugzilla/show_bug.cgi?id=4123 */
+ * unreliable. See http://sourceware.org/bugzilla/show_bug.cgi?id=4123.
+ * The other is the thread-specific data routines (pthread_key_create,
+ * pthread_key_delete, pthread_getspecific, pthread_setspecific). These are
+ * just not good design. It is a much better idea to create an object
+ * associated with a thread and give it the resources it needs. */
 template<class C> class Thread
 {
 public:
@@ -42,8 +46,6 @@ public:
   ~Thread();
   void cancel(); // Found no use for this yet
   void start();
-  void setspecific(pthread_key_t k, const void *v);
-  void *getspecific(pthread_key_t k);
   pthread_t th;
 
 private:
@@ -185,24 +187,6 @@ template<class C> void Thread<C>::cancel()
 {
   if ((errno = pthread_cancel(th))!=0)
     _LOG_INFO("pthread_cancel: %m, continuing");
-}
-
-template<class C> void Thread<C>::setspecific(pthread_key_t k, const void *v)
-{
-  if ((errno=pthread_setspecific(k, v))!=0) {
-    _LOG_FATAL("pthread_setspecific: %m");
-    exit(1);
-  }
-}
-
-template<class C> void *Thread<C>::getspecific(pthread_key_t k)
-{
-  void *ans;
-  if ((ans = pthread_getspecific(k))==NULL) {
-    _LOG_FATAL("pthread_getspecific: invalid TSD key");
-    exit(1);
-  }
-  return ans;
 }
 
 #endif // THREAD_HPP

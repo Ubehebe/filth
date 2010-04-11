@@ -40,6 +40,8 @@ void HTTP_Server::operator()()
   } else {
     /* Delete the work stuff before the cache because when a work object
      * is deleted, it tries to un-reserve its resources in the cache. */
+
+    // This line causes double free errors
     delete fwork;
     delete cache;
   }

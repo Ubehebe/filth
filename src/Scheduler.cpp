@@ -190,21 +190,16 @@ void Scheduler::poll()
      * but I am hoping that in the epoll API, errors will show up as
      * EPOLLERR.
      *
-     * There might be a subtle race condition here. If two workers are ever
-     * servicing the same client, one might schedule a read and the other
-     * might schedule a write. The semantics of epoll_ctl say that whoever
-     * schedules last will win, therefore we might lose a scheduled read or
-     * write. For this reason, I hope I can maintain the invariant:
-     *
-     * AT ANY TIME, THERE IS AT MOST ONE WORKER TALKING TO A GIVEN
-     * CLIENT.
-     *
-     * Note that we could still have multiple workers working on behalf of a
-     * single client, as long as only one was using the connected socket.
-     * (For example, once a worker has parsed enough of a request to
-     * identify the resource, another worker might be enlisted to prepare
-     * the resource; but the first worker should ultimately send it back to
-     * the client. */
+     * Here is the crucial invariant for reasoning about the scheduler:
+     * Any connection that shows up in the epoll_wait is neither currently
+     * being worked on by a worker, nor in the job queue waiting for a worker.
+     * (Rationale: new connections are registered with epoll_wait by the
+     * scheduler, shortly after the accept call; at this time nobody else can
+     * know about them. Every schedule or reschedule call uses the EPOLLONESHOT
+     * flag, which means that after the first time a connection shows up in the
+     * epoll_wait, it is internally disabled until another explicit call to reschedule.
+     * Reschedules occur when a worker is done working on a connection.)
+     */
     fdcb_map::iterator it;
     for (int i=0; i<nchanged; ++i) {
       fd = fds[i].data.fd;
@@ -213,14 +208,21 @@ void Scheduler::poll()
        * in particular the events. Do we need to? */
       if ((it = fdcbs.find(fd)) != fdcbs.end())
 	(*(it->second))();
-      /* TODO */
+      /* In case of error or hangup, we can delete the information associated
+       * with this connection immediately. No worker can be working on it,
+       * and it can't be in the job queue waiting for a worker; see invariant
+       * above.
+       *
+       * Previously, I was setting the work object's deleteme to true,
+       * then enqueuing it, thinking that the next worker would delete it.
+       * However, I was getting double free/corruption errors, which I still
+       * don't understand. */
       else if ((fds[i].events & EPOLLERR)
 	       || (fds[i].events & EPOLLHUP)
 	       || (fds[i].events & EPOLLRDHUP)) {
 	_LOG_INFO("hangup or error on %d", fd);
 	Work *tmp = (*fwork)(fd, Work::read);
-	tmp->deleteme = true;
-	q.enq(tmp);
+	delete tmp;
       }
       else if (fds[i].events & EPOLLIN) {
 	_LOG_DEBUG("%d became readable", fd);

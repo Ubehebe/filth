@@ -25,15 +25,15 @@ public:
     for (int i=0; i<prealloc_chunks; ++i)
       W::store.enq(reinterpret_cast<void *>(new rawbytes<sizeof(W)>));
   }
-  ~FindWork_prealloc()
+  virtual ~FindWork_prealloc()
   {
     /* Send everything still in the work map back to the free store.
      * Note that the FindWork destructor will also call clear_Workmap(),
      * but this isn't a problem because by that time the work map is empty. */
     clear_Workmap();
 
+    // double free or corruption.
     void *tmp;
-    int chunks = 0;
     while (W::store.nowait_deq(tmp)) {
       delete reinterpret_cast<rawbytes<sizeof(W)> *>(tmp);
     }

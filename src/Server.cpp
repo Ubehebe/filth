@@ -119,8 +119,6 @@ void Server::socket_bind_listen()
       && (tcp_keepalive_intvl != -1
 	  || tcp_keepalive_probes != -1
 	  || tcp_keepalive_time != -1)) {
-    _LOG_DEBUG("%d %d %d",
-	       tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time);
     int turnon = 1;
     if (setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (void *) &turnon,
 		   (socklen_t) sizeof(turnon))==-1) {

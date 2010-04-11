@@ -9,9 +9,11 @@ void FindWork::clear_Workmap()
    * should remove itself from the statemap, which would invalidate our
    * iterator. */
   list<Work *> todel;
-  for (Workmap::iterator it = st.begin(); it != st.end(); ++it)
+  for (Workmap::iterator it = st.begin(); it != st.end(); ++it) {
     todel.push_back(it->second);
-  for (list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
+  }
+  for (list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it) {
     delete *it;
+  }
   st.clear();
 }

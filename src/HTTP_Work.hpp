@@ -24,6 +24,7 @@ public:
   // The only function seen by the Worker.
   void operator()();
   HTTP_Work(int fd, Work::mode m);
+  virtual ~HTTP_Work() {}
   static void setsch(Scheduler *sch) { HTTP_Work::sch = sch; }
 
 protected:

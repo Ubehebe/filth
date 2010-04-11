@@ -31,7 +31,6 @@ HTTP_Server_Work::HTTP_Server_Work(int fd, Work::mode m)
 
 HTTP_Server_Work::~HTTP_Server_Work()
 {
-
   st->erase(fd);
 }
 
