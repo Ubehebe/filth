@@ -41,15 +41,6 @@ public:
     else
       return mktime(&tm);
   }
-  // C interoperability hacks (intended for pthread_key_create, _setspecific)
-  static void *C_constructor()
-  { 
-    return reinterpret_cast<void *>(new Time_nr());
-  }
-  static void C_destructor(void *time_nr)
-  { 
-    delete reinterpret_cast<Time_nr *>(time_nr);
-  }
 };
 
 template<> class Factory<Time_nr>

@@ -22,8 +22,6 @@ using namespace HTTP_constants;
 LockFreeQueue<void *> HTTP_Server_Work::store;
 HTTP_Cache *HTTP_Server_Work::cache = NULL;
 Workmap *HTTP_Server_Work::st = NULL;
-pthread_key_t HTTP_Server_Work::MIME_key;
-pthread_key_t HTTP_Server_Work::date_key;
 
 HTTP_Server_Work::HTTP_Server_Work(int fd, Work::mode m)
   : HTTP_Work(fd, m), cl_accept_enc(HTTP_constants::identity),
@@ -357,8 +355,3 @@ bool HTTP_Server_Work::tryput(string &path, HTTP_CacheEntry *c, size_t sz)
 
 }
 
-void HTTP_Server_Work::set()
-{
-  date = reinterpret_cast<Time_nr *>(pthread_getspecific(date_key));
-  MIME = reinterpret_cast<Magic_nr *>(pthread_getspecific(MIME_key));
-}

@@ -15,7 +15,7 @@ public:
   virtual ~Worker() {}
   static ConcurrentQueue<Work *> *q; // where to go to get work
   void work();
-  virtual void imbue_state(Work *w) { _LOG_DEBUG("base!\n"); }
+  virtual void imbue_state(Work *w) {}
 private:
   Worker &operator=(Worker const&);
   Worker(Worker const&);

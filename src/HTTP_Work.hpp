@@ -51,7 +51,6 @@ protected:
    * "piece of work" at the end of servicing a request. The reason we just
    * don't delete this piece of work and get a new one later is because
    * HTTP connections are persistent by default. */
-  virtual void set() {}
   virtual void reset();
 
 

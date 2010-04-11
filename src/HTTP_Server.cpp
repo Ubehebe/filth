@@ -1,7 +1,5 @@
 #include "HTTP_Server.hpp"
-#include "Magic_nr.hpp"
 #include "ThreadPool.hpp"
-#include "Time_nr.hpp"
 
 HTTP_Server *HTTP_Server::theserver = NULL;
 
@@ -34,10 +32,6 @@ HTTP_Server::HTTP_Server(char const *portno,
 void HTTP_Server::operator()()
 {
   if (perform_startup) {
-    register_specific(&HTTP_Server_Work::MIME_key,
-		      Magic_nr::C_constructor, Magic_nr::C_destructor);
-    register_specific(&HTTP_Server_Work::date_key,
-    Time_nr::C_constructor, Time_nr::C_destructor);
     fwork = new HTTP_FindWork(req_prealloc_MB * (1<<20), sch);
     sch->setfwork(fwork);
     cache = new HTTP_Cache(cacheszMB * (1<<20));
@@ -48,15 +42,12 @@ void HTTP_Server::operator()()
      * is deleted, it tries to un-reserve its resources in the cache. */
     delete fwork;
     delete cache;
-    clear_specifics();
   }
   perform_startup = !perform_startup;
 }
 
 HTTP_Server::~HTTP_Server()
 {
-  pthread_key_delete(HTTP_Server_Work::MIME_key);
-  pthread_key_delete(HTTP_Server_Work::date_key);
   _SHOW_STAT(flushes);
 }
 

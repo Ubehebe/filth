@@ -36,12 +36,11 @@ private:
 			uint8_t const *&body, size_t &bodysz);
   void on_parse_err(status &s, stringstream &hdrs,
 		    uint8_t const *&body, size_t &bodysz);
-  void set();
   void reset();
 
   friend class FindWork_prealloc<HTTP_Server_Work>;
   friend class HTTP_FindWork;
-  friend class HTTP_Server;
+  friend class HTTP_Worker;
   HTTP_Server_Work(HTTP_Server_Work const&);
   HTTP_Server_Work &operator=(HTTP_Server_Work const&);
 
@@ -50,10 +49,7 @@ private:
   static HTTP_Cache *cache;
   static Workmap *st;
 
-  static pthread_key_t MIME_key;
-  static pthread_key_t date_key;
-
-  // State borrowed from the Worker object that we use.
+  // State imbued from the Worker object that we use.
   Time_nr *date;
   Magic_nr *MIME;
 

@@ -11,7 +11,6 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
 
 void HTTP_Work::operator()()
 {
-  set();
   int err;
   switch(m) {
   case Work::read:

@@ -38,14 +38,6 @@ public:
       exit(1);
     }
   }
-  static void *C_constructor()
-  {
-    return reinterpret_cast<void *>(new Magic_nr());
-  }
-  static void C_destructor(void *magic_nr)
-  {
-    delete reinterpret_cast<Magic_nr *>(magic_nr);
-  }
 };
 
 template<> class Factory<Magic_nr>

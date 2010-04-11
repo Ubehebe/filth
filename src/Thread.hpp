@@ -16,16 +16,6 @@
 #include "Locks.hpp"
 #include "logging.h"
 
-struct specific_data
-{
-  pthread_key_t *k;
-  void *(*constructor)();
-  void (*destructor)(void *);
-  specific_data(pthread_key_t *k, void *(*constructor)(),
-		void (*destructor)(void *))
-    : k(k), constructor(constructor), destructor(destructor) {}
-};
-
 /* Wrapper around posix threads to do the most common thing:
  * set up a thread to execute a nullary member function.
  * The constructors provide most of the common thread options, with the notable
@@ -40,7 +30,6 @@ public:
 	 sigset_t *_sigmask=NULL,
 	 bool detached=false,
 	 Callback *cleanup = NULL,
-	 std::list<specific_data> *specifics=NULL,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   Thread(C *c,
@@ -48,7 +37,6 @@ public:
 	 sigset_t *_sigmask=NULL,
 	 bool detached=false,
 	 Callback *cleanup = NULL,
-	 std::list<specific_data> *specifics=NULL,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
   ~Thread();
@@ -61,7 +49,6 @@ public:
 private:
 
   sigset_t *_sigmask;
-  std::list<specific_data> *specifics;
   Thread(Thread const&);
   Thread &operator=(Thread const&);
   C *_c;
@@ -80,13 +67,10 @@ private:
     sigset_t *_sigmask;
     int _cancelstate, _canceltype;
     Callback *_cleanup;
-    std::list<specific_data> *_specifics;
     _Thread(C *_c, void (C::*_p)(), sigset_t *_sigmask,
-	    Callback *_cleanup, int _cancelstate, int _canceltype,
-	    std::list<specific_data> *_specifics)
+	    Callback *_cleanup, int _cancelstate, int _canceltype)
       : _c(_c), _p(_p), _sigmask(_sigmask),  _cleanup(_cleanup),
-	_cancelstate(_cancelstate), _canceltype(_canceltype),
-	_specifics(_specifics)
+	_cancelstate(_cancelstate), _canceltype(_canceltype)
     {}
   };
 };
@@ -96,10 +80,9 @@ template<class C> Thread<C>::Thread(Factory<C> &f,
 				    sigset_t *_sigm,
 				    bool detached,
 				    Callback *cleanup,
-				    std::list<specific_data> *specifics,
 				    int cancelstate,
 				    int canceltype)
-  : _c(f()), _p(p), detached(detached), cleanup(cleanup), specifics(specifics),
+  : _c(f()), _p(p), detached(detached), cleanup(cleanup),
     cancelstate(cancelstate), canceltype(canceltype), dodelete(true)
 {
   if (_sigm != NULL) {
@@ -115,11 +98,10 @@ template<class C> Thread<C>::Thread(
 				    sigset_t *_sigmask,
 				    bool detached,
 				    Callback *cleanup,
-				    std::list<specific_data> *specifics,
 				    int cancelstate,
 				    int canceltype)
   : _c(c), _p(p), _sigmask(_sigmask), detached(detached), cleanup(cleanup),
-    specifics(specifics), cancelstate(cancelstate), canceltype(canceltype),
+    cancelstate(cancelstate), canceltype(canceltype),
     dodelete(false)
 {
 }
@@ -127,7 +109,7 @@ template<class C> Thread<C>::Thread(
 template<class C> void Thread<C>::start()
 {
   _Thread *tmp = new _Thread(_c, _p, _sigmask, cleanup, cancelstate,
-			     canceltype, specifics);
+			     canceltype);
 
   pthread_attr_t attr;
   if ((errno = pthread_attr_init(&attr))!=0) {
@@ -173,16 +155,6 @@ template<class C> void *Thread<C>::pthread_create_wrapper
   if ((errno = pthread_setcanceltype(tmp->_canceltype, NULL))!=0) {
     _LOG_FATAL("pthread_setcanceltype: %m");
     exit(1);
-  }
-
-  if (tmp->_specifics != NULL) {
-    for (std::list<specific_data>::iterator it = tmp->_specifics->begin();
-	 it != tmp->_specifics->end(); ++it) {
-      if ((errno = pthread_setspecific(*(it->k), it->constructor()))!=0) {
-	_LOG_FATAL("pthread_setspecific: %m");
-	exit(1);
-      }
-    }
   }
 
   Callback *cleanup = tmp->_cleanup;

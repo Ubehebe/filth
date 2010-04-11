@@ -1,4 +1,5 @@
 #include "FindWork.hpp"
+#include "logging.h"
 
 using namespace std;
 

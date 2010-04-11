@@ -37,9 +37,6 @@ public:
 	 int tcp_keepalive_probes=-1,
 	 int tcp_keepalive_time=-1);
   ~Server();
-  void register_specific(pthread_key_t *k, void *(*constructor)(),
-			 void (*destructor)(void *));
-  void clear_specifics();
   void serve();
   void doserve(bool doserve) { _doserve = doserve; }
   static void halt(int ignore=-1);
@@ -86,8 +83,6 @@ private:
   bool _doserve;
   sigset_t haltsigs;
   static Server *theserver;
-
-  std::list<specific_data> specifics;
 
 protected:
   Scheduler *sch; // Not a great idea; accessor instead?
