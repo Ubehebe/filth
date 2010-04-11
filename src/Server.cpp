@@ -26,6 +26,7 @@ Server *Server::theserver = NULL;
 Server::Server(
 	       int domain,
 	       FindWork *fwork,
+	       Factory<Worker> &wfact,
 	       char const *mount,
 	       char const *bindto,
 	       int nworkers,
@@ -45,7 +46,7 @@ Server::Server(
     tcp_keepalive_intvl(tcp_keepalive_intvl),
     tcp_keepalive_probes(tcp_keepalive_probes),
     tcp_keepalive_time(tcp_keepalive_time),
-    onshutdown(onshutdown), _doserve(true)
+    onshutdown(onshutdown), _doserve(true), wfact(wfact)
 {
   // For signal handlers that have to be static.
   theserver = this;
@@ -225,7 +226,7 @@ void Server::serve()
 
     { // ----------------------------------------------------------------------
       Thread<Scheduler> schedth(sch, &Scheduler::poll);
-      Factory<Worker> wfact(q);
+      wfact.setq(q);
       /* I am having problems getting polymorphism to work on the next line.
        * Namely, you can't have a Worker2 class deriving Worker, a
        * Factory<Worker2> class deriving Factory<Worker>, pass a

@@ -19,7 +19,7 @@ HTTP_Server::HTTP_Server(char const *portno,
 			 int tcp_keepalive_intvl,
 			 int tcp_keepalive_probes,
 			 int tcp_keepalive_time)
-  : Server((ipv6) ? AF_INET6 : AF_INET, fwork, mount, portno, nworkers, listenq,
+  : Server((ipv6) ? AF_INET6 : AF_INET, fwork, wfact, mount, portno, nworkers, listenq,
 	   ifnam, this, this, NULL, sigdl_int, sigdl_ext,
 	   tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time),
     req_prealloc_MB(req_prealloc_MB), cacheszMB(cacheszMB), sigflush(sigflush),
@@ -37,7 +37,7 @@ void HTTP_Server::operator()()
     register_specific(&HTTP_Server_Work::MIME_key,
 		      Magic_nr::C_constructor, Magic_nr::C_destructor);
     register_specific(&HTTP_Server_Work::date_key,
-		      Time_nr::C_constructor, Time_nr::C_destructor);
+    Time_nr::C_constructor, Time_nr::C_destructor);
     fwork = new HTTP_FindWork(req_prealloc_MB * (1<<20), sch);
     sch->setfwork(fwork);
     cache = new HTTP_Cache(cacheszMB * (1<<20));

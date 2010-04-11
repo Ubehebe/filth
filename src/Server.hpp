@@ -22,6 +22,7 @@ public:
   Server(
 	 int domain,
 	 FindWork *fwork,
+	 Factory<Worker> &wfact,
 	 char const *mount,
 	 char const *bindto,
 	 int nworkers,
@@ -47,6 +48,7 @@ public:
 private:
   Server &operator=(Server const&);
   Server(Server const&);
+  Factory<Worker> &wfact;
 
   // Internal setup functions for supported domains.
   void setup_AF_INET();

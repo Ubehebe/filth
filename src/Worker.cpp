@@ -25,6 +25,7 @@ void Worker::work()
     }
     else {
       try {
+	imbue_state(w);
 	(*w)();
       }
       catch (SocketErr e) {

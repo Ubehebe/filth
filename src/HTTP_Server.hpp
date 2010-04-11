@@ -11,9 +11,11 @@
 
 #include "Cache.hpp"
 #include "Callback.hpp"
+#include "Factory.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_constants.hpp"
 #include "HTTP_FindWork.hpp"
+#include "HTTP_Worker.hpp"
 #include "logging.h"
 #include "Server.hpp"
 #include "ServerErrs.hpp"
@@ -45,6 +47,8 @@ public:
 private:
   HTTP_Server(HTTP_Server const&);
   HTTP_Server &operator=(HTTP_Server const&);
+
+  Factory<HTTP_Worker> wfact;
 
   // These are pointers because they can get torn down and rebuilt.
   HTTP_FindWork *fwork;
