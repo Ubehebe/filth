@@ -11,12 +11,13 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
 
 void HTTP_Work::operator()()
 {
+ pipeline_continue:
   int err;
   switch(m) {
   case Work::read:
     err = (!req_hdrs_done)
-      ? rduntil(parsebuf, cbuf, cbufsz) // Read headers
-      : rduntil(parsebuf, cbuf, cbufsz, req_body_sz); // Read body
+      ? rduntil(reqbuf, cbuf, cbufsz) // Read headers
+      : rduntil(req_body, cbuf, cbufsz, req_body_sz); // Read body
     if (err != 0 && err != EAGAIN && err != EWOULDBLOCK)
       throw SocketErr("read", err);
     /* TODO: right now we schedule a write immediately after the reading is
@@ -24,12 +25,12 @@ void HTTP_Work::operator()()
      * the server side (e.g. wait for a CGI program to return), we would want
      * the write to be scheduled only when all the resources are ready. */
     if (!req_hdrs_done) {
-      if (parsebuf >> req_hdrs) {
+      if (reqbuf >> req_hdrs) {
 	req_hdrs_done = true;
+	// We need this to read the rest of the request.
 	if (!req_hdrs[Content_Length].empty()) {
-	  parsebuf.clear();
-	  parsebuf.str(req_hdrs[Content_Length]);
-	  parsebuf >> req_body_sz;
+	  stringstream tmp(req_hdrs[Content_Length]);
+	  tmp >> req_body_sz;
 	}
 	if (req_body_sz == 0)
 	  goto dropdown;
@@ -37,20 +38,17 @@ void HTTP_Work::operator()()
     }
     // Finished reading the request body into parsebuf, so schedule a write.
     else if (req_body_sz == 0) {
-      req_body = parsebuf.str();
     dropdown:
-      parsebuf.str("");
-      parsebuf.clear();
       try {
 	browse_req(req_hdrs, req_body);
-	prepare_response(parsebuf, resp_body, resp_body_sz);
+	prepare_response(respbuf, resp_body, resp_body_sz);
       }
       catch (HTTP_Parse_Err e) {
-	parsebuf.str("");
-	parsebuf.clear();
-	on_parse_err(e.stat, parsebuf, resp_body, resp_body_sz);
+	respbuf.str("");
+	respbuf.clear();
+	on_parse_err(e.stat, respbuf, resp_body, resp_body_sz);
       }
-      parsebuf.get(reinterpret_cast<char *>(cbuf), cbufsz, '\0');
+      respbuf.get(reinterpret_cast<char *>(cbuf), cbufsz, '\0');
       out = resp_hdrs = const_cast<uint8_t *>(cbuf);
       outsz = resp_hdrs_sz = strlen(reinterpret_cast<char *>(cbuf)); // Should this work?????
       if (outsz == cbufsz-1)
@@ -82,7 +80,33 @@ void HTTP_Work::operator()()
 	reset();
 	HTTP_Work::reset(); // Ensure base reset always called
 	m = read;
-	sch->reschedule(this);
+
+	/* Try to read an additional test character from the request buffer,
+	 * in order to determine if there is a pipelined request we need to
+	 * preserve for the next worker to handle this piece of work. */
+	reqbuf.ignore();
+	if (reqbuf.good()) {
+	  reqbuf.unget();
+	  /* If the client is doing pipelining, just handle the next request
+	   * ourselves.
+	   *
+	   * Q: Couldn't we increase concurrency by having some
+	   * mechanism for different workers handling different pipelined
+	   * requests from the same client?
+	   *
+	   * A: Maybe, but this would entail some fundamental design changes;
+	   * the "one socket, at most one worker" invariant, so useful for
+	   * reasoning about the scheduler, would have to be changed. Besides,
+	   * there is an inherent bottleneck here: writes to a socket have to
+	   * be sequential, or else the client will get garbage. So I'm just not sure
+	   * about the payoff. */
+	  goto pipeline_continue;
+	}
+	else {
+	  reqbuf.str("");
+	  reqbuf.clear();
+	  sch->reschedule(this);	  
+	}
       }
       // If deleteme is true, the worker will delete this piece of work.
     }
@@ -176,8 +200,8 @@ void HTTP_Work::on_parse_err(status &s, stringstream &hdrs,
 void HTTP_Work::reset()
 {
   req_hdrs_done = resp_hdrs_done = false;
-  parsebuf.str("");
-  parsebuf.clear();
+  respbuf.str("");
+  respbuf.clear();
   cbuf[0] = '\0'; // just paranoia
   req_hdrs.clear();
   req_hdrs.resize(1+num_header);

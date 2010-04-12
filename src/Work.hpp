@@ -20,7 +20,7 @@ public:
   Work(int fd, mode m, bool closeme=false);
   virtual ~Work();
   int rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz);
-  int rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz, size_t &tord);
+  int rduntil(std::string &s, uint8_t *rdbuf, size_t rdbufsz, size_t &tord);
   int wruntil(uint8_t const *&outbuf, size_t &towrite);
 private:
   Work(Work const&);

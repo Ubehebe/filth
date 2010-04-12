@@ -1,6 +1,7 @@
 #include <sstream>
 
 #include "HTTP_constants.hpp"
+#include "HTTP_Parse_Err.hpp"
 #include "HTTP_parsing.hpp"
 #include "logging.h"
 
@@ -21,26 +22,26 @@ bool operator>>(istream &input, vector<string> &hdrs)
       return false;
     }
     input.ignore(); // Ignore the \n (the \r is already consumed)
+    input.clear();
 
     if (line.find(HTTP_Version) != line.npos) {
       hdrs[reqln] = line;
     }
 
     else {
-      _LOG_DEBUG("%s", line.c_str());
       stringstream tmp(line);
-      header h = static_cast<header>(num_header);
-      tmp >> h;
-      int hi = static_cast<int>(h);
-      if (hi != num_header)
+      header h;
+      try {
+	tmp >> h;
+	int hi = static_cast<int>(h);
 	hdrs[hi] = line;
+      } catch (HTTP_Parse_Err e) {} // Just ignore unrecognized headers
     }
   }
   input.clear();
   // We got to the empty line.
   if (line.length() == 0 && input.peek() == '\n') {
     input.ignore();
-    input.clear();
     return true;
   } else {
     _LOG_DEBUG("line not properly terminated: %s", line.c_str());

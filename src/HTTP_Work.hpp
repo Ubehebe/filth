@@ -67,8 +67,11 @@ private:
   bool req_hdrs_done, resp_hdrs_done;
   static size_t const cbufsz = 1<<12; // =(
 
-  // General-purpose parsing buffers.
-  stringstream parsebuf;
+  /* General-purpose parsing buffers. We need two buffers because if the client
+   * pipelines requests, we might read more than one whole request into
+   * reqbuf. When this happens, we have to preserve the request buffer
+   * for the next worker who might use it. */
+  stringstream reqbuf, respbuf;
   uint8_t cbuf[cbufsz];
 
   req_hdrs_type req_hdrs;

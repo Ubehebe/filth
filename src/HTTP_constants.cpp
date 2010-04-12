@@ -130,6 +130,7 @@ namespace HTTP_constants
 	return i;
       }
     }
+    throw HTTP_Parse_Err(Bad_Request);
   }
 
   /* Value, not reference. Otherwise things like o << Content_Length

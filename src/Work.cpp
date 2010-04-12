@@ -38,7 +38,7 @@ int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz)
   return errno;
 }
 
-int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz, size_t &tord)
+int Work::rduntil(std::string &s, uint8_t *rdbuf, size_t rdbufsz, size_t &tord)
 {
   ssize_t nread;
   while (tord > 0) {
@@ -46,7 +46,7 @@ int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz, size_t &t
       // Needed because I think operator<< calls strlen on right operand.
       rdbuf[nread] = '\0';
       tord -= nread;
-      inbuf << rdbuf;
+      s.append(reinterpret_cast<char const *>(rdbuf));
     } else if (nread == -1 && errno == EINTR) {
       continue;
     } else {
