@@ -4,7 +4,6 @@
 #include <magic.h>
 #include <stdlib.h>
 
-#include "Factory.hpp"
 #include "logging.h"
 
 /* Thin wrapper around libmagic.
@@ -38,12 +37,6 @@ public:
       exit(1);
     }
   }
-};
-
-template<> class Factory<Magic_nr>
-{
-public:
-  Magic_nr *operator()() { return new Magic_nr(); }
 };
 
 #endif // MAGIC_NR_HPP

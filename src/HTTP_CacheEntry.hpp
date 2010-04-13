@@ -44,9 +44,6 @@ public:
   HTTP_CacheEntry &operator<<(HTTP_constants::status &stat);
   HTTP_CacheEntry &operator<<(manip m);
 
-  //  void pushhdr(HTTP_constants::header h, std::string &val);
-  //  void pushhdr(HTTP_constants::header h, char const *val);
-  //  void pushstat(HTTP_constants::status stat);
   uint8_t const *getbuf();
   bool use_max_age, use_expires;
   time_t max_age_value; // max-age directive of Cache-Control header

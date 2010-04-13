@@ -9,6 +9,7 @@
 #include "HTTP_Parse_Err.hpp"
 #include "HTTP_parsing.hpp"
 #include "HTTP_Work.hpp"
+#include "Worker.hpp"
 
 /* A general class for any "unit of work" that reads an HTTP request
  * and writes an HTTP response. */
@@ -16,7 +17,7 @@ class HTTP_Server_Work : public HTTP_Work
 {
 public:
   // The only function seen by the Worker.
-  void operator()();
+  void operator()(Worker *w);
 
   HTTP_Server_Work(int fd);
   virtual ~HTTP_Server_Work() {}

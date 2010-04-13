@@ -1,37 +1,20 @@
 #ifndef WORKER_HPP
 #define WORKER_HPP
 
-#include <list>
-
 #include "ConcurrentQueue.hpp"
-#include "Factory.hpp"
-#include "logging.h"
 #include "Work.hpp"
 
 class Worker
 {
 public:
-  Worker() {}
+  static ConcurrentQueue<Work *> *jobq; // where to go to get work
+  struct Worker_state {} *state; // optionally inspected by work object
+  Worker() : state(NULL) {}
   virtual ~Worker() {}
-  static ConcurrentQueue<Work *> *q; // where to go to get work
   void work();
-  virtual void imbue_state(Work *w) {}
 private:
   Worker &operator=(Worker const&);
   Worker(Worker const&);
-};
-
-template<> class Factory<Worker>
-{
-public:
-  void setq(ConcurrentQueue<Work *> *q)
-  {
-    Worker::q = q;
-  }
-  virtual Worker *operator()()
-  {
-    return new Worker();
-  }
 };
 
 #endif // WORKER_HPP

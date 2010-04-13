@@ -4,6 +4,8 @@
 #include <iostream>
 #include <stdint.h>
 
+class Worker; // fwd declaration
+
 class Work
 {
 public:
@@ -11,7 +13,7 @@ public:
   int fd;
   bool deleteme;
   Work(int fd, mode m, bool closeme=false);
-  virtual void operator()() = 0; // The only function seen by the worker
+  virtual void operator()(Worker *) = 0; // The only function seen by the worker
   virtual ~Work();
 protected:
   int rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz);

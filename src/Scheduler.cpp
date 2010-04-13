@@ -22,16 +22,8 @@ using namespace std;
 
 Scheduler *Scheduler::thescheduler = NULL;
 
-Scheduler::_acceptcb::_acceptcb(Scheduler &sch,
-				int listenfd,
-				int tcp_keepalive_intvl,
-				int tcp_keepalive_probes,
-				int tcp_keepalive_time)
-  : sch(sch),
-    fd(listenfd),
-    tcp_keepalive_intvl(tcp_keepalive_intvl),
-    tcp_keepalive_probes(tcp_keepalive_probes),
-    tcp_keepalive_time(tcp_keepalive_time)
+Scheduler::_acceptcb::_acceptcb(Scheduler &sch, int listenfd)
+  : sch(sch), fd(listenfd)
 {
 #ifdef _COLLECT_STATS
   accepts = 0;
@@ -44,14 +36,10 @@ Scheduler::_acceptcb::~_acceptcb()
 }
 
 Scheduler::Scheduler(ConcurrentQueue<Work *> &q, int listenfd,
-		     int tcp_keepalive_intvl, int tcp_keepalive_probes,
-		     int tcp_keepalive_time, int pollsz, int maxevents)
+		     int pollsz, int maxevents)
   : q(q), maxevents(maxevents), dowork(true),
     acceptcb(*this,
-	     listenfd,
-	     tcp_keepalive_intvl,
-	     tcp_keepalive_probes,
-	     tcp_keepalive_time),
+	     listenfd),
     sigcb(*this, dowork, sighandlers)
 {
   /* I didn't design the scheduler class to have more than one instantiation
@@ -257,6 +245,7 @@ void Scheduler::_acceptcb::operator()()
       throw SocketErr("accept", errno);
     }
   }
+  // TODO: isn't this inherited already from fd?
   int flags;
   if ((flags = fcntl(acceptfd, F_GETFL))==-1)
     throw SocketErr("fcntl (F_GETFL)", errno);

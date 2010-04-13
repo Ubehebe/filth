@@ -1,3 +1,6 @@
+#ifndef SERVER_HPP
+#define SERVER_HPP
+
 #include <algorithm>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -15,38 +18,122 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <unordered_map>
 
 #include "Factory.hpp"
+#include "FindWork_prealloc.hpp"
+#include "LockFreeQueue.hpp"
+#include "Locks.hpp"
 #include "logging.h"
-#include "Server.hpp"
+#include "Scheduler.hpp"
 #include "sigmasks.hpp"
+#include "ThreadPool.hpp"
+#include "Work.hpp"
+#include "Worker.hpp"
 
-Server *Server::theserver = NULL;
+template<class _Work, class _Worker> class Server
+{
+public:
+  /* For network sockets, bindto should be a string of a port number,
+   * like "80". For local sockets, bindto should be a filesystem path. */
+  Server(
+	 int domain,
+	 char const *mount,
+	 char const *bindto,
+	 int nworkers=10,
+	 int listenq=100,
+	 size_t preallocMB=10,
+	 char const *ifnam=NULL,
+	 sigset_t *haltsigs=NULL,
+	 int sigdl_int=-1,
+	 int sigdl_ext=-1,
+	 int tcp_keepalive_intvl=-1,
+	 int tcp_keepalive_probes=-1,
+	 int tcp_keepalive_time=-1);
+  /* These are hooks into beginning and end of the server's serve() loop. 
+   * The idea is that the server should tear down and rebuild all its resources
+   * for each loop, because a loop corresponds to a call to ThreadPool's
+   * UNSAFE_emerg_yank routine, which can leave data in really bad shape.
+   * Classes derived from Server that add new resources (e.g. a cache)
+   * should use these callbacks to tear down and rebuild those resources. */
+  virtual void onstartup() {}
+  virtual void onshutdown() {}
+  virtual ~Server();
+  void serve();
+  void doserve(bool doserve) { _doserve = doserve; }
+  static void halt(int ignore=-1);
+  static void UNSAFE_emerg_yank_wrapper(int ignore=-1);
 
-Server::Server(
+private:
+  Server &operator=(Server const&);
+  Server(Server const&);
+
+  // These two are pointers because they can get rebuilt within the main loop.
+  FindWork_prealloc<_Work> *findwork;
+  /* Jobs waiting to be worked on.
+   * N.B.: "Work", not "_Work". The reason is that although there is usually
+   * one kind of work that characterizes a server, the server may occasionally
+   * undertake other kinds of work, for example when it acts as a client to
+   * another server on behalf of the "real" client. Any old piece of work
+   * can go in the job queue, as long as workers know how to deal with it. */
+  LockFreeQueue<Work *> *jobq;
+
+  // This is not a pointer because there is no need to rebuild it.
+  Factory<_Worker> wfact;
+
+  // Internal setup functions for supported domains.
+  void setup_AF_INET();
+  void setup_AF_INET6();
+  void setup_AF_LOCAL();
+  void socket_bind_listen();
+
+  int domain, listenfd, listenq, nworkers;
+
+  int tcp_keepalive_intvl, tcp_keepalive_probes, tcp_keepalive_time;
+
+  char const *bindto, *ifnam;
+  size_t const preallocMB;
+
+  /* A server bound to a socket in the filesystem needs to remember both
+   * where it is bound (sockdir) and the subtree of the filesystem it considers
+   * root (mntdir). This is because if the server does a soft reboot,
+   * it will have to chdir to sockdir, bind the socket there, then chdir to
+   * mntdir to service requests from there. */
+  char *sockdir; // not const because it uses get_current_dir_name
+  char const *mntdir;
+
+  int sigdl_int, sigdl_ext;
+  bool _doserve;
+  sigset_t haltsigs;
+  static Server *theserver;
+  Scheduler *sch; // Not a great idea; accessor instead?
+};
+
+template<class _Work, class _Worker>
+Server<_Work, _Worker> *Server<_Work, _Worker>::theserver;
+
+template<class _Work, class _Worker>
+Server<_Work, _Worker>::Server(
 	       int domain,
-	       FindWork *fwork,
-	       Factory<Worker> &wfact,
 	       char const *mount,
 	       char const *bindto,
 	       int nworkers,
 	       int listenq,
+	       size_t preallocMB,
 	       char const *ifnam,
-	       Callback *onstartup,
-	       Callback *onshutdown,
 	       sigset_t *_haltsigs,
 	       int sigdl_int,
 	       int sigdl_ext,
 	       int tcp_keepalive_intvl,
 	       int tcp_keepalive_probes,
 	       int tcp_keepalive_time)
-  : domain(domain), fwork(fwork), bindto(bindto),
+  : domain(domain), bindto(bindto), preallocMB(preallocMB),
     nworkers(nworkers), listenq(listenq), sigdl_int(sigdl_int),
-    sigdl_ext(sigdl_ext), ifnam(ifnam), onstartup(onstartup),
+    sigdl_ext(sigdl_ext), ifnam(ifnam),
     tcp_keepalive_intvl(tcp_keepalive_intvl),
     tcp_keepalive_probes(tcp_keepalive_probes),
     tcp_keepalive_time(tcp_keepalive_time),
-    onshutdown(onshutdown), _doserve(true), wfact(wfact)
+    _doserve(true)
 {
   // For signal handlers that have to be static.
   theserver = this;
@@ -87,19 +174,26 @@ Server::Server(
   }
 }
 
-void Server::halt(int ignore)
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::halt(int ignore)
 { 
+  // Causes the server to end after the next iteration of serve()
   theserver->doserve(false);
+  // Causes the current iteration of serve() to end
   theserver->sch->halt();
 }
 
-void Server::UNSAFE_emerg_yank_wrapper(int ignore)
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::UNSAFE_emerg_yank_wrapper(int ignore)
 {
-  ThreadPool<Worker>::UNSAFE_emerg_yank();
+  // I forgot what this does :)
+  ThreadPool<_Worker>::UNSAFE_emerg_yank();
+  // Causes the current iteration of serve() to end
   theserver->sch->halt();
 }
 
-void Server::socket_bind_listen()
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::socket_bind_listen()
 {
   if ((listenfd = socket(domain, SOCK_STREAM, 0))==-1) {
     _LOG_FATAL("socket: %m");
@@ -171,16 +265,9 @@ void Server::socket_bind_listen()
 
 }
 
-Server::~Server()
+template<class _Work, class _Worker>
+Server<_Work, _Worker>::~Server()
 {
-  /* Typically, a FooServer will inherit from Server and also contain a
-   * FooFindWork object that keeps track of (and maybe allocates/deallocates)
-   * FooWork objects. Thus, in the FooServer destructor, the FooFindWork
-   * destructor is called _before_ the Server destructor, i.e. before now.
-   * Thus, we do not need to worry about winding down still-active
-   * connections; they have already been dealt with, even the listening
-   * socket. */
-
   if (domain == AF_LOCAL) {
     if (chdir(sockdir)==-1) {
       _LOG_INFO("chdir %s: %m, ignoring (so can't unlink socket)", sockdir);
@@ -195,51 +282,46 @@ Server::~Server()
 }
 
 // The main loop.
-void Server::serve()
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::serve()
 {
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
 
   while (_doserve) {
     socket_bind_listen();
-    q = new LockFreeQueue<Work *>();
-    sch = new Scheduler(*q,
-			listenfd,
-			tcp_keepalive_intvl,
-			tcp_keepalive_probes,
-			tcp_keepalive_time);
-
-    /* This callback should create a FindWork object and let the scheduler 
-     * know about it. */
-    if (onstartup != NULL)
-      (*onstartup)();
+    onstartup();
+    jobq = new LockFreeQueue<Work *>();
+    sch = new Scheduler(*jobq, listenfd);
+    findwork = new FindWork_prealloc<_Work>(preallocMB * (1<<20));
+    sch->setfwork(findwork);
     
     // No signal has value 0.
-    for (uint8_t sig=1; sig<NSIG; ++sig) {
+    for (uint8_t sig=1; sig<NSIG; ++sig)
       if (sigismember(&haltsigs, sig))
 	sch->push_sighandler(sig, halt);
-    }
 
     if (sigdl_ext != -1)
       sch->push_sighandler(sigdl_ext, UNSAFE_emerg_yank_wrapper);
 
-    { // ----------------------------------------------------------------------
+    { // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       Thread<Scheduler> schedth(sch, &Scheduler::poll);
-      wfact.setq(q);
-      ThreadPool<Worker> wths(wfact, &Worker::work, nworkers, sigdl_int);
+      _Worker::jobq = jobq;
+      ThreadPool<_Worker> wths(wfact, &_Worker::work, nworkers, sigdl_int);
       schedth.start();
       wths.start();
       /* The Thread and ThreadPool destructors wait for their threads 
        * to go out of scope. */
-    } // ----------------------------------------------------------------------
+    } // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-    if (onshutdown != NULL)
-      (*onshutdown)();
+    delete findwork;
     delete sch;
-    delete q;
+    delete jobq;
+    onshutdown();
   }
 }
 
-void Server::setup_AF_INET()
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::setup_AF_INET()
 {
   struct ifaddrs *ifap;
 
@@ -288,7 +370,8 @@ void Server::setup_AF_INET()
   _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin_port));
 }
 
-void Server::setup_AF_INET6()
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::setup_AF_INET6()
 {
   struct ifaddrs *ifap;
 
@@ -340,7 +423,8 @@ void Server::setup_AF_INET6()
   _LOG_INFO("listening on %s:%d", ipnam, ntohs(sa.sin6_port));
 }
 
-void Server::setup_AF_LOCAL()
+template<class _Work, class _Worker>
+void Server<_Work, _Worker>::setup_AF_LOCAL()
 {
   if (chdir(sockdir)==-1) {
     _LOG_FATAL("chdir: %m");
@@ -372,3 +456,5 @@ void Server::setup_AF_LOCAL()
     exit(1);
   }
 }
+
+#endif // SERVER_HPP

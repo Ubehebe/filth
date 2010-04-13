@@ -6,18 +6,18 @@
 
 using namespace std;
 
-ConcurrentQueue<Work *> *Worker::q = NULL;
+ConcurrentQueue<Work *> *Worker::jobq = NULL;
 
 void Worker::work()
 {
   _LOG_INFO("worker commencing");
 
   while (true) {
-    Work *w = q->wait_deq();
+    Work *w = jobq->wait_deq();
     // a NULL Work object means stop!
     if (w == NULL) {
       // Put it back, for the other workers to see
-      q->enq(w);
+      jobq->enq(w);
       break;
     }
     else if (w->deleteme) {
@@ -25,8 +25,7 @@ void Worker::work()
     }
     else {
       try {
-	imbue_state(w);
-	(*w)();
+	(*w)(this);
       }
       catch (SocketErr e) {
 	_LOG_INFO("%s (%s), closing socket %d", e.msg, strerror(e.err), w->fd);

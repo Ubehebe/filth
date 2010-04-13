@@ -23,11 +23,11 @@
 using namespace std;
 using namespace HTTP_constants;
 
-LockFreeQueue<void *> HTTP_Server_Work_big::store;
 HTTP_Cache *HTTP_Server_Work_big::cache = NULL;
-Workmap *HTTP_Server_Work_big::st = NULL;
+FindWork_prealloc<HTTP_Server_Work_big>::workmap *HTTP_Server_Work_big::wmap
+= NULL;
 
-HTTP_Server_Work_big::HTTP_Server_Work_big(int fd)
+HTTP_Server_Work_big::HTTP_Server_Work_big(int fd, Work::mode m)
   : HTTP_Server_Work(fd), cl_accept_enc(HTTP_constants::identity),
     c(NULL), date(NULL), MIME(NULL), resp_is_cached(false),
     dynamic_resource(NULL)
@@ -36,7 +36,7 @@ HTTP_Server_Work_big::HTTP_Server_Work_big(int fd)
 
 HTTP_Server_Work_big::~HTTP_Server_Work_big()
 {
-  st->erase(fd);
+  wmap->erase(fd);
 }
 
 
@@ -370,20 +370,6 @@ void HTTP_Server_Work_big::browse_req(structured_hdrs_type &req_hdrs,
     stringstream tmp(req_hdrs[Max_Forwards]);
     tmp >> cl_max_fwds;
   }
-}
-
-void *HTTP_Server_Work_big::operator new(size_t sz)
-{
-  void *stuff;
-  if (!store.nowait_deq(stuff)) {
-    stuff = ::operator new(sz);
-  }
-  return stuff;
-}
-
-void HTTP_Server_Work_big::operator delete(void *work)
-{
-  store.enq(work);
 }
 
 void HTTP_Server_Work_big::reset()

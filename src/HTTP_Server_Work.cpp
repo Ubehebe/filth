@@ -11,7 +11,7 @@ HTTP_Server_Work::HTTP_Server_Work(int fd)
 {
 }
 
-void HTTP_Server_Work::operator()()
+void HTTP_Server_Work::operator()(Worker *w)
 {
  pipeline_continue:
   int err;

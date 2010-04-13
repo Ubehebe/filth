@@ -41,7 +41,7 @@ HTTP_Client_Work::~HTTP_Client_Work()
   delete[] outbody;
 }
 
-void HTTP_Client_Work::operator()()
+void HTTP_Client_Work::operator()(Worker *w)
 {
   int err;
   switch (m) {

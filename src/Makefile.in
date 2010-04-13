@@ -32,7 +32,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = ess-a-byte$(EXEEXT)
+bin_PROGRAMS = filthy$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -46,18 +46,16 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = compression.$(OBJEXT) Locks.$(OBJEXT) \
-	FindWork.$(OBJEXT) Scheduler.$(OBJEXT) Server.$(OBJEXT) \
-	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT) \
-	Time_nr.$(OBJEXT) util.$(OBJEXT)
-am_ess_a_byte_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
+	Scheduler.$(OBJEXT) sigmasks.$(OBJEXT) Work.$(OBJEXT) \
+	Worker.$(OBJEXT) Time_nr.$(OBJEXT) util.$(OBJEXT)
+am_filthy_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_Client_Work.$(OBJEXT) HTTP_Client_Work_Unix.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
-	HTTP_FindWork.$(OBJEXT) HTTP_main.$(OBJEXT) \
-	HTTP_Origin_Server.$(OBJEXT) HTTP_Server.$(OBJEXT) \
+	HTTP_main.$(OBJEXT) HTTP_Origin_Server.$(OBJEXT) \
 	HTTP_Server_Work.$(OBJEXT) HTTP_Server_Work_big.$(OBJEXT) \
 	HTTP_parsing.$(OBJEXT) HTTP_Work.$(OBJEXT)
-ess_a_byte_OBJECTS = $(am_ess_a_byte_OBJECTS)
-ess_a_byte_LDADD = $(LDADD)
+filthy_OBJECTS = $(am_filthy_OBJECTS)
+filthy_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -67,8 +65,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(ess_a_byte_SOURCES)
-DIST_SOURCES = $(ess_a_byte_SOURCES)
+SOURCES = $(filthy_SOURCES)
+DIST_SOURCES = $(filthy_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -163,12 +161,13 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
-BASE = compression.cpp Locks.cpp FindWork.cpp Scheduler.cpp Server.cpp \
-	sigmasks.cpp Work.cpp Worker.cpp Time_nr.cpp util.cpp
+BASE = compression.cpp Locks.cpp Scheduler.cpp	sigmasks.cpp Work.cpp \
+	Worker.cpp Time_nr.cpp util.cpp
 
-ess_a_byte_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
-	HTTP_Client_Work_Unix.cpp HTTP_cmdline.cpp HTTP_constants.cpp \
-	HTTP_FindWork.cpp HTTP_main.cpp HTTP_Origin_Server.cpp HTTP_Server.cpp \
+filthy_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
+	HTTP_Client_Work_Unix.cpp \
+	HTTP_cmdline.cpp HTTP_constants.cpp \
+	HTTP_main.cpp HTTP_Origin_Server.cpp \
 	HTTP_Server_Work.cpp HTTP_Server_Work_big.cpp HTTP_parsing.cpp \
 	HTTP_Work.cpp
 
@@ -243,9 +242,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-ess-a-byte$(EXEEXT): $(ess_a_byte_OBJECTS) $(ess_a_byte_DEPENDENCIES) 
-	@rm -f ess-a-byte$(EXEEXT)
-	$(CXXLINK) $(ess_a_byte_OBJECTS) $(ess_a_byte_LDADD) $(LIBS)
+filthy$(EXEEXT): $(filthy_OBJECTS) $(filthy_DEPENDENCIES) 
+	@rm -f filthy$(EXEEXT)
+	$(CXXLINK) $(filthy_OBJECTS) $(filthy_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -253,13 +252,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/FindWork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_CacheEntry.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Client_Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Client_Work_Unix.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_FindWork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Origin_Server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Server_Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Server_Work_big.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Work.Po@am__quote@
@@ -269,7 +265,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_parsing.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Locks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Scheduler.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Time_nr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Worker.Po@am__quote@
@@ -489,23 +484,9 @@ uninstall-am: uninstall-binPROGRAMS
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-binPROGRAMS
 
-#	concurrent-queue-test \
-#	concurrent-queue-endless-test \
-#	thread-pool-test \
-#	standalone-cache
 
 # Just so we can say e.g. "make LOG=_LOG_DEBUG" on the command line.
 LOG ?= _LOG_FATAL
-
-#concurrent_queue_test_SOURCES = ConcurrentQueueTest.cpp Locks.cpp
-
-#concurrent_queue_endless_test_SOURCES = endless_test.c
-
-#thread_pool_test_SOURCES = Locks.cpp ThreadPoolTest.cpp
-
-#standalone_cache_SOURCES = $(BASE) Cache_cmdline.cpp Cache_main.cpp \
-#	CacheFindWork.cpp CacheServer.cpp CacheWork.cpp FileCache.cpp \
-#	inotifyFileCache.cpp MIME_FileCache.cpp
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

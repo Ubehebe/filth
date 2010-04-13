@@ -4,8 +4,6 @@
 #include <string.h>
 #include <time.h>
 
-#include "Factory.hpp"
-
 /* The "_nr" means "non-reentrant"; the print function returns a pointer
  * to the object's internal buffer without any synchronization, clearly
  * a problem if multiple threads try to access it. But my intent is for each
@@ -41,12 +39,6 @@ public:
     else
       return mktime(&tm);
   }
-};
-
-template<> class Factory<Time_nr>
-{
-public:
-  Time_nr *operator()() { return new Time_nr(); }
 };
 
 #endif // TIME_NR_HPP

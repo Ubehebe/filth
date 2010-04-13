@@ -18,9 +18,8 @@
 class Scheduler
 {
 public:
-  Scheduler(ConcurrentQueue<Work *> &q, int listenfd, 
-	    int tcp_keepalive_intvl=-1, int tcp_keepalive_probes=-1,
-	    int tcp_keepalive_time=-1, int pollsz=100, int maxevents=100);
+  Scheduler(ConcurrentQueue<Work *> &q, int listenfd,
+	    int pollsz=100, int maxevents=100);
   ~Scheduler();
   void schedule(Work *w, bool oneshot=true);
   void reschedule(Work *w, bool oneshot=true);
@@ -53,7 +52,6 @@ private:
   struct _acceptcb : public Callback
   {
     int fd;
-    int tcp_keepalive_intvl, tcp_keepalive_probes,  tcp_keepalive_time;
 
 #ifdef _COLLECT_STATS
     uint32_t accepts;
@@ -62,10 +60,7 @@ private:
     FindWork *fwork;
     void operator()();
     _acceptcb(Scheduler &sch,
-	      int listenfd,
-	      int tcp_keepalive_intvl=-1,
-	      int tcp_keepalive_probes=-1,
-	      int tcp_keepalive_time=-1);
+	      int listenfd);
     ~_acceptcb();
   } acceptcb;
 

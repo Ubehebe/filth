@@ -15,22 +15,20 @@
 #include "HTTP_Client_Work_Unix.hpp"
 #include "HTTP_Server_Work.hpp"
 #include "Magic_nr.hpp"
+#include "Preallocated.hpp"
 #include "Scheduler.hpp"
 #include "Time_nr.hpp"
-#include "Workmap.hpp"
 
 /* HTTP_Server_Work is a minimal class for work that typically gets handled
  * by servers that speak HTTP; this class is "big" in that its behavior tries to
  * hew to RFC 2616. */
-class HTTP_Server_Work_big : public HTTP_Server_Work
+class HTTP_Server_Work_big
+  : public HTTP_Server_Work, public Preallocated<HTTP_Server_Work_big>
 {
 public:
-  HTTP_Server_Work_big(int fd);
+  HTTP_Server_Work_big(int fd, Work::mode m=Work::read);
   ~HTTP_Server_Work_big();
   
-  void *operator new(size_t sz);
-  void operator delete(void *work);
-
 private:
   void browse_req(structured_hdrs_type &req_hdrs, std::string const &req_body);
   bool cache_get(std::string &path, HTTP_CacheEntry *&c);
@@ -44,16 +42,16 @@ private:
 		    uint8_t const *&body, size_t &bodysz);
   void reset();
 
+  // So it can set wmap
   friend class FindWork_prealloc<HTTP_Server_Work_big>;
-  friend class HTTP_FindWork;
+  //  friend class HTTP_FindWork;
   friend class HTTP_Worker;
   HTTP_Server_Work_big(HTTP_Server_Work_big const&);
   HTTP_Server_Work_big &operator=(HTTP_Server_Work_big const&);
 
   // State that is the same for all work objects.
-  static LockFreeQueue<void *> store; // For operator new/delete
   static HTTP_Cache *cache;
-  static Workmap *st;
+  static FindWork_prealloc<HTTP_Server_Work_big>::workmap *wmap;
 
   // State imbued from the Worker object that we use.
   Time_nr *date;
