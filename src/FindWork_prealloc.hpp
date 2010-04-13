@@ -32,7 +32,6 @@ public:
      * but this isn't a problem because by that time the work map is empty. */
     clear_Workmap();
 
-    // double free or corruption.
     void *tmp;
     while (W::store.nowait_deq(tmp)) {
       delete reinterpret_cast<rawbytes<sizeof(W)> *>(tmp);

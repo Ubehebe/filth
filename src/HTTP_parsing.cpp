@@ -8,7 +8,7 @@
 using namespace std;
 using namespace HTTP_constants;
 
-bool operator>>(istream &input, vector<string> &hdrs)
+bool operator>>(istream &input, structured_hdrs_type &hdrs)
 {
   string line;
 
@@ -49,4 +49,14 @@ bool operator>>(istream &input, vector<string> &hdrs)
     input.seekg(-line.length(), ios::cur);
     return false;
   }
+}
+
+std::ostream &operator<<(std::ostream &o, structured_hdrs_type &hdrs)
+{
+  // We count down instead of up because the request line is stored at the end.
+  for (int h=reqln; h >=0; --h) {
+    if (!hdrs[h].empty())
+      o << hdrs[h];
+  }
+  return o;
 }

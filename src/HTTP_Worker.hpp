@@ -13,8 +13,9 @@ class HTTP_Worker : public Worker
 public:
   void imbue_state(Work *w)
   {
-    reinterpret_cast<HTTP_Server_Work *>(w)->MIME = &MIME;
-    reinterpret_cast<HTTP_Server_Work *>(w)->date = &date;
+    // We know we're working with HTTP_Server_Work_big objects...right?
+    reinterpret_cast<HTTP_Server_Work_big *>(w)->MIME = &MIME;
+    reinterpret_cast<HTTP_Server_Work_big *>(w)->date = &date;
   }
 };
 

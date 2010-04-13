@@ -39,6 +39,9 @@ namespace HTTP_Origin_Server
     else if (S_ISDIR(statbuf.st_mode)) {
       return EISDIR;
     }
+    /* Note that ESPIPE covers both "socket" and "pipe". Will we eventually
+     * need to discriminate between them? Is there any use for half-duplex
+     * pipes when we can use full-duplex Unix domain sockets? */
     else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode)) {
       result = NULL;
       return ESPIPE;

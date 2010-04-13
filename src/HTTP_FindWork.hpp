@@ -5,13 +5,13 @@
 #include <sys/types.h>
 
 #include "HTTP_Cache.hpp"
-#include "HTTP_Server_Work.hpp"
+#include "HTTP_Server_Work_big.hpp"
 #include "FindWork_prealloc.hpp"
 #include "logging.h"
 #include "Scheduler.hpp"
 #include "Workmap.hpp"
 
-class HTTP_FindWork : public FindWork_prealloc<HTTP_Server_Work>
+class HTTP_FindWork : public FindWork_prealloc<HTTP_Server_Work_big>
 {
 public:
   HTTP_FindWork(size_t req_prealloc, Scheduler *sch);

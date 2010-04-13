@@ -1,398 +1,220 @@
-#include <algorithm>
-#include <errno.h>
-#include <iostream>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <sstream>
 
-#include "compression.hpp"
-#include "config.h" // For PACKAGE_NAME
-#include "HTTP_cmdline.hpp"
-#include "HTTP_Origin_Server.hpp"
-#include "HTTP_Parse_Err.hpp"
 #include "HTTP_Server_Work.hpp"
 #include "logging.h"
-#include "ServerErrs.hpp"
-#include "util.hpp"
 
-using namespace std;
 using namespace HTTP_constants;
+using namespace std;
 
-LockFreeQueue<void *> HTTP_Server_Work::store;
-HTTP_Cache *HTTP_Server_Work::cache = NULL;
-Workmap *HTTP_Server_Work::st = NULL;
-
-HTTP_Server_Work::HTTP_Server_Work(int fd, Work::mode m)
-  : HTTP_Work(fd, m), cl_accept_enc(HTTP_constants::identity),
-    c(NULL), date(NULL), MIME(NULL), resp_is_cached(false)
+HTTP_Server_Work::HTTP_Server_Work(int fd)
+  : HTTP_Work(fd, Work::read), nosch(false)
 {
 }
 
-HTTP_Server_Work::~HTTP_Server_Work()
+void HTTP_Server_Work::operator()()
 {
-  st->erase(fd);
+ pipeline_continue:
+  int err;
+  switch(m) {
+  case Work::read:
+    err = (!inhdrs_done)
+      ? rduntil(inbuf, cbuf, cbufsz) // Read headers
+      : rduntil(inbody, cbuf, cbufsz, inbody_sz); // Read body
+    if (err != 0 && err != EAGAIN && err != EWOULDBLOCK)
+      throw SocketErr("read", err);
+    /* TODO: right now we schedule a write immediately after the reading is
+     * complete. But when we add more asynchronous/nonblocking I/O on
+     * the server side (e.g. wait for a CGI program to return), we would want
+     * the write to be scheduled only when all the resources are ready. */
+    if (!inhdrs_done) {
+      if (inhdrs_done = (inbuf >> inhdrs)) {
+	// We need this to read the rest of the request.
+	if (!inhdrs[Content_Length].empty()) {
+	  stringstream tmp(inhdrs[Content_Length]);
+	  tmp >> inbody_sz;
+	}
+	if (inbody_sz == 0)
+	  goto dropdown;
+      }
+    }
+    // Finished reading the request body into parsebuf, so schedule a write.
+    else if (inbody_sz == 0) {
+    dropdown:
+      try {
+	prepare_response(inhdrs, inbody, outbuf, outbody, outbody_sz);
+      }
+      catch (HTTP_Parse_Err e) {
+	outbuf.str("");
+	outbuf.clear();
+	on_parse_err(e.stat, outbuf, outbody, outbody_sz);
+      }
+      outbuf.get(reinterpret_cast<char *>(cbuf), cbufsz, '\0');
+      out = outhdrs = const_cast<uint8_t *>(cbuf);
+      outsz = outhdrs_sz = strlen(reinterpret_cast<char *>(cbuf));
+      if (outsz == cbufsz-1)
+	_LOG_INFO("headers at least %d bytes long; may have silently truncated",
+		  outsz);
+      m = write;
+    }
+    sch->reschedule(this);
+    break;
+
+  case Work::write:
+    err = wruntil(out, outsz);
+    if (err == EAGAIN || err == EWOULDBLOCK)
+      sch->reschedule(this);
+
+    // If we're here, we're guaranteed outsz == 0...right?
+    else if (err == 0 && outsz == 0) {
+      // Done sending headers, now send body.
+      if (!outhdrs_done) {
+	outhdrs_done = true;
+	out = outbody;
+	outsz = outbody_sz;
+	sch->reschedule(this);
+      }
+      else if (nosch) {
+	; // Allow this piece of work to become dormant.
+      }
+      /* Done sending body. For a persistent connection, instead of deleting,
+       * we should reset the state of this object and wait for the socket to
+       * become readable again, because the client is pipelining. */
+      else if (!deleteme) {
+	reset();
+	HTTP_Server_Work::reset(); // Ensure base reset always called
+	m = read;
+
+	/* Try to read an additional test character from the incoming buffer,
+	 * in order to determine if there is a pipelined request we need to
+	 * preserve for the next worker to handle this piece of work. */
+	inbuf.ignore();
+	if (inbuf.good()) {
+	  inbuf.unget();
+	  /* If the client is doing pipelining, just handle the next request
+	   * ourselves.
+	   *
+	   * Q: Couldn't we increase concurrency by having some
+	   * mechanism for different workers handling different pipelined
+	   * requests from the same client?
+	   *
+	   * A: Maybe, but this would entail some fundamental design changes;
+	   * the "one socket, at most one worker" invariant, so useful for
+	   * reasoning about the scheduler, would have to be changed. Besides,
+	   * there is an inherent bottleneck here: writes to a socket have to
+	   * be sequential, or else the client will get garbage. So I'm just not sure
+	   * about the payoff. */
+	  goto pipeline_continue;
+	}
+	else {
+	  inbuf.str("");
+	  inbuf.clear();
+	  sch->reschedule(this);	  
+	}
+      }
+      // If deleteme is true, the worker will delete this piece of work.
+    }
+    else {
+      throw SocketErr("write", err);
+    }
+  break;
+  }
 }
 
+// RFC 2616 sec. 5.1: Request-Line = Method SP Request-URI SP HTTP-Version CRLF
+void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
+				  string &query)
+{
+  stringstream tmp(reqln);
+  tmp >> meth;
+  string uri;
+  tmp >> uri;
+  parseuri(uri, path, query);
+  string version;
+  tmp >> version;
+  if (version != HTTP_Version)
+    throw HTTP_Parse_Err(HTTP_Version_Not_Supported);
+}
 
-/* After parsing is complete, we talk to the cache and the origin server,
- * if need be, to find the resource. */
-void HTTP_Server_Work::prepare_response(stringstream &hdrs,
+void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
+{
+  // TODO: throws bad request for proxy-type resources. Support?
+  _LOG_DEBUG("rduri %s", uri.c_str());
+
+  // The asterisk is a special URI used with OPTIONS requests (RFC 2616, 9.2)
+  if (uri == "*") {
+    path = "*";
+    return;
+  }
+
+  // Malformed or dangerous URI.
+  if (uri[0] != '/' || uri.find("..") != uri.npos)
+    throw HTTP_Parse_Err(Bad_Request);
+
+  // Break the URI into a path and a query.
+  string::size_type qpos;
+  if (uri == "/") {
+    path = "/";
+  } else if ((qpos = uri.find('?')) != string::npos) {
+    path = uri.substr(1, qpos-1);
+    query = uri.substr(qpos+1);
+  } else {
+    path = uri.substr(1);
+  }
+}
+
+void HTTP_Server_Work::prepare_response(structured_hdrs_type &reqhdrs,
+					string const &reqbody, ostream &hdrstream,
 					uint8_t const *&body, size_t &bodysz)
 {
-  /* 9.9: "This specification reserves the method name CONNECT for use with
-   * a proxy that can dynamically switch to being a tunnel". I have no idea
-   * what that means and I'm not going to support it. */
-  if (meth == CONNECT)
-    throw HTTP_Parse_Err(Method_Not_Allowed);
-
-  int err;
-
-  /* First ask the cache if we have a ready response, taking into account
-   * the client's caching preferences. */
-  if (resp_is_cached = cache_get(path, c)) {
-    ; // fall through to success
-  }
-
-  /* If the only-if-cache directive is set and we didn't find it in the cache,
-   * that's failure. According to 14.9.3, the correct status is, for some
-   * reason, 504 Gateway Timeout. */
-  else if (cl_cache_control.isset(cc::only_if_cached)) {
-    throw HTTP_Parse_Err(Gateway_Timeout);
-  }
-
-  /* Ask the origin server. */
-  else if ((err = HTTP_Origin_Server::request(path, c))==0) {
-    /* Any header that requires thread-safe state to construct (like
-     * the MIME lookup) gets pushed here. */
-    *c << stat;
-    *c << make_pair(Content_Type, (*MIME)(path.c_str()));
-    *c << make_pair(Date, date->print());
-    *c << make_pair(Last_Modified, date->print(c->last_modified));
-    c->use_expires = true;
-    // HTTP_cmdline::cache_expires is given in seconds.
-    c->expires_value = ::time(NULL)
-      + 60*HTTP_cmdline::c.ivals[HTTP_cmdline::cache_expires];
-    *c << make_pair(Expires, date->print(c->expires_value));
-
-    /* Try to put this response in the cache. It might fail if the cache
-     * is full or the method/headers do not allow caching. */
-    resp_is_cached = cache_put(path, c, c->szincache);
-  }
-  else if (err == ENOENT) {
-    throw HTTP_Parse_Err(Not_Found);
-  }
-  else if (err == EACCES) {
-    throw HTTP_Parse_Err(Forbidden);
-  }
-  else if (err == EISDIR && HTTP_Origin_Server::dirtoHTML(path, c)==0) {
-        /* Any header that requires thread-safe state to construct (like
-     * the MIME lookup) gets pushed here. */
-    *c << stat;
-    *c << make_pair(Content_Type, "text/html");
-    *c << make_pair(Date, date->print());
-    c->use_expires = true;
-    // HTTP_cmdline::cache_expires is given in seconds.
-    c->expires_value = ::time(NULL)
-      + 60*HTTP_cmdline::c.ivals[HTTP_cmdline::cache_expires];
-    *c << make_pair(Expires, date->print(c->expires_value));
-
-    resp_is_cached = false; // Don't cache directory pages!
-  }
-  /*
-  else if (err == EISPIPE)
-    // dynamic resource algorithm!
-    */
-  // General-purpose error.
-  else {
-    throw HTTP_Parse_Err(Internal_Server_Error);
-  }
-
-  // If we're here, c contains some kind of response.
-  if (meth == HEAD) {
-    *c << HTTP_CacheEntry::as_HEAD;
-    body = NULL;
-    bodysz = 0;
-  }
-  else {
-    body = c->getbuf();
-    bodysz = const_cast<size_t &>(c->szincache);
-  }
-    hdrs << *c; // Pushes the status line, then all the headers
-}
-
-/* Tries to make sense of RFC 2616, secs. 13 and 14.9. It's probably not
- * 100% right though. */
-bool HTTP_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
-{
-  /* 14.9.4: "The request includes a "no-cache" cache-control directive" ...
-   * "The server MUST NOT use a cached copy when responding to such
-   * a request." */
-  if (cl_cache_control.isset(cc::no_cache) || !cache->get(path,c))
-    return false;
-
-  bool fresh = c->response_is_fresh();
-
-  /* For use at cache_ok. I hate that C/C++ doesn't let you begin a label
-   * with a declaration. */
-  stringstream tmp;
-  string age;
-
-  /* As far as I understand, the only cache directive that can disqualify
-   * a fresh or valid cache entry (other than no-cache) is min-fresh. */
-  if ((fresh || HTTP_Origin_Server::validate(path,c)) 
-      && !cl_cache_control.isset(cc::use_min_fresh))
-    goto cache_ok;
-
-  /* 14.9.3: min-fresh "Indicates that the client is willing to accept a
-   * response whose freshness lifetime is no less than its current age
-   * plus the specified time in seconds". */
-  if (cl_cache_control.isset(cc::use_min_fresh)) {
-    if (c->freshness_lifetime() >=
-	c->current_age() + cl_cache_control.min_fresh)
-      goto cache_ok;
-    else
-      goto cache_no;
-  }
-    
-  /* 14.9.3: max-age "Indicates that the client is willing to accept a
-   * response whose age is no greater than the specified time in seconds.
-   * Unless max-stale directive is also included, the client is not willing
-   * to accept a stale response."
-   *
-   * "If both the new request and the cached entry include "max-age"
-   * directives, then the lesser of the two values is used for determining
-   * the freshness of the cached entry for that request." Man! */
-  if (cl_cache_control.isset(cc::use_max_age)) {
-	time_t lesser = (c->use_max_age && c->max_age_value < lesser)
-	  ? c->max_age_value
-	  : cl_cache_control.max_age;
-	if (c->current_age() <= lesser) {
-	  if (cl_cache_control.isset(cc::use_max_stale)) {
-	    if (c->current_age() - c->freshness_lifetime()
-		<= cl_cache_control.max_stale) {
-	      goto cache_ok;
-	    } else {
-	      goto cache_no;
-	    }
-	  } else {
-	    goto cache_ok;
-	  }
-	} else {
-	  goto cache_no;
-	}
-  }
-
-  /* 14.9.3: max-stale "Indicates that the client is willing to accept a
-   * response that has exceeded its expiration time. If max-stale is
-   * assigned a value, then the client is willing to accept a response that
-   * has exceeded its expiration time by no more than the specficied number
-   * of seconds. If no value is assigned to max_stale, then the client is
-   * willing to acccept a stale response of any age." */
-  if (cl_cache_control.isset(cc::use_max_stale)) {
-    if (c->current_age() - c->freshness_lifetime()
-	<= cl_cache_control.max_stale)
-      goto cache_ok;
-    else
-      goto cache_no;
-  }
-
- cache_ok:
-  /* 13.2.3: "When a response is generated from a cache entry, the cache
-   * MUST include a single Age header field in the response with a value
-   * equal to the cache entry's current_age." */
-  tmp << c->current_age();
-  tmp >> age;
-  *c << make_pair(Age, age.c_str());
-  if (!fresh) {
-    /* Even if we're using a stale entry, we should probably tell the cache to
-     * get rid of it when it can. This is my hunch, nothing official. */
-    cache->advise_evict(path);
-    *c << make_pair(Warning, "110 " PACKAGE_NAME " \"Response is stale\"");
-  }
-  return true;
-
- cache_no:
-  cache->unget(path);
-  return false;
-}
-
-void HTTP_Server_Work::on_parse_err(status &s, stringstream &hdrs,
-				    uint8_t const *&body, size_t &bodysz)
-{
-  
-  hdrs << HTTP_Version << ' ' << s << CRLF
-       << Date << date->print() << CRLF
-       << Server << PACKAGE_NAME << CRLF
-       << Content_Length << 0 << CRLF
-       << CRLF;
-  _LOG_DEBUG("%s", hdrs.str().c_str());
+  hdrstream << HTTP_Version << ' ' << stat << CRLF
+	    << Server << PACKAGE_NAME << CRLF
+	    << Content_Length << 0 << CRLF
+	    << CRLF;
   body = NULL;
   bodysz = 0;
 }
 
-// Comments in this block refer to sections of RFC 2616.
-void HTTP_Server_Work::browse_req(HTTP_Work::req_hdrs_type &req_hdrs,
-				  string const &req_body)
+
+
+// RFC 2396, sec. 2.4.1. We don't use this yet...
+string &HTTP_Server_Work::uri_hex_escape(string &uri)
 {
-  parsereqln(req_hdrs, meth, path, query);
-
-
-  
-  if (path == "/")
-    path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
-
-  if (!req_hdrs[Accept_Encoding].empty()) {
-    /* 14.3: "If an Accept-Encoding field is present in a request, and if the
-     * server cannot send a response which is acceptable to the Accept-Encoding
-     * header, then the server SHOULD send an error response with the 406
-     * (Not Acceptable) status code."
-     *
-     * According to 3.5, the content codings are case insensitive. */
-    
-    string &tmp = util::tolower(req_hdrs[Accept_Encoding]);
-    if (tmp.find("deflate") != tmp.npos)
-      cl_accept_enc = HTTP_constants::deflate;
-    else if (tmp.find("identity") != tmp.npos)
-      cl_accept_enc = HTTP_constants::identity;
-    else throw HTTP_Parse_Err(Not_Acceptable);
+  size_t start = 0;
+  stringstream hexbuf;
+  int c;
+  while ((start = uri.find('%', start)) != uri.npos) {
+    // Every % needs two additional chars.
+    if (start + 2 >= uri.length())
+      throw HTTP_Parse_Err(Bad_Request);
+    hexbuf << uri[start+1] << uri[start+2];
+    hexbuf >> hex >> c;
+    uri.replace(start, 3, 1, (char) c);
   }
-
-  if (!req_hdrs[Cache_Control].empty()) {
-    /* 14.9: Cache-Control = "Cache-Control" ":" 1#cache-directive
-     * cache-directive = cache-request-directive | cache-response-directive
-     * cache-request-directive = 
-     * "no-cache"
-     * | "no-store"
-     * | "max-age" "=" delta-seconds
-     * | "max-stale" [ "=" delta-seconds]
-     * | "min-fresh" "=" delta-seconds
-     * | "no-transform"
-     * | "only-if-cached"
-     * | cache-extension
-     */
-    string &tmp = req_hdrs[Cache_Control];
-    if (tmp.find("no-cache") != tmp.npos)
-      cl_cache_control.set(cc::no_cache);
-    else if (tmp.find("no-store") != tmp.npos)
-      cl_cache_control.set(cc::no_store);
-    else if (tmp.find("no-transform") != tmp.npos)
-      cl_cache_control.set(cc::no_transform);
-    else if (tmp.find("only-if-cached") != tmp.npos)
-      cl_cache_control.set(cc::only_if_cached);
-    else if (tmp.find("max-age") != tmp.npos) {
-      cl_cache_control.set(cc::use_max_age);      
-      stringstream tmp2(tmp);
-      tmp2 >> tmp; // gets rid of max-age
-      tmp2 >> tmp; // gets rid of =
-      tmp2 >> cl_cache_control.max_age;
-    }
-    else if (tmp.find("max-stale") != tmp.npos) {
-      cl_cache_control.set(cc::use_max_stale);
-      if (tmp.find("=") != tmp.npos) {
-	stringstream tmp2(tmp);
-	tmp2 >> tmp; // gets rid of max-stale
-	tmp2 >> tmp; // gets rid of =
-	tmp2 >> cl_cache_control.max_stale;
-      } else {
-	// Hopefully becomes a large positive value
-	cl_cache_control.max_stale = -1;
-      }
-    }
-    else if (tmp.find("min-fresh") != tmp.npos) {
-      cl_cache_control.set(cc::use_min_fresh);      
-      stringstream tmp2(tmp);
-      tmp2 >> tmp; // gets rid of min-fresh
-      tmp2 >> tmp; // gets rid of =
-      tmp2 >> cl_cache_control.min_fresh;
-    }
-  }
-
-  if (!req_hdrs[Connection].empty()) {
-    /* 14.10: "HTTP/1.1 defines the "close" connection option for the sender to
-     * signal that the connection will be closed after completion of the
-     * response." */
-    if (req_hdrs[Connection].find("close") != string::npos)
-      deleteme = true;
-  }
-
-  if (!req_hdrs[Expect].empty()) {
-    /* 14.20: Expect = "Expect" ":" 1#expectation
-     * expectation = "100-continue" | expectation-extension
-     *
-     * "A server that does not understand or is unable to comply with any of the
-     * expectation values in the Expect field of a request MUST respond with
-     * appropriate error status. The server MUST respond with a 417
-     * (Expectation Failed) status if any of the expectations cannot be met or,
-     * if there are other problems with the request, some other 4xx status."
-     * Also: "Comparison of expectation values is case-insensitive for
-     * unquoted strings (including the 100-continue token)".
-     * 
-     * The behavior of 100-continue is governed by 8.2.3. */
-    if (strcasecmp("100-continue", req_hdrs[Expect].c_str())==0)
-      throw HTTP_Parse_Err(Continue);
-    else
-      throw HTTP_Parse_Err(Expectation_Failed);
-  }
-  if (!req_hdrs[Max_Forwards].empty()) {
-    stringstream tmp(req_hdrs[Max_Forwards]);
-    tmp >> cl_max_fwds;
-  }
+  return uri;
 }
 
-void *HTTP_Server_Work::operator new(size_t sz)
+void HTTP_Server_Work::on_parse_err(status &s, ostream &hdrstream,
+			     uint8_t const *&body, size_t &bodysz)
 {
-  void *stuff;
-  if (!store.nowait_deq(stuff)) {
-    stuff = ::operator new(sz);
-  }
-  return stuff;
-}
-
-void HTTP_Server_Work::operator delete(void *work)
-{
-  store.enq(work);
+  stat = s;
+  structured_hdrs_type fake1;
+  string fake2;
+  // This is a minimal message that can't throw anything.
+  HTTP_Server_Work::prepare_response(fake1, fake2, hdrstream, body, bodysz); 
 }
 
 void HTTP_Server_Work::reset()
 {
-  if (resp_is_cached)
-    cache->unget(path);
-  //  else
-  //    delete c;
-
-  path.clear();
-  query.clear();
-  cl_cache_control.clear();
-  c = NULL;
-  date = NULL;
-  MIME = NULL;
-  // What about cl_accept_enc and cl_max_fwds, meth, etc.
+  // TODO: put in base class?
+  inhdrs_done = outhdrs_done = false;
+  // Don't clear inbuf!
+  outbuf.str("");
+  outbuf.clear();
+  cbuf[0] = '\0';
+  inhdrs.clear();
+  inhdrs.resize(1+num_header);
+  inbody.clear();
+  inbody_sz = 0;
+  outhdrs = outbody = out = NULL;
+  outhdrs_sz = outbody_sz = outsz = 0;
 }
-
-bool HTTP_Server_Work::cache_put(string &path, HTTP_CacheEntry *c, size_t sz)
-{
-  /* 9.2: "Responses to this method [OPTIONS] are not cacheable."
-   * 9.6: "Responses to this method [PUT] are not cacheable."
-   * 9.7: "Responses to this method [DELETE] are not cacheable."
-   * 9.8: "Responses to this method [TRACE] MUST NOT be cached." */
-  if (meth == DELETE || meth == OPTIONS || meth == PUT || meth == TRACE)
-    return false;
-  /* 9.5: "Responses to this method [POST] are not cacheable, unless the
-   * response includes appropriate Cache-Control or Expires header fields".
-   * 14.21: "The presence of an Expires header field with a date value of some
-   * time in the future on a response that would otherwise by default be
-   * non-cacheable indicates that the response is cacheable, unless indicated
-   * otherwise by a Cache-Control header field." */
-  if (meth == POST && (!c->use_expires || c->expires_value < ::time(NULL)))
-    return false;
-  /* 14.9.2: If no-store is sent in a request, "a cache MUST NOT store
-   * any part of either this request or any response to it."
-   * Note that this seems to include any sort of header logging
-   * (user-agent, etc.) */
-  if (cl_cache_control.isset(cc::no_store))
-    return false;
-
-  return cache->put(path, c, c->szincache);
-}
-
