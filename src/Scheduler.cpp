@@ -212,7 +212,6 @@ void Scheduler::poll()
 	delete tmp;
       }
       else if (fds[i].events & EPOLLIN) {
-	_LOG_DEBUG("%d became readable", fd);
 	q.enq((*fwork)(fd, Work::read));
       }
       else if (fds[i].events & EPOLLOUT) {

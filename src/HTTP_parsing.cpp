@@ -24,10 +24,10 @@ bool operator>>(istream &input, structured_hdrs_type &hdrs)
     input.ignore(); // Ignore the \n (the \r is already consumed)
     input.clear();
 
+    // Note that this covers both request lines and response status lines
     if (line.find(HTTP_Version) != line.npos) {
       hdrs[reqln] = line;
     }
-
     else {
       stringstream tmp(line);
       header h;
@@ -51,12 +51,13 @@ bool operator>>(istream &input, structured_hdrs_type &hdrs)
   }
 }
 
-std::ostream &operator<<(std::ostream &o, structured_hdrs_type &hdrs)
+std::ostream &operator<<(std::ostream &o, structured_hdrs_type const &hdrs)
 {
   // We count down instead of up because the request line is stored at the end.
   for (int h=reqln; h >=0; --h) {
-    if (!hdrs[h].empty())
-      o << hdrs[h];
+    if (!hdrs[h].empty()) {
+      o << hdrs[h] << CRLF;
+    }
   }
-  return o;
+  return o << CRLF;
 }

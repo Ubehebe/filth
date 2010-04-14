@@ -15,21 +15,25 @@ public:
   FindWork_prealloc(size_t prealloc_bytes);
   ~FindWork_prealloc();
   Work *operator()(int fd, Work::mode m);
-  typedef std::unordered_map<int, _Work *> workmap;
-private:
-  workmap wmap;
+  // N.B. Work not _Work!
+  typedef std::unordered_map<int, Work *> workmap;
+  // Should be protected.
+  static workmap wmap;
   RWLock wmaplock;
+private:
   void clear();
   FindWork_prealloc(FindWork_prealloc const &);
   FindWork_prealloc &operator=(FindWork_prealloc const &);
 };
 
 template<class _Work>
+std::unordered_map<int, Work *> FindWork_prealloc<_Work>::wmap;
+
+template<class _Work>
 FindWork_prealloc<_Work>::FindWork_prealloc(size_t prealloc_bytes)
 {
   size_t prealloc_chunks = prealloc_bytes / sizeof(_Work);
   _Work::prealloc_init(prealloc_chunks);
-  _Work::wmap = &wmap;
 }
 
 template<class _Work>
@@ -48,11 +52,11 @@ void FindWork_prealloc<_Work>::clear()
   /* The reason for this strange pattern is that the derived Work destructor
    * should remove itself from wmap, which would invalidate our
    * iterator. */
-  std::list<_Work *> todel;
+  std::list<Work *> todel;
   wmaplock.wrlock();
   for (typename workmap::iterator it = wmap.begin(); it != wmap.end(); ++it)
     todel.push_back(it->second);
-  for (typename std::list<_Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
+  for (typename std::list<Work *>::iterator it = todel.begin(); it != todel.end(); ++it)
     delete *it;
   wmap.clear();
   wmaplock.unlock();

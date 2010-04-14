@@ -14,7 +14,8 @@ public:
   void operator()(Worker *w);
   HTTP_Client_Work(int fd, structured_hdrs_type &reqhdrs,
 		   std::string const &req_body);
-  virtual void browse_resp(structured_hdrs_type &resphdrs, std::string &resp_body);
+  virtual void browse_resp(structured_hdrs_type const &resphdrs,
+			   std::string const &resp_body) { }
   virtual ~HTTP_Client_Work();
 };
 

@@ -77,27 +77,27 @@ void HTTP_Client_Work::operator()(Worker *w)
       if (inhdrs_done = (inbuf >> inhdrs)) {
 	if (!inhdrs[Content_Length].empty()) {
 	  stringstream tmp(inhdrs[Content_Length]);
+	  header fake;
+	  tmp >> fake; // Get rid of the actual "Content-Length: "
 	  tmp >> inbody_sz;
+	  if (inbody_sz > 0) {
+	    inbuf.read(reinterpret_cast<char *>(cbuf), inbody_sz);
+	    size_t nread = inbuf.gcount();
+	    cbuf[nread] = '\0';
+	    inbody_sz -= nread;
+	    inbody.append(reinterpret_cast<char *>(cbuf));
+	  }
 	}
 	if (inbody_sz == 0)
 	  goto dropdown;
       }
-      sch->reschedule(this);
     }
     // Finished parsing response headers and reading in response body.
     else if (inbody_sz == 0) {
     dropdown:
       browse_resp(inhdrs, inbody);
     }
-    else {
-      sch->reschedule(this);
-    }
+    sch->reschedule(this);
     break;
   }
-}
-
-void HTTP_Client_Work::browse_resp(structured_hdrs_type &resphdrs,
-				   string &resp_body)
-{
-  deleteme = true;
 }

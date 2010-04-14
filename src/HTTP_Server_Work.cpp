@@ -7,8 +7,14 @@ using namespace HTTP_constants;
 using namespace std;
 
 HTTP_Server_Work::HTTP_Server_Work(int fd)
-  : HTTP_Work(fd, Work::read), nosch(false), curworker(NULL)
+  : HTTP_Work(fd, Work::read), nosch(false), curworker(NULL),
+    backup_body(NULL)
 {
+}
+
+HTTP_Server_Work::~HTTP_Server_Work()
+{
+  delete backup_body; // This will fail if NULL, which is fine
 }
 
 void HTTP_Server_Work::operator()(Worker *w)
@@ -17,6 +23,10 @@ void HTTP_Server_Work::operator()(Worker *w)
  pipeline_continue:
   int err;
   switch(m) {
+    /* BUGBUGBUGBUG
+     * When we finish parsing the request headers but there's still stuff left
+     * in inbuf, we never see it. Copy in the relevant parts from
+     * HTTP_Client_Work. */
   case Work::read:
     err = (!inhdrs_done)
       ? rduntil(inbuf, cbuf, cbufsz) // Read headers
@@ -32,13 +42,17 @@ void HTTP_Server_Work::operator()(Worker *w)
 	// We need this to read the rest of the request.
 	if (!inhdrs[Content_Length].empty()) {
 	  stringstream tmp(inhdrs[Content_Length]);
+	  header h;
+	  tmp >> h; // Get rid of the actual "Content-Length: "
 	  tmp >> inbody_sz;
 	}
 	if (inbody_sz == 0)
 	  goto dropdown;
+	else
+	  goto pipeline_continue; // Not totally sure about this
       }
     }
-    // Finished reading the request body into parsebuf, so schedule a write.
+    // Finished reading the request body into inbuf, so schedule a write.
     else if (inbody_sz == 0) {
     dropdown:
       try {
@@ -47,7 +61,10 @@ void HTTP_Server_Work::operator()(Worker *w)
       catch (HTTP_Parse_Err e) {
 	outbuf.str("");
 	outbuf.clear();
-	on_parse_err(e.stat, outbuf, outbody, outbody_sz);
+	on_parse_err(e.stat, outbuf);
+	outbody = reinterpret_cast<uint8_t const *>(status_strs[e.stat]);
+	outbody_sz = strlen(status_strs[e.stat]);
+	outbuf << Content_Length << outbody_sz << CRLF << CRLF;
       }
       outbuf.get(reinterpret_cast<char *>(cbuf), cbufsz, '\0');
       out = outhdrs = const_cast<uint8_t *>(cbuf);
@@ -139,7 +156,6 @@ void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
 void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
 {
   // TODO: throws bad request for proxy-type resources. Support?
-  _LOG_DEBUG("rduri %s", uri.c_str());
 
   // The asterisk is a special URI used with OPTIONS requests (RFC 2616, 9.2)
   if (uri == "*") {
@@ -194,14 +210,11 @@ string &HTTP_Server_Work::uri_hex_escape(string &uri)
   return uri;
 }
 
-void HTTP_Server_Work::on_parse_err(status &s, ostream &hdrstream,
-			     uint8_t const *&body, size_t &bodysz)
+void HTTP_Server_Work::on_parse_err(status &s, ostream &hdrstream)
 {
   stat = s;
-  structured_hdrs_type fake1;
-  string fake2;
-  // This is a minimal message that can't throw anything.
-  HTTP_Server_Work::prepare_response(fake1, fake2, hdrstream, body, bodysz); 
+  hdrstream << HTTP_Version << ' ' << stat << CRLF
+	    << Server << PACKAGE_NAME << CRLF;
 }
 
 void HTTP_Server_Work::reset()
@@ -219,3 +232,30 @@ void HTTP_Server_Work::reset()
   outhdrs = outbody = out = NULL;
   outhdrs_sz = outbody_sz = outsz = 0;
 }
+
+void HTTP_Server_Work::async_setresponse(HTTP_Client_Work *assoc,
+					 structured_hdrs_type const &resphdrs,
+					 string const &respbody)
+{
+  outhdrs_done = false;
+  outbuf.str("");
+  outbuf.clear();
+  outbuf << resphdrs;
+  outbuf.get(reinterpret_cast<char *>(cbuf), cbufsz, '\0');
+  out = outhdrs = const_cast<uint8_t *>(cbuf);
+  outsz = outhdrs_sz = strlen(reinterpret_cast<char *>(cbuf));
+  if (outsz == cbufsz-1)
+    _LOG_INFO("headers at least %d bytes long; may have silently truncated",
+	      outsz);
+  outbody_sz = respbody.length();
+  try {
+    backup_body = new uint8_t[outbody_sz];
+    strncpy(reinterpret_cast<char *>(backup_body), respbody.c_str(), outbody_sz);
+    outbody = backup_body;
+  }
+  catch (bad_alloc) {
+    outbody = NULL;
+    outbody_sz = 0;
+  }
+}
+

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string.h>
 
+#include "HTTP_Client_Work.hpp"
 #include "HTTP_constants.hpp"
 #include "HTTP_Parse_Err.hpp"
 #include "HTTP_parsing.hpp"
@@ -20,7 +21,10 @@ public:
   void operator()(Worker *w);
 
   HTTP_Server_Work(int fd);
-  virtual ~HTTP_Server_Work() {}
+  virtual ~HTTP_Server_Work();
+  virtual void async_setresponse(HTTP_Client_Work *assoc,
+				 structured_hdrs_type const &resphdrs,
+				 std::string const &respbody);
 protected:
   // The main functions derived classes should override.
   virtual void prepare_response(structured_hdrs_type &reqhdrs,
@@ -28,8 +32,7 @@ protected:
 				std::ostream &hdrs_dst,
 				uint8_t const *&body,
 				size_t &bodysz);
-  virtual void on_parse_err(HTTP_constants::status &s, std::ostream &hdrs_dst,
-			    uint8_t const *&body, size_t &bodysz);
+  virtual void on_parse_err(HTTP_constants::status &s, std::ostream &hdrs_dst);
   /* Derived classes need to override this in order to reset any state of a
    * "piece of work" at the end of servicing a request. The reason we just
    * don't delete this piece of work and get a new one later is because
@@ -46,6 +49,8 @@ protected:
   /* Remember the worker who is working on our behalf, in case we need to
    * extract some state from it. */
   Worker *curworker;
+
+  uint8_t *backup_body; // yikes
 
   // Convenience functions to be called from browse_req and prepare_response.
   void parsereqln(std::string &reqln, HTTP_constants::method &meth,

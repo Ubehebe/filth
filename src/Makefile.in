@@ -32,7 +32,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = filth$(EXEEXT)
+bin_PROGRAMS = filth$(EXEEXT) cgi-test-app$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -48,6 +48,11 @@ PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = compression.$(OBJEXT) Locks.$(OBJEXT) \
 	Scheduler.$(OBJEXT) sigmasks.$(OBJEXT) Work.$(OBJEXT) \
 	Worker.$(OBJEXT) Time_nr.$(OBJEXT) util.$(OBJEXT)
+am_cgi_test_app_OBJECTS = $(am__objects_1) CGI_test_app.$(OBJEXT) \
+	HTTP_Server_Work.$(OBJEXT) HTTP_constants.$(OBJEXT) \
+	HTTP_parsing.$(OBJEXT) HTTP_Work.$(OBJEXT)
+cgi_test_app_OBJECTS = $(am_cgi_test_app_OBJECTS)
+cgi_test_app_LDADD = $(LDADD)
 am_filth_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_Client_Work.$(OBJEXT) HTTP_Client_Work_Unix.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
@@ -65,8 +70,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(filth_SOURCES)
-DIST_SOURCES = $(filth_SOURCES)
+SOURCES = $(cgi_test_app_SOURCES) $(filth_SOURCES)
+DIST_SOURCES = $(cgi_test_app_SOURCES) $(filth_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -161,7 +166,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
-BASE = compression.cpp Locks.cpp Scheduler.cpp	sigmasks.cpp Work.cpp \
+BASE = compression.cpp Locks.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
 	Worker.cpp Time_nr.cpp util.cpp
 
 filth_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
@@ -170,6 +175,9 @@ filth_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
 	HTTP_main.cpp HTTP_Origin_Server.cpp \
 	HTTP_Server_Work.cpp HTTP_2616_Server_Work.cpp HTTP_parsing.cpp \
 	HTTP_Work.cpp
+
+cgi_test_app_SOURCES = $(BASE) CGI_test_app.cpp HTTP_Server_Work.cpp \
+	HTTP_constants.cpp HTTP_parsing.cpp HTTP_Work.cpp 
 
 all: all-am
 
@@ -242,6 +250,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+cgi-test-app$(EXEEXT): $(cgi_test_app_OBJECTS) $(cgi_test_app_DEPENDENCIES) 
+	@rm -f cgi-test-app$(EXEEXT)
+	$(CXXLINK) $(cgi_test_app_OBJECTS) $(cgi_test_app_LDADD) $(LIBS)
 filth$(EXEEXT): $(filth_OBJECTS) $(filth_DEPENDENCIES) 
 	@rm -f filth$(EXEEXT)
 	$(CXXLINK) $(filth_OBJECTS) $(filth_LDADD) $(LIBS)
@@ -252,6 +263,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CGI_test_app.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_2616_Server_Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_CacheEntry.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/HTTP_Client_Work.Po@am__quote@

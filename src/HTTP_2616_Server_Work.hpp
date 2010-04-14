@@ -12,7 +12,6 @@
 #include "HTTP_constants.hpp"
 #include "LockFreeQueue.hpp"
 #include "HTTP_Cache.hpp"
-#include "HTTP_Client_Work_Unix.hpp"
 #include "HTTP_Server_Work.hpp"
 #include "Magic_nr.hpp"
 #include "Preallocated.hpp"
@@ -30,6 +29,9 @@ public:
   ~HTTP_2616_Server_Work();
   // The caching server should set this.
   static void setcache(Cache<std::string, HTTP_CacheEntry *> *cache);
+  void async_setresponse(HTTP_Client_Work *assoc,
+			 structured_hdrs_type const &resphdrs,
+			 std::string const &respbody);
   
 private:
   void browse_req(structured_hdrs_type &req_hdrs, std::string const &req_body);
@@ -40,19 +42,18 @@ private:
 			std::ostream &hdrstream,
 			uint8_t const *&body,
 			size_t &bodysz);
-  void on_parse_err(HTTP_constants::status &s, std::ostream &hdrstream,
-		    uint8_t const *&body, size_t &bodysz);
+  void on_parse_err(HTTP_constants::status &s, std::ostream &hdrstream);
   void reset();
 
   // So it can set wmap
-  friend class FindWork_prealloc<HTTP_2616_Server_Work>;
+  //  friend class FindWork_prealloc<HTTP_2616_Server_Work>;
   HTTP_2616_Server_Work(HTTP_2616_Server_Work const&);
   HTTP_2616_Server_Work &operator=(HTTP_2616_Server_Work const&);
 
   // State that is the same for all work objects.
   static Cache<std::string, HTTP_CacheEntry *> *cache;
 
-  static FindWork_prealloc<HTTP_2616_Server_Work>::workmap *wmap;
+  //  static FindWork_prealloc<HTTP_2616_Server_Work>::workmap *wmap;
 
   // Stuff reported by the client in the request headers.
 
@@ -64,9 +65,6 @@ private:
    * these is true we need to remember to delete it ourselves. */
   bool resp_is_cached;
   HTTP_CacheEntry *c;
-
-  HTTP_Client_Work_Unix *dynamic_resource; // yikes
-  
 
   struct cc
   {

@@ -3,6 +3,8 @@
 
 #include "HTTP_Client_Work.hpp"
 
+class HTTP_2616_Server_Work; // fwd declaration for ref below
+
 /* This is a class for a special kind of HTTP client: an HTTP
  * server, acting as a client to a Unix domain socket to get a resource
  * on behalf of the "real" client. The intended behavior is as follows:
@@ -28,11 +30,14 @@
 class HTTP_Client_Work_Unix : public HTTP_Client_Work
 {
 public:
-  HTTP_Client_Work_Unix(int fd, int assocfd, structured_hdrs_type &reqhdrs,
+  HTTP_Client_Work_Unix(int fd, HTTP_2616_Server_Work &realclient,
+			structured_hdrs_type &reqhdrs,
 			std::string const &req_body);
-  //  void browse_resp(structured_hdrs_type &resphdrs, std::string &resp_body);
+  ~HTTP_Client_Work_Unix() {}
+  void browse_resp(structured_hdrs_type const &resphdrs,
+		   std::string const &resp_body);
 private:
-  int const assocfd;
+  HTTP_2616_Server_Work &realclient;
 };
 
 #endif // HTTP_CLIENT_WORK_UNIX_HPP

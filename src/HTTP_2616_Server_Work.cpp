@@ -16,6 +16,7 @@
 #include "HTTP_Parse_Err.hpp"
 #include "HTTP_2616_Server_Work.hpp"
 #include "HTTP_2616_Worker.hpp"
+#include "HTTP_Client_Work_Unix.hpp"
 #include "HTTP_typedefs.hpp"
 #include "logging.h"
 #include "ServerErrs.hpp"
@@ -25,18 +26,16 @@ using namespace std;
 using namespace HTTP_constants;
 
 HTTP_Cache *HTTP_2616_Server_Work::cache = NULL;
-FindWork_prealloc<HTTP_2616_Server_Work>::workmap *HTTP_2616_Server_Work::wmap
-= NULL;
 
 HTTP_2616_Server_Work::HTTP_2616_Server_Work(int fd, Work::mode m)
   : HTTP_Server_Work(fd), cl_accept_enc(HTTP_constants::identity),
-    c(NULL), resp_is_cached(false), dynamic_resource(NULL)
+    c(NULL), resp_is_cached(false)
 {
 }
 
 HTTP_2616_Server_Work::~HTTP_2616_Server_Work()
 {
-  wmap->erase(fd);
+  FindWork_prealloc<HTTP_2616_Server_Work>::wmap.erase(fd);
 }
 
 
@@ -119,28 +118,31 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
    * either a pipe or a socket. We have no use for pipes, though. */
   else if (err == ESPIPE) {
     int unixsock;
-    if ((unixsock = socket(AF_LOCAL, SOCK_STREAM, 0))==-1)
+    if ((unixsock = socket(AF_UNIX, SOCK_STREAM, 0))==-1)
       throw HTTP_Parse_Err(Internal_Server_Error);
-    // TODO: is this socket already nonblocking (inherited)? Doubtful.
     int flags;
     if ((flags = fcntl(unixsock, F_GETFL))==-1)
       throw HTTP_Parse_Err(Internal_Server_Error);
-    if (fcntl(unixsock, flags|O_NONBLOCK)==-1)
+    if (fcntl(unixsock, F_SETFL, flags|O_NONBLOCK)==-1)
       throw HTTP_Parse_Err(Internal_Server_Error);
     struct sockaddr_un sa;
     memset((void *)&sa, 0, sizeof(sa));
+    sa.sun_family = AF_UNIX;
     strncpy(sa.sun_path, path.c_str(), sizeof(sa.sun_path)-1);
     if (connect(unixsock, (struct sockaddr *) &sa, (socklen_t) sizeof(sa))==-1)
       throw HTTP_Parse_Err(Internal_Server_Error);
     try {
-      dynamic_resource
-	= new HTTP_Client_Work_Unix(unixsock, fd, req_hdrs, req_body);
+      HTTP_Client_Work_Unix *dynamic_resource
+	= new HTTP_Client_Work_Unix(unixsock, *this, req_hdrs, req_body);
+      FindWork_prealloc<HTTP_2616_Server_Work>::wmap[unixsock] 
+      	= dynamic_resource;
+      // Become dormant until woken up by the dynamic resource.
+      nosch = true;
+      sch->schedule(dynamic_resource);
+      return;
     } catch (bad_alloc) {
       throw HTTP_Parse_Err(Internal_Server_Error);
     }
-    // Become dormant until woken up by the dynamic resource.
-    nosch = true;
-    sch->schedule(dynamic_resource);
   }
   // General-purpose error.
   else {
@@ -256,18 +258,13 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   return false;
 }
 
-void HTTP_2616_Server_Work::on_parse_err(status &s, ostream &hdrstream,
-				    uint8_t const *&body, size_t &bodysz)
+void HTTP_2616_Server_Work::on_parse_err(status &s, ostream &hdrstream)
 {
   Time_nr &date = dynamic_cast<HTTP_2616_Worker *>(curworker)->date;
   
   hdrstream << HTTP_Version << ' ' << s << CRLF
 	    << Date << date.print() << CRLF
-	    << Server << PACKAGE_NAME << CRLF
-	    << Content_Length << 0 << CRLF
-	    << CRLF;
-  body = NULL;
-  bodysz = 0;
+	    << Server << PACKAGE_NAME << CRLF;
 }
 
 // Comments in this block refer to sections of RFC 2616.
@@ -422,3 +419,14 @@ void HTTP_2616_Server_Work::setcache(Cache<string, HTTP_CacheEntry *> *cache)
   HTTP_2616_Server_Work::cache = cache;
 }
 
+void HTTP_2616_Server_Work::async_setresponse(HTTP_Client_Work *assoc,
+					      structured_hdrs_type const &resphdrs,
+					      string const &respbody)
+{
+  HTTP_Server_Work::async_setresponse(assoc, resphdrs, respbody);
+  FindWork_prealloc<HTTP_2616_Server_Work>::wmap.erase(assoc->fd);
+  m = Work::write;
+  _LOG_DEBUG("%d okay!", fd);
+  nosch = false;
+  sch->reschedule(this);
+}
