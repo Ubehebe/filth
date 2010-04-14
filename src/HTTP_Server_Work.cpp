@@ -7,12 +7,13 @@ using namespace HTTP_constants;
 using namespace std;
 
 HTTP_Server_Work::HTTP_Server_Work(int fd)
-  : HTTP_Work(fd, Work::read), nosch(false)
+  : HTTP_Work(fd, Work::read), nosch(false), curworker(NULL)
 {
 }
 
 void HTTP_Server_Work::operator()(Worker *w)
 {
+  curworker = w;
  pipeline_continue:
   int err;
   switch(m) {

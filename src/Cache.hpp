@@ -8,7 +8,6 @@
 #include "Locks.hpp"
 #include "logging.h"
 
-/* TODO: learn more about pointer specializations for templates. */
 /* TODO: repurpose instrumentation from the old cache classes. */
 
 template<class Handle, class Stuff, bool Stuff_is_ptr=true> class Cache

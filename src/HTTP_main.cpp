@@ -4,7 +4,7 @@
 #include "logging.h"
 #include "HTTP_CacheEntry.hpp"
 #include "HTTP_cmdline.hpp"
-#include "HTTP_Server_Work_big.hpp"
+#include "HTTP_2616_Server_Work.hpp"
 #include "HTTP_2616_Worker.hpp"
 #include "CachingServer.hpp"
 
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
   _LOG_INFO("starting");
   HTTP_cmdline::cmdlinesetup(argc, argv);
   try {
-    CachingServer<HTTP_Server_Work_big, HTTP_2616_Worker, HTTP_CacheEntry *>
+    CachingServer<HTTP_2616_Server_Work, HTTP_2616_Worker, HTTP_CacheEntry *>
       (c.bvals[HTTP_cmdline::ipv6] ? AF_INET6 : AF_INET,
        c.svals[HTTP_cmdline::mount],
        c.svals[HTTP_cmdline::port],

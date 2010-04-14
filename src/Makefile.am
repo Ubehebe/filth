@@ -10,5 +10,5 @@ filthy_SOURCES=$(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
 	HTTP_Client_Work_Unix.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp \
 	HTTP_main.cpp HTTP_Origin_Server.cpp \
-	HTTP_Server_Work.cpp HTTP_Server_Work_big.cpp HTTP_parsing.cpp \
+	HTTP_Server_Work.cpp HTTP_2616_Server_Work.cpp HTTP_parsing.cpp \
 	HTTP_Work.cpp

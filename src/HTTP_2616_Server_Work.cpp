@@ -14,7 +14,8 @@
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Origin_Server.hpp"
 #include "HTTP_Parse_Err.hpp"
-#include "HTTP_Server_Work_big.hpp"
+#include "HTTP_2616_Server_Work.hpp"
+#include "HTTP_2616_Worker.hpp"
 #include "HTTP_typedefs.hpp"
 #include "logging.h"
 #include "ServerErrs.hpp"
@@ -23,18 +24,17 @@
 using namespace std;
 using namespace HTTP_constants;
 
-HTTP_Cache *HTTP_Server_Work_big::cache = NULL;
-FindWork_prealloc<HTTP_Server_Work_big>::workmap *HTTP_Server_Work_big::wmap
+HTTP_Cache *HTTP_2616_Server_Work::cache = NULL;
+FindWork_prealloc<HTTP_2616_Server_Work>::workmap *HTTP_2616_Server_Work::wmap
 = NULL;
 
-HTTP_Server_Work_big::HTTP_Server_Work_big(int fd, Work::mode m)
+HTTP_2616_Server_Work::HTTP_2616_Server_Work(int fd, Work::mode m)
   : HTTP_Server_Work(fd), cl_accept_enc(HTTP_constants::identity),
-    c(NULL), date(NULL), MIME(NULL), resp_is_cached(false),
-    dynamic_resource(NULL)
+    c(NULL), resp_is_cached(false), dynamic_resource(NULL)
 {
 }
 
-HTTP_Server_Work_big::~HTTP_Server_Work_big()
+HTTP_2616_Server_Work::~HTTP_2616_Server_Work()
 {
   wmap->erase(fd);
 }
@@ -42,12 +42,16 @@ HTTP_Server_Work_big::~HTTP_Server_Work_big()
 
 /* After parsing is complete, we talk to the cache and the origin server,
  * if need be, to find the resource. */
-void HTTP_Server_Work_big::prepare_response(structured_hdrs_type &req_hdrs,
+void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
 					    string const &req_body,
 					    ostream &hdrstream,
 					    uint8_t const *&body,
 					    size_t &bodysz)
 {
+  // We know the worker is an HTTP_2616_Worker. Grab its state.
+  Magic_nr &MIME = dynamic_cast<HTTP_2616_Worker *>(curworker)->MIME;
+  Time_nr &date = dynamic_cast<HTTP_2616_Worker *>(curworker)->date;
+
   browse_req(req_hdrs, req_body);
 
   /* 9.9: "This specification reserves the method name CONNECT for use with
@@ -76,14 +80,14 @@ void HTTP_Server_Work_big::prepare_response(structured_hdrs_type &req_hdrs,
     /* Any header that requires thread-safe state to construct (like
      * the MIME lookup) gets pushed here. */
     *c << stat;
-    *c << make_pair(Content_Type, (*MIME)(path.c_str()));
-    *c << make_pair(Date, date->print());
-    *c << make_pair(Last_Modified, date->print(c->last_modified));
+    *c << make_pair(Content_Type, MIME(path.c_str()));
+    *c << make_pair(Date, date.print());
+    *c << make_pair(Last_Modified, date.print(c->last_modified));
     c->use_expires = true;
     // HTTP_cmdline::cache_expires is given in seconds.
     c->expires_value = ::time(NULL)
       + 60*HTTP_cmdline::c.ivals[HTTP_cmdline::cache_expires];
-    *c << make_pair(Expires, date->print(c->expires_value));
+    *c << make_pair(Expires, date.print(c->expires_value));
 
     /* Try to put this response in the cache. It might fail if the cache
      * is full or the method/headers do not allow caching. */
@@ -102,12 +106,12 @@ void HTTP_Server_Work_big::prepare_response(structured_hdrs_type &req_hdrs,
      * the MIME lookup) gets pushed here. */
     *c << stat;
     *c << make_pair(Content_Type, "text/html");
-    *c << make_pair(Date, date->print());
+    *c << make_pair(Date, date.print());
     c->use_expires = true;
     // HTTP_cmdline::cache_expires is given in seconds.
     c->expires_value = ::time(NULL)
       + 60*HTTP_cmdline::c.ivals[HTTP_cmdline::cache_expires];
-    *c << make_pair(Expires, date->print(c->expires_value));
+    *c << make_pair(Expires, date.print(c->expires_value));
 
     resp_is_cached = false; // Don't cache directory pages!
   }
@@ -158,7 +162,7 @@ void HTTP_Server_Work_big::prepare_response(structured_hdrs_type &req_hdrs,
 
 /* Tries to make sense of RFC 2616, secs. 13 and 14.9. It's probably not
  * 100% right though. */
-bool HTTP_Server_Work_big::cache_get(string &path, HTTP_CacheEntry *&c)
+bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
 {
   /* 14.9.4: "The request includes a "no-cache" cache-control directive" ...
    * "The server MUST NOT use a cached copy when responding to such
@@ -252,12 +256,13 @@ bool HTTP_Server_Work_big::cache_get(string &path, HTTP_CacheEntry *&c)
   return false;
 }
 
-void HTTP_Server_Work_big::on_parse_err(status &s, ostream &hdrstream,
+void HTTP_2616_Server_Work::on_parse_err(status &s, ostream &hdrstream,
 				    uint8_t const *&body, size_t &bodysz)
 {
+  Time_nr &date = dynamic_cast<HTTP_2616_Worker *>(curworker)->date;
   
   hdrstream << HTTP_Version << ' ' << s << CRLF
-	    << Date << date->print() << CRLF
+	    << Date << date.print() << CRLF
 	    << Server << PACKAGE_NAME << CRLF
 	    << Content_Length << 0 << CRLF
 	    << CRLF;
@@ -266,7 +271,7 @@ void HTTP_Server_Work_big::on_parse_err(status &s, ostream &hdrstream,
 }
 
 // Comments in this block refer to sections of RFC 2616.
-void HTTP_Server_Work_big::browse_req(structured_hdrs_type &req_hdrs,
+void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
 				      string const &req_body)
 {
   parsereqln(req_hdrs[reqln], meth, path, query);
@@ -372,23 +377,21 @@ void HTTP_Server_Work_big::browse_req(structured_hdrs_type &req_hdrs,
   }
 }
 
-void HTTP_Server_Work_big::reset()
+void HTTP_2616_Server_Work::reset()
 {
   if (resp_is_cached)
     cache->unget(path);
-  //  else
-  //    delete c;
+  else
+    delete c;
 
   path.clear();
   query.clear();
   cl_cache_control.clear();
   c = NULL;
-  date = NULL;
-  MIME = NULL;
   // What about cl_accept_enc and cl_max_fwds, meth, etc.
 }
 
-bool HTTP_Server_Work_big::cache_put(string &path, HTTP_CacheEntry *c, size_t sz)
+bool HTTP_2616_Server_Work::cache_put(string &path, HTTP_CacheEntry *c, size_t sz)
 {
   /* 9.2: "Responses to this method [OPTIONS] are not cacheable."
    * 9.6: "Responses to this method [PUT] are not cacheable."
@@ -412,5 +415,10 @@ bool HTTP_Server_Work_big::cache_put(string &path, HTTP_CacheEntry *c, size_t sz
     return false;
 
   return cache->put(path, c, c->szincache);
+}
+
+void HTTP_2616_Server_Work::setcache(Cache<string, HTTP_CacheEntry *> *cache)
+{
+  HTTP_2616_Server_Work::cache = cache;
 }
 

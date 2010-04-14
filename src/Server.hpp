@@ -289,11 +289,12 @@ void Server<_Work, _Worker>::serve()
 
   while (_doserve) {
     socket_bind_listen();
-    onstartup();
-    jobq = new LockFreeQueue<Work *>();
+    _Worker::jobq = jobq = new LockFreeQueue<Work *>();
     sch = new Scheduler(*jobq, listenfd);
     findwork = new FindWork_prealloc<_Work>(preallocMB * (1<<20));
     sch->setfwork(findwork);
+    _Work::setsch(sch);
+    onstartup();
     
     // No signal has value 0.
     for (uint8_t sig=1; sig<NSIG; ++sig)
@@ -305,7 +306,7 @@ void Server<_Work, _Worker>::serve()
 
     { // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       Thread<Scheduler> schedth(sch, &Scheduler::poll);
-      _Worker::jobq = jobq;
+
       ThreadPool<_Worker> wths(wfact, &_Worker::work, nworkers, sigdl_int);
       schedth.start();
       wths.start();

@@ -1,5 +1,5 @@
-#ifndef HTTP_SERVER_WORK_BIG_HPP
-#define HTTP_SERVER_WORK_BIG_HPP
+#ifndef HTTP_2616_SERVER_WORK_HPP
+#define HTTP_2616_SERVER_WORK_HPP
 
 #include <iostream>
 #include <sstream>
@@ -22,12 +22,14 @@
 /* HTTP_Server_Work is a minimal class for work that typically gets handled
  * by servers that speak HTTP; this class is "big" in that its behavior tries to
  * hew to RFC 2616. */
-class HTTP_Server_Work_big
-  : public HTTP_Server_Work, public Preallocated<HTTP_Server_Work_big>
+class HTTP_2616_Server_Work
+  : public HTTP_Server_Work, public Preallocated<HTTP_2616_Server_Work>
 {
 public:
-  HTTP_Server_Work_big(int fd, Work::mode m=Work::read);
-  ~HTTP_Server_Work_big();
+  HTTP_2616_Server_Work(int fd, Work::mode m=Work::read);
+  ~HTTP_2616_Server_Work();
+  // The caching server should set this.
+  static void setcache(Cache<std::string, HTTP_CacheEntry *> *cache);
   
 private:
   void browse_req(structured_hdrs_type &req_hdrs, std::string const &req_body);
@@ -43,19 +45,14 @@ private:
   void reset();
 
   // So it can set wmap
-  friend class FindWork_prealloc<HTTP_Server_Work_big>;
-  //  friend class HTTP_FindWork;
-  friend class HTTP_Worker;
-  HTTP_Server_Work_big(HTTP_Server_Work_big const&);
-  HTTP_Server_Work_big &operator=(HTTP_Server_Work_big const&);
+  friend class FindWork_prealloc<HTTP_2616_Server_Work>;
+  HTTP_2616_Server_Work(HTTP_2616_Server_Work const&);
+  HTTP_2616_Server_Work &operator=(HTTP_2616_Server_Work const&);
 
   // State that is the same for all work objects.
-  static HTTP_Cache *cache;
-  static FindWork_prealloc<HTTP_Server_Work_big>::workmap *wmap;
+  static Cache<std::string, HTTP_CacheEntry *> *cache;
 
-  // State imbued from the Worker object that we use.
-  Time_nr *date;
-  Magic_nr *MIME;
+  static FindWork_prealloc<HTTP_2616_Server_Work>::workmap *wmap;
 
   // Stuff reported by the client in the request headers.
 
@@ -94,4 +91,4 @@ private:
 };
 
 
-#endif // HTTP_SERVER_WORK_BIG_HPP
+#endif // HTTP_2616_SERVER_WORK_HPP

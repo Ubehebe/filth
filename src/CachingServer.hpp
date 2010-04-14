@@ -74,6 +74,7 @@ template<class _Work, class _Worker, class _CacheEntry>
 void CachingServer<_Work, _Worker, _CacheEntry>::onstartup()
 {
   cache = new Cache<std::string, _CacheEntry>(cacheszMB * (1<<20));
+  _Work::setcache(cache);
 }
 
 template<class _Work, class _Worker, class _CacheEntry>

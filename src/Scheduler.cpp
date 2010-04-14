@@ -70,7 +70,6 @@ Scheduler::Scheduler(ConcurrentQueue<Work *> &q, int listenfd,
     exit(1);
   }
   _LOG_DEBUG("polling fd is %d", pollfd);
-
 }
 
 Scheduler::~Scheduler()

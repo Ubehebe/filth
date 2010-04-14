@@ -8,8 +8,7 @@ class Worker
 {
 public:
   static ConcurrentQueue<Work *> *jobq; // where to go to get work
-  struct Worker_state {} *state; // optionally inspected by work object
-  Worker() : state(NULL) {}
+  Worker() {}
   virtual ~Worker() {}
   void work();
 private:

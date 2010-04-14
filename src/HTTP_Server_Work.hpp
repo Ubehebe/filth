@@ -43,6 +43,10 @@ protected:
    * by asynchronous I/O, we can use this too.) */
   bool nosch;
 
+  /* Remember the worker who is working on our behalf, in case we need to
+   * extract some state from it. */
+  Worker *curworker;
+
   // Convenience functions to be called from browse_req and prepare_response.
   void parsereqln(std::string &reqln, HTTP_constants::method &meth,
 		  std::string &path, std::string &query);
