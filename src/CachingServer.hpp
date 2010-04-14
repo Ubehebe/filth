@@ -24,8 +24,10 @@ public:
 		int tcp_keepalive_intvl=-1,
 		int tcp_keepalive_probes=-1,
 		int tcp_keepalive_time=-1);
-  ~CachingServer() {} // ???
+  ~CachingServer() {}
+  static void flush(int ignore=-1);
 private:
+  static CachingServer *theserver;
   Cache <std::string, _CacheEntry> *cache;
   size_t cacheszMB;
   int sigflush;
@@ -34,6 +36,17 @@ private:
   CachingServer(CachingServer const &);
   CachingServer &operator=(CachingServer const &);
 };
+
+template<class _Work, class _Worker, class _CacheEntry>
+CachingServer<_Work, _Worker, _CacheEntry>
+*CachingServer<_Work, _Worker, _CacheEntry>::theserver = NULL;
+
+template<class _Work, class _Worker, class _CacheEntry>
+void CachingServer<_Work, _Worker, _CacheEntry>::flush(int ignore)
+{
+  theserver->cache->flush();
+  theserver->sch->halt();
+}
 
 template<class _Work, class _Worker, class _CacheEntry>
 CachingServer<_Work, _Worker, _CacheEntry>::CachingServer(
@@ -68,6 +81,7 @@ CachingServer<_Work, _Worker, _CacheEntry>::CachingServer(
 			   tcp_keepalive_time),
     sigflush(sigflush), cacheszMB(cacheszMB)
 {
+  theserver = this;
 }
 
 template<class _Work, class _Worker, class _CacheEntry>
@@ -75,6 +89,7 @@ void CachingServer<_Work, _Worker, _CacheEntry>::onstartup()
 {
   cache = new Cache<std::string, _CacheEntry>(cacheszMB * (1<<20));
   _Work::setcache(cache);
+  Server<_Work, _Worker>::sch->push_sighandler(sigflush, flush);
 }
 
 template<class _Work, class _Worker, class _CacheEntry>

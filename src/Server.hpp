@@ -106,6 +106,7 @@ private:
   bool _doserve;
   sigset_t haltsigs;
   static Server *theserver;
+protected:
   Scheduler *sch; // Not a great idea; accessor instead?
 };
 

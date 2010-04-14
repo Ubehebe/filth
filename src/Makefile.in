@@ -32,7 +32,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = filthy$(EXEEXT)
+bin_PROGRAMS = filth$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -48,14 +48,14 @@ PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = compression.$(OBJEXT) Locks.$(OBJEXT) \
 	Scheduler.$(OBJEXT) sigmasks.$(OBJEXT) Work.$(OBJEXT) \
 	Worker.$(OBJEXT) Time_nr.$(OBJEXT) util.$(OBJEXT)
-am_filthy_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
+am_filth_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_Client_Work.$(OBJEXT) HTTP_Client_Work_Unix.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_main.$(OBJEXT) HTTP_Origin_Server.$(OBJEXT) \
 	HTTP_Server_Work.$(OBJEXT) HTTP_2616_Server_Work.$(OBJEXT) \
 	HTTP_parsing.$(OBJEXT) HTTP_Work.$(OBJEXT)
-filthy_OBJECTS = $(am_filthy_OBJECTS)
-filthy_LDADD = $(LDADD)
+filth_OBJECTS = $(am_filth_OBJECTS)
+filth_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -65,8 +65,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(filthy_SOURCES)
-DIST_SOURCES = $(filthy_SOURCES)
+SOURCES = $(filth_SOURCES)
+DIST_SOURCES = $(filth_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -164,7 +164,7 @@ AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 BASE = compression.cpp Locks.cpp Scheduler.cpp	sigmasks.cpp Work.cpp \
 	Worker.cpp Time_nr.cpp util.cpp
 
-filthy_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
+filth_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
 	HTTP_Client_Work_Unix.cpp \
 	HTTP_cmdline.cpp HTTP_constants.cpp \
 	HTTP_main.cpp HTTP_Origin_Server.cpp \
@@ -242,9 +242,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-filthy$(EXEEXT): $(filthy_OBJECTS) $(filthy_DEPENDENCIES) 
-	@rm -f filthy$(EXEEXT)
-	$(CXXLINK) $(filthy_OBJECTS) $(filthy_LDADD) $(LIBS)
+filth$(EXEEXT): $(filth_OBJECTS) $(filth_DEPENDENCIES) 
+	@rm -f filth$(EXEEXT)
+	$(CXXLINK) $(filth_OBJECTS) $(filth_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
