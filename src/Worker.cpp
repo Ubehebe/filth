@@ -7,6 +7,8 @@
 using namespace std;
 
 ConcurrentQueue<Work *> *Worker::jobq = NULL;
+Scheduler *Worker::sch = NULL;
+FindWork *Worker::fwork = NULL;
 
 void Worker::work()
 {
@@ -19,9 +21,6 @@ void Worker::work()
       // Put it back, for the other workers to see
       jobq->enq(w);
       break;
-    }
-    else if (w->deleteme) {
-      delete w;
     }
     else {
       try {

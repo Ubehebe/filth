@@ -45,15 +45,11 @@ private:
   void on_parse_err(HTTP_constants::status &s, std::ostream &hdrstream);
   void reset();
 
-  // So it can set wmap
-  //  friend class FindWork_prealloc<HTTP_2616_Server_Work>;
   HTTP_2616_Server_Work(HTTP_2616_Server_Work const&);
   HTTP_2616_Server_Work &operator=(HTTP_2616_Server_Work const&);
 
   // State that is the same for all work objects.
   static Cache<std::string, HTTP_CacheEntry *> *cache;
-
-  //  static FindWork_prealloc<HTTP_2616_Server_Work>::workmap *wmap;
 
   // Stuff reported by the client in the request headers.
 

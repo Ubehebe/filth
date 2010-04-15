@@ -35,7 +35,7 @@ HTTP_2616_Server_Work::HTTP_2616_Server_Work(int fd, Work::mode m)
 
 HTTP_2616_Server_Work::~HTTP_2616_Server_Work()
 {
-  FindWork_prealloc<HTTP_2616_Server_Work>::wmap.erase(fd);
+  curworker->fwork->unregister(fd);
 }
 
 
@@ -129,16 +129,19 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
     memset((void *)&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
     strncpy(sa.sun_path, path.c_str(), sizeof(sa.sun_path)-1);
-    if (connect(unixsock, (struct sockaddr *) &sa, (socklen_t) sizeof(sa))==-1)
-      throw HTTP_Parse_Err(Internal_Server_Error);
+    while (connect(unixsock, (struct sockaddr *) &sa, (socklen_t) sizeof(sa))==-1) {
+      if (errno == EINTR) // slow system call!
+	continue;
+      else
+	throw HTTP_Parse_Err(Internal_Server_Error);
+    }
     try {
       HTTP_Client_Work_Unix *dynamic_resource
 	= new HTTP_Client_Work_Unix(unixsock, *this, req_hdrs, req_body);
-      FindWork_prealloc<HTTP_2616_Server_Work>::wmap[unixsock] 
-      	= dynamic_resource;
+      curworker->fwork->register_alien(dynamic_resource);
       // Become dormant until woken up by the dynamic resource.
       nosch = true;
-      sch->schedule(dynamic_resource);
+      curworker->sch->schedule(dynamic_resource);
       return;
     } catch (bad_alloc) {
       throw HTTP_Parse_Err(Internal_Server_Error);
@@ -424,9 +427,9 @@ void HTTP_2616_Server_Work::async_setresponse(HTTP_Client_Work *assoc,
 					      string const &respbody)
 {
   HTTP_Server_Work::async_setresponse(assoc, resphdrs, respbody);
-  FindWork_prealloc<HTTP_2616_Server_Work>::wmap.erase(assoc->fd);
-  m = Work::write;
-  _LOG_DEBUG("%d okay!", fd);
+  curworker->fwork->unregister(assoc->fd);
+  delete assoc; // ???
   nosch = false;
-  sch->reschedule(this);
+  m = Work::write;
+  curworker->sch->reschedule(this);
 }

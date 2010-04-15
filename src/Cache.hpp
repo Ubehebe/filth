@@ -8,8 +8,6 @@
 #include "Locks.hpp"
 #include "logging.h"
 
-/* TODO: repurpose instrumentation from the old cache classes. */
-
 template<class Handle, class Stuff, bool Stuff_is_ptr=true> class Cache
 {
   // Wrapper to hold reference counts and sizes.

@@ -7,20 +7,24 @@
 #include "Locks.hpp"
 #include "logging.h"
 
-/* The _Work class needs to be descended from Preallocated or you will get
- * template instantiation errors. */
+class Scheduler; // fwd declaration for ptr
+
+/** \brief An implementation of the FindWork interface for objects deriving
+ * from Preallocated. */
 template<class _Work> class FindWork_prealloc : public FindWork
 {
 public:
   FindWork_prealloc(size_t prealloc_bytes);
   ~FindWork_prealloc();
   Work *operator()(int fd, Work::mode m);
-  // N.B. Work not _Work!
+  void unregister(int fd);
+  bool register_alien(Work *w);
+
+private:
   typedef std::unordered_map<int, Work *> workmap;
-  // Should be protected.
   static workmap wmap;
   RWLock wmaplock;
-private:
+
   void clear();
   FindWork_prealloc(FindWork_prealloc const &);
   FindWork_prealloc &operator=(FindWork_prealloc const &);
@@ -34,6 +38,26 @@ FindWork_prealloc<_Work>::FindWork_prealloc(size_t prealloc_bytes)
 {
   size_t prealloc_chunks = prealloc_bytes / sizeof(_Work);
   _Work::prealloc_init(prealloc_chunks);
+}
+
+template<class _Work>
+void FindWork_prealloc<_Work>::unregister(int fd)
+{
+  wmaplock.rdlock();
+  wmap.erase(fd);
+  wmaplock.unlock();
+}
+
+template<class _Work>
+bool FindWork_prealloc<_Work>::register_alien(Work *w)
+{
+  if (w == NULL) return false;
+  wmaplock.rdlock();
+  bool okay;
+  if (okay = (wmap.find(w->fd) == wmap.end()))
+    wmap[w->fd] = w;
+  wmaplock.unlock();
+  return okay;
 }
 
 template<class _Work>

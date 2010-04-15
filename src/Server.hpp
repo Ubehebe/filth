@@ -291,10 +291,10 @@ void Server<_Work, _Worker>::serve()
   while (_doserve) {
     socket_bind_listen();
     _Worker::jobq = jobq = new LockFreeQueue<Work *>();
-    sch = new Scheduler(*jobq, listenfd);
     findwork = new FindWork_prealloc<_Work>(preallocMB * (1<<20));
-    sch->setfwork(findwork);
-    _Work::setsch(sch);
+    sch = new Scheduler(*jobq, listenfd, findwork);
+    _Worker::sch = sch;
+    _Worker::fwork = findwork;
     onstartup();
     
     // No signal has value 0.

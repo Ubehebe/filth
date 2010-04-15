@@ -74,13 +74,13 @@ void HTTP_Server_Work::operator()(Worker *w)
 		  outsz);
       m = write;
     }
-    sch->reschedule(this);
+    w->sch->reschedule(this);
     break;
 
   case Work::write:
     err = wruntil(out, outsz);
     if (err == EAGAIN || err == EWOULDBLOCK)
-      sch->reschedule(this);
+      w->sch->reschedule(this);
 
     // If we're here, we're guaranteed outsz == 0...right?
     else if (err == 0 && outsz == 0) {
@@ -89,7 +89,7 @@ void HTTP_Server_Work::operator()(Worker *w)
 	outhdrs_done = true;
 	out = outbody;
 	outsz = outbody_sz;
-	sch->reschedule(this);
+	w->sch->reschedule(this);
       }
       else if (nosch) {
 	; // Allow this piece of work to become dormant.
@@ -126,7 +126,7 @@ void HTTP_Server_Work::operator()(Worker *w)
 	else {
 	  inbuf.str("");
 	  inbuf.clear();
-	  sch->reschedule(this);	  
+	  w->sch->reschedule(this);	  
 	}
       }
       // If deleteme is true, the worker will delete this piece of work.

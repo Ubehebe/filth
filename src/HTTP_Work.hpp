@@ -17,12 +17,9 @@
  * virtual since the operator() is not defined. */
 class HTTP_Work : public Work
 {
-protected:
-  static Scheduler *sch;
 public:
   HTTP_Work(int fd, Work::mode m);
   virtual ~HTTP_Work() {}
-  static void setsch(Scheduler *sch) { HTTP_Work::sch = sch; }
 protected:
   HTTP_constants::status stat;
   // General-purpose buffers.

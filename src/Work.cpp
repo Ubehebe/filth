@@ -7,7 +7,6 @@
 Work::Work(int fd, mode m, bool deleteme)
   : fd(fd), m(m), deleteme(deleteme)
 {
-  // the semaphore has an initial value of 1, i.e. not in use
 }
 
 Work::~Work()
@@ -16,10 +15,6 @@ Work::~Work()
     _LOG_INFO("close %d: %m", fd);
 }
 
-/* This call has "header" semantics, where we just keep reading bytes until
- * we would block. The idea is that after every block, some other component
- * checks the ostream to see if reading is complete (e.g. in HTTP, the last line
- * is blank). */
 int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz)
 {
   ssize_t nread;

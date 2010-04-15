@@ -22,8 +22,8 @@ using namespace std;
 
 Scheduler *Scheduler::thescheduler = NULL;
 
-Scheduler::_acceptcb::_acceptcb(Scheduler &sch, int listenfd)
-  : sch(sch), fd(listenfd)
+Scheduler::_acceptcb::_acceptcb(Scheduler &sch, FindWork *fwork, int listenfd)
+  : sch(sch), fwork(fwork), fd(listenfd)
 {
 #ifdef _COLLECT_STATS
   accepts = 0;
@@ -36,11 +36,10 @@ Scheduler::_acceptcb::~_acceptcb()
 }
 
 Scheduler::Scheduler(ConcurrentQueue<Work *> &q, int listenfd,
-		     int pollsz, int maxevents)
-  : q(q), maxevents(maxevents), dowork(true),
-    acceptcb(*this,
-	     listenfd),
-    sigcb(*this, dowork, sighandlers)
+		     FindWork *fwork, int pollsz, int maxevents)
+  : q(q), fwork(fwork), maxevents(maxevents), dowork(true),
+    acceptcb(*this, fwork, listenfd),
+    sigcb(*this, fwork, dowork, sighandlers)
 {
   /* I didn't design the scheduler class to have more than one instantiation
    * at a time, but it could support that, with the caveat that signal handlers
@@ -312,14 +311,4 @@ void Scheduler::halt(int ignore)
   _LOG_INFO("scheduler halting");
   thescheduler->dowork = false;
   thescheduler->q.enq(NULL);
-}
-
-inline void Scheduler::handle_sock_err(int fd)
-{
-  // What's this for?
-}
-
-void Scheduler::setfwork(FindWork *fwork)
-{
-  this->fwork = this->acceptcb.fwork = this->sigcb.fwork = fwork;
 }

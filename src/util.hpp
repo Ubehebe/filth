@@ -3,10 +3,13 @@
 
 #include <string>
 
+/** \brief Random crap. */
 namespace util
 {
-  std::string &toupper(std::string &s); // I can't believe C++ doesn't have this
-  std::string &tolower(std::string &s); // I can't believe C++ doesn't have this
+  /** \brief I can't believe C++ doesn't have this. */
+  std::string &toupper(std::string &s);
+  /** \brief I can't believe C++ doesn't have this. */
+  std::string &tolower(std::string &s);
 };
 
-#endif
+#endif // UTIL_HPP

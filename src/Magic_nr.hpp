@@ -6,14 +6,15 @@
 
 #include "logging.h"
 
-/* Thin wrapper around libmagic.
- * The libmagic documentation I have seen does not mention whether
+/** \brief Thin wrapper around libmagic.
+ * \warning The libmagic documentation I have seen does not mention whether
  * it is thread-safe, so I am assuming it is not ("_nr" means "non-reentrant").
  * Besides, it probably makes sense for each worker to have one of these. */
 class Magic_nr
 {
   magic_t m;
 public:
+  /** \brief Wrapper for magic_open and magic_load. */
   Magic_nr(int flags=MAGIC_MIME_TYPE, char const *database=NULL)
   {
     if ((m = magic_open(flags))==NULL) {
@@ -25,11 +26,14 @@ public:
       exit(1);
     }
   }
+  /** \brief Wrapper for magic_close. */
   ~Magic_nr() { magic_close(m); }
+  /** \brief Wrapper for magic_file. */
   char const *operator()(char const *filename)
   {
     return magic_file(m, filename);
   }
+  /** \brief Wrapper for magic_setflags. */
   void setflags(int flags)
   {
     if (magic_setflags(m, flags)==-1) {

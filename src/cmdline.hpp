@@ -6,17 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Define and parse command-line options.
- * This is a little awkward since we want to define command-line options in a
- * .def file that is included by the preprocessor. Example:
- *
- * foo.def:
- *
+/** \brief Define and parse command-line options.
+ * \note This class is a little awkward since we want to define command-line
+ * options in a .def file included by the preprocessor. For example, in foo.def
+ * we put
+ * \code
  * DEFINE_ME_STR(mount, m, mount, where in the filesystem to mount, /)
  * DEFINE_ME_INT(workers, w, workers, number of worker threads, 10)
- *
- * foo_cmdline.hpp:
- *
+ * \endcode
+ * Then in foo_cmdline.hpp we put:
+ * \code
  * namespace foo_cmdline {
  * enum {
  * #define DEFINE_ME_STR(_name, _short, _long, _desc, _default) _name,
@@ -34,9 +33,9 @@
  * #undef DEFINE_ME_STR
  * > c;
  * };
- *
- * foo_cmdline.cpp:
- *
+ * \endcode
+ * Then in foo_cmdline.cpp we put:
+ * \code
  * namespace foo_cmdline {
  * c.shorts = {
  * #define DEFINE_ME_INT(_name, _short, _long, _desc, _default) #_short,
@@ -54,22 +53,28 @@
  * #undef DEFINE_ME_INT
  * };
  * // etc.
- * }; */
+ * };
+ * \endcode */
 template<int N> struct cmdline
 {
-  char const *progdesc; // one-sentence description at beginning of --help
-  char const *shorts[N]; // short form of option flag, e.g. -c (- for nothing)
-  char const *longs[N]; // long form of option flag, e.g. --cache
-  char const *descs[N]; // description of argument given in --help
-  char const *svals[N]; // string value of argument
+  char const *progdesc; //!< one-sentence description at beginning of --help
+  char const *shorts[N]; //!< short form of option flag, e.g. -c (- for nothing)
+  char const *longs[N]; //!< long form of option flag, e.g. --cache
+  char const *descs[N]; //!< description of argument given in --help
+  char const *svals[N]; //!< string value of argument
 
-  int ivals[N]; // integer value of argument, if applicable
-  bool bvals[N]; // boolean value of argument, if applicable
+  int ivals[N]; //!< integer value of argument, if applicable
+  bool bvals[N]; //!< boolean value of argument, if applicable
 
+  /** \brief Turns strings into corresponding integers or booleans. */
   void atoi_opts();
+  /** \brief Parse the command-line arguments. */
   void parsecmdline(int argc, char **argv);
+  /** \brief Responsible for --help documentation. */
   void print_help(char *argv0);
+  /** \brief Returns the number of the signal with canonical name sig. */
   int sigconv(char const *sig);
+  /** \brief Complains to user and exits the process. */
   void unrecognized_opt(char *argv0, char *opt);
 };
 

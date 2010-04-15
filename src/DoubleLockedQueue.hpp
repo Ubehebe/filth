@@ -11,14 +11,7 @@
 #include "ConcurrentQueue.hpp"
 #include "Locks.hpp"
 
-/* Queue allowing an enqueue to run concurrently with a dequeue.
- * It is correct. In case you are seeing bugs that seem to originate from it,
- * here is some evidence that you are wrong: it's worked correctly at least
- * 1000 times in a row. The test was to set up a random number of producers
- * (between 1 and 50), a random number of consumers (between 1 and 50),
- * and a random number of items per producer (between 1 and 10,000),
- * and start them all at about the same time. After everything is done,
- * we check that every item enqueued was dequeued exactly once. */
+/** \brief Queue allowing one concurrent enqueue + dequeue. */
 template<class T> class DoubleLockedQueue : public ConcurrentQueue<T>
 {
   DoubleLockedQueue(DoubleLockedQueue const&);

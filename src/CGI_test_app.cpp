@@ -13,7 +13,7 @@ private:
   static char const *msg;
 public:
   CGI_Work(int fd, Work::mode m=Work::read) : HTTP_Server_Work(fd) {}
-  ~CGI_Work() { FindWork_prealloc<CGI_Work>::wmap.erase(fd); }
+  ~CGI_Work() { curworker->fwork->unregister(fd); }
   virtual void prepare_response(structured_hdrs_type &reqhdrs,
 				std::string const &reqbody,
 				std::ostream &hdrs_dst,

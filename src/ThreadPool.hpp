@@ -11,16 +11,39 @@
 #include "Locks.hpp"
 #include "Thread.hpp"
 
+/** \brief The common pattern of instantiating n identical objects,
+ * binding each to a separate thread. */
 template<class T> class ThreadPool : public Callback
 {
 public:
+  /** \param f how to make instances of class T (this constructor manages its
+   * own instances)
+   * \param todo what each thread executes
+   * \param nthreads number of threads to create
+   * \param sigkill signal to trigger UNSAFE_emerg_yank()
+   */
   ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1);
+  /** \note The destructor waits for all of the threads in the pool to finish.
+   * This is handy because you can enclose a thread pool in curly braces
+   * and the closing brace will automatically perform the wait. */
   ~ThreadPool();
+  /** \brief Asynchronously rip out all the threads.
+   * \param ignore dummy argument, only present because of the function
+   * pointer requirements of sigaction
+   * \warning Use only as a last resort (i.e., you are deadlocked and have
+   * nothing to lose). I am absolutely not sure I've implemented this right,
+   * and even if I have, there's a good reason why asynchronously destroying
+   * threads is not easy. The state associated with the threads could be
+   * anything at all: locks might be locked or unlocked, for example. You will
+   * probably also leak some memory. */
   static void UNSAFE_emerg_yank(int ignore=-1);
+  /** \brief Start all the threads in the pool. */
   void start();
-  void operator()(); // cleanup callback
-  static ThreadPool<T> *thethreadpool;
+
 private:
+  friend class Thread<T>;
+  static ThreadPool<T> *thethreadpool;
+  void operator()();
   Mutex m;
   CondVar done;
   std::list<Thread<T> *> threads;
@@ -71,17 +94,13 @@ template<class T> ThreadPool<T>::ThreadPool(Factory<T> &f,
   m.unlock();
 }
 
-/* There's a suggestive bug going on here: although every thread
- * in the pool receives the signal, only ONE thread executes this function.
- * The result is deadlock because the ThreadPool destructor is waiting for
- * the thread count to dwindle to zero. Why does this happen? */
 template<class T> void ThreadPool<T>::operator()()
 {
   typename std::list<Thread<T> *>::iterator it, toerase = threads.end();
   pthread_t me = pthread_self();
   m.lock();
   for (it = threads.begin(); it != threads.end(); ++it) {
-    if (pthread_equal(me, (*it)->th)) {
+    if (pthread_equal(me, (*it)->getth())) {
       delete *it; // By this time we shouldn't be using any of this...right?
       toerase = it;
     }
@@ -123,7 +142,7 @@ template<class T> void ThreadPool<T>::UNSAFE_emerg_yank(int ignore)
   if (thethreadpool->sigkill != -1) {
     thethreadpool->m.lock();
     for (it = threads.begin(); it != threads.end(); ++it) {
-      if ((errno = pthread_kill((*it)->th, thethreadpool->sigkill))!=0)
+      if ((errno = pthread_kill((*it)->getth(), thethreadpool->sigkill))!=0)
 	_LOG_INFO("pthread_kill: %m, continuing");
     }
     thethreadpool->m.unlock();

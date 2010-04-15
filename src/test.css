@@ -1,0 +1,80 @@
+@charset "UTF-8";
+body {
+    font-family: sans-serif;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: black;
+}
+
+div {
+    margin: auto;
+}
+
+a {
+    text-decoration: none;
+    border-bottom: 1px dashed red;
+    color: black;
+}
+
+div#thepage {
+    width: 32.75em;
+    height: 16em;
+}
+
+div#navbox {
+    float: left;
+    width: 3.5em;
+    padding-left: 1em;
+    padding-top: 0.4em;
+    padding-bottom: 0.4em;
+}
+
+.nav {
+    font-family: serif;
+    text-transform: none;
+    font-style: italic;
+    font-weight: normal;
+    float: left;
+    width: 1em;
+    font-size: 1em;
+    letter-spacing: -0.1em;
+    text-align: center;
+    cursor: pointer;
+}
+
+div#invis {
+    display: none;
+    font-family: serif;
+    text-transform: none;
+    font-style: italic;
+    font-weight: normal;
+    float: left;
+    font-size: 1em;
+    text-align: justify;
+}
+
+.tl {
+    color: white;
+    float: right;
+    font-size: 10em;
+    line-height: 0.75em;
+    padding-top: 0.3em;
+    text-shadow:
+    -0.05em -0.05em 0em red,
+    -0.1em -0.1em 0em orange,
+    -0.15em -0.15em 0em yellow,
+    -0.2em -0.2em 0em green,
+    -0.25em -0.25em 0em blue,
+    -0.3em -0.3em 0em indigo,
+    -0.35em -0.35em 0em violet,
+    0em 0em 1em blue;
+}
+
+.stl {
+    font-size: 4em;
+    letter-spacing: -0.1em;
+}
+
+
+
+

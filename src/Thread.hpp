@@ -16,7 +16,7 @@
 #include "Locks.hpp"
 #include "logging.h"
 
-/* Wrapper around posix threads to do the most common thing:
+/** \brief Wrapper around posix threads to do the most common thing:
  * set up a thread to execute a nullary member function.
  * The constructors provide most of the common thread options, with two
  * exceptions. One is cancelation cleanup handling (pthread_cleanup_push/pop).
@@ -29,6 +29,18 @@
 template<class C> class Thread
 {
 public:
+  /** \param f how to make instances of class C (this constructor manages its
+   * own instance)
+   * \param p what the thread executes
+   * \param _sigmask signals to block for this thread. NULL means no change
+   * from the current mask.
+   * \param detached see pthreads documentation for what this means, or
+   * just don't use it
+   * \param cleanup function object to call after the thread is done executing
+   * \param cancelstate see pthreads documentation for what this means, or
+   * just don't use it
+   * \param canceltype see pthreads documentation for what this means, or
+   * just don't use it */
   Thread(Factory<C> &f,
 	 void (C::*p)(),
 	 sigset_t *_sigmask=NULL,
@@ -36,6 +48,17 @@ public:
 	 Callback *cleanup = NULL,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
+  /** \param c already-existing instance of class C
+   * \param p what the thread executes
+   * \param _sigmask signals to block for this thread. NULL means no change
+   * from the current mask.
+   * \param detached see pthreads documentation for what this means, or
+   * just don't use it
+   * \param cleanup function object to call after the thread is done executing
+   * \param cancelstate see pthreads documentation for what this means, or
+   * just don't use it
+   * \param canceltype see pthreads documentation for what this means, or
+   * just don't use it */
   Thread(C *c,
 	 void (C::*p)(),
 	 sigset_t *_sigmask=NULL,
@@ -43,13 +66,20 @@ public:
 	 Callback *cleanup = NULL,
 	 int cancelstate=PTHREAD_CANCEL_ENABLE,
 	 int canceltype=PTHREAD_CANCEL_DEFERRED);
+  /** \note If the thread is joinable (the default), the destructor calls
+   * pthread_join. This is useful because you can surround the thread
+   * constructor/start() call with curly braces and the closing brace will
+   * automatically do the pthread_join. */
   ~Thread();
-  void cancel(); // Found no use for this yet
+  /** \brief Wrapper for pthread_cancel. See pthreads documentation for what
+   * this does, or just don't use it. */
+  void cancel();
+  /** \brief Actually starts the thread. */
   void start();
-  pthread_t th;
-
+  /** \brief Accessor for the underlying thread id. */
+  pthread_t getth() const { return th; }
 private:
-
+  pthread_t th;
   sigset_t *_sigmask;
   Thread(Thread const&);
   Thread &operator=(Thread const&);

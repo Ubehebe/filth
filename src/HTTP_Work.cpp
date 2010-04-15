@@ -8,4 +8,3 @@ HTTP_Work::HTTP_Work(int fd, Work::mode m)
 {
 }
 
-Scheduler *HTTP_Work::sch = NULL;

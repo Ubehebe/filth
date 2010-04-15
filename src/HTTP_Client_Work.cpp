@@ -48,7 +48,7 @@ void HTTP_Client_Work::operator()(Worker *w)
   case Work::write:
     err = wruntil(out, outsz);
     if (err == EAGAIN || err == EWOULDBLOCK)
-      sch->reschedule(this);
+      w->sch->reschedule(this);
     else if (err == 0 && outsz == 0) {
       // Finished writing request headers.
       if (!outhdrs_done) {
@@ -60,7 +60,7 @@ void HTTP_Client_Work::operator()(Worker *w)
       else {
 	m = Work::read;
       }
-      sch->reschedule(this);
+      w->sch->reschedule(this);
     }
     else {
       throw SocketErr("write", err);
@@ -97,7 +97,7 @@ void HTTP_Client_Work::operator()(Worker *w)
     dropdown:
       browse_resp(inhdrs, inbody);
     }
-    sch->reschedule(this);
+    w->sch->reschedule(this);
     break;
   }
 }

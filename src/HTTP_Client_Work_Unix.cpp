@@ -16,5 +16,4 @@ void HTTP_Client_Work_Unix::browse_resp(structured_hdrs_type const &resphdrs,
 					string const &resp_body)
 {
   realclient.async_setresponse(this, resphdrs, resp_body);
-  deleteme = true;
 }

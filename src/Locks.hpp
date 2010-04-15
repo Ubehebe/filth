@@ -4,8 +4,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-// Fwd declaration needed? class CondVar;
-
+/** \brief Thin wrapper around pthread mutexes. */
 class Mutex
 {
   Mutex(Mutex const &);
@@ -21,6 +20,7 @@ class Mutex
   ~Mutex();
 };
 
+/** \brief Thin wrapper around pthread condition variables. */
 class CondVar
 {
   CondVar(CondVar const &);
@@ -36,6 +36,7 @@ public:
   void wait();
 };
 
+/** \brief Thin wrapper around pthread reader-writer locks. */
 class RWLock
 {
   RWLock(RWLock const &);
@@ -49,6 +50,7 @@ public:
   ~RWLock();
 };
 
+/** \brief Thin wrapper around posix semaphores. */
 class Semaphore
 {
   sem_t sem;
