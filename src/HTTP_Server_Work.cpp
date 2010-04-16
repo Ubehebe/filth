@@ -38,6 +38,7 @@ void HTTP_Server_Work::operator()(Worker *w)
      * the server side (e.g. wait for a CGI program to return), we would want
      * the write to be scheduled only when all the resources are ready. */
     if (!inhdrs_done) {
+      _LOG_DEBUG("%s", inbuf.str().c_str());
       if (inhdrs_done = (inbuf >> inhdrs)) {
 	// We need this to read the rest of the request.
 	if (!inhdrs[Content_Length].empty()) {
@@ -45,6 +46,13 @@ void HTTP_Server_Work::operator()(Worker *w)
 	  header h;
 	  tmp >> h; // Get rid of the actual "Content-Length: "
 	  tmp >> inbody_sz;
+	  if (inbody_sz > 0) {
+	    inbuf.read(reinterpret_cast<char *>(cbuf), inbody_sz);
+	    size_t nread = inbuf.gcount();
+	    cbuf[nread] = '\0';
+	    inbody_sz -= nread;
+	    inbody.append(reinterpret_cast<char *>(cbuf));
+	  }
 	}
 	if (inbody_sz == 0)
 	  goto dropdown;
@@ -142,6 +150,7 @@ void HTTP_Server_Work::operator()(Worker *w)
 void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
 				  string &query)
 {
+  _LOG_DEBUG("%s", reqln.c_str());
   stringstream tmp(reqln);
   tmp >> meth;
   string uri;

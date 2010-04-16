@@ -25,7 +25,7 @@ public:
   /** \brief Wrapper for zlib's compressBound.
    * Used before compression to get an upper bound on the amount of
    * space we need to allocate to store the compressed bytestream. */
-  static size_t compressBound(size_t srcsz);
+  static size_t compressBound(size_t srcsz, format f=GZIP);
   /** \brief Wrapper for zlib's compress.
    * \param dst destination buffer
    * \param dstsz size of destination buffer (on return, contains actual size
@@ -59,6 +59,14 @@ public:
   static bool uncompress(void *dst, size_t &dstsz, void const *src,
 			 size_t srcsz, format f=GZIP);
 private:
+  /* zlib's compressBound function gives you the upper bound for compressed
+   * streams in zlib format, but the headers for the gzip format are a little
+   * bigger. How much bigger? ...Uh...according to Wikipedia, 10 bytes for the
+   * header, 8 bytes for the footer, and some "optional extra headers such as
+   * the file name". I sure hope this is sufficient! I tested it on 1-byte-long files
+   * (where an error would be most likely to show up, since "compressing"
+   * actually increases the file size) and it seemed to work. */
+  static size_t const gzip_hdr_extra = 18;
   gzip();
   static int README_compress2 (Bytef *dest, uLongf *destLen, const Bytef *source,
 			       uLong sourceLen, int level);

@@ -104,6 +104,7 @@ namespace HTTP_Origin_Server
       compressed = new uint8_t[compressedsz];
     } catch (bad_alloc) {
       free(uncompressed);
+      _LOG_DEBUG();
       return ENOMEM;
     }
     

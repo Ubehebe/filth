@@ -1,6 +1,12 @@
 #include "gzip.hpp"
 
-size_t gzip::compressBound(size_t srcsz) { return ::compressBound(srcsz); }
+size_t gzip::compressBound(size_t srcsz, gzip::format f)
+{ 
+  size_t ans = ::compressBound(srcsz);
+  if (f == gzip::GZIP)
+    ans += gzip_hdr_extra;
+  return ans;
+}
 
 bool gzip::compress(void *dst, size_t &dstsz, void const *src, size_t srcsz,
 		    gzip::format f, int level)

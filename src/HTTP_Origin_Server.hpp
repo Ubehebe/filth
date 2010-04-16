@@ -11,12 +11,14 @@
 
 /* This is a namespace instead of a class to emphasize that the origin
  * server is basically stateless. Currently the only system calls it makes are
- * open, stat, and close, all of which are required by POSIX to be thread-safe.
- * Therefore this namespace needs no synchronization. If you add to the
- * namespace, you had better be sure that this invariant is maintained. */
+ * open, read, stat, and close, all of which are required by POSIX to be
+ * thread-safe. Therefore this namespace needs no synchronization.
+ * If you add to the namespace, you had better be sure that this invariant is
+ * maintained. */
 namespace HTTP_Origin_Server
 {
   int request(std::string &path, HTTP_CacheEntry *&result);
+  int put(std::string &path, std::string &contents);
   bool validate(std::string &path, HTTP_CacheEntry *tocheck);
   int dirtoHTML(std::string &path, HTTP_CacheEntry *&result);
 };

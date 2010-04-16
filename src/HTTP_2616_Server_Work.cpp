@@ -59,6 +59,10 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
   if (meth == CONNECT)
     throw HTTP_Parse_Err(Method_Not_Allowed);
 
+  // Start here!
+  else if (meth == POST || meth == PUT || meth == DELETE)
+    ;
+
   int err;
 
   /* First ask the cache if we have a ready response, taking into account
@@ -149,6 +153,7 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
   }
   // General-purpose error.
   else {
+    _LOG_DEBUG("%s", strerror(err));
     throw HTTP_Parse_Err(Internal_Server_Error);
   }
 

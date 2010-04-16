@@ -43,9 +43,14 @@ FindWork_prealloc<_Work>::FindWork_prealloc(size_t prealloc_bytes)
 template<class _Work>
 void FindWork_prealloc<_Work>::unregister(int fd)
 {
-  wmaplock.rdlock();
+  /* This is unsynchronized to avoid deadlock in clear(). 
+   * That function calls delete on each item in the workmap while
+   * holding the write lock, and the derived work destructor could well call
+   * unregister(). Because we are striving to maintain the "one fd, one owner"
+   * invariant throughout the architecture, I do not think we need to worry
+   * about race conditions with two workers trying to unregister the
+   * same fd. */
   wmap.erase(fd);
-  wmaplock.unlock();
 }
 
 template<class _Work>
@@ -63,9 +68,7 @@ bool FindWork_prealloc<_Work>::register_alien(Work *w)
 template<class _Work>
 FindWork_prealloc<_Work>::~FindWork_prealloc()
 {
-  /* Send everything still in the work map back to the free store.
-   * Note that the FindWork destructor will also call clear, but this isn't a
-   * problem because by that time the work map is empty. */
+  /* Send everything still in the work map back to the free store. */
   clear();
   _Work::prealloc_deinit();
 }

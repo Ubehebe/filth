@@ -1,0 +1,25 @@
+<html>
+<head>
+<title>hi</title>
+<script type="text/javascript">
+  x = 0;
+  maxlen = 8;
+  xstr;
+  function foo() {
+	var req = new XMLHttpRequest();
+	req.open('PUT', 'counter', false);
+	req.setRequestHeader('Content-Length', 4);
+	req.send('four');
+	}
+  function bar() {
+	xstr = (x++).toString(16);
+	while (xstr.length < maxlen)
+		xstr = "0" + xstr;	
+	document.getElementById('counter').innerHTML = xstr;
+  }
+</script>
+</head>
+<body onload='foo();'>
+<div id='counter'></div>  
+</body>
+</html>
