@@ -45,9 +45,9 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am__objects_1 = compression.$(OBJEXT) Locks.$(OBJEXT) \
-	Scheduler.$(OBJEXT) sigmasks.$(OBJEXT) Work.$(OBJEXT) \
-	Worker.$(OBJEXT) Time_nr.$(OBJEXT) util.$(OBJEXT)
+am__objects_1 = gzip.$(OBJEXT) Locks.$(OBJEXT) Scheduler.$(OBJEXT) \
+	sigmasks.$(OBJEXT) Work.$(OBJEXT) Worker.$(OBJEXT) \
+	Time_nr.$(OBJEXT) util.$(OBJEXT)
 am_cgi_test_app_OBJECTS = $(am__objects_1) CGI_test_app.$(OBJEXT) \
 	HTTP_Server_Work.$(OBJEXT) HTTP_constants.$(OBJEXT) \
 	HTTP_parsing.$(OBJEXT) HTTP_Work.$(OBJEXT)
@@ -166,7 +166,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
-BASE = compression.cpp Locks.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
+BASE = gzip.cpp Locks.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
 	Worker.cpp Time_nr.cpp util.cpp
 
 filth_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
@@ -280,7 +280,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Time_nr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Worker.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/compression.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gzip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sigmasks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 

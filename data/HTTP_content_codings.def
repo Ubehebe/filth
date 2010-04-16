@@ -1,5 +1,5 @@
-/* See RFC 2616, sec. 3.5. The second field means "is implemented". */
-DEFINE_ME(gzip, 0)
-DEFINE_ME(compress, 0)
-DEFINE_ME(deflate, 1)
-DEFINE_ME(identity, 1)
+/* See RFC 2616, sec. 3.5. */
+DEFINE_ME(compress)
+DEFINE_ME(deflate)
+DEFINE_ME(gzip)
+DEFINE_ME(identity)
