@@ -64,19 +64,13 @@ namespace HTTP_constants
   };
 
   size_t const num_content_coding = 
-#define DEFINE_ME(ignore1, ignore2) +1
+#define DEFINE_ME(ignore1) +1
 #include "HTTP_content_codings.def"
 #undef DEFINE_ME
     ;
 
   char const *content_coding_strs[] = {
-#define DEFINE_ME(name, ignore) #name,
-#include "HTTP_content_codings.def"
-#undef DEFINE_ME
-  };
-
-  bool const content_coding_is_implemented[] = {
-#define DEFINE_ME(name, is_implemented) static_cast<bool>(is_implemented),
+#define DEFINE_ME(name) #name,
 #include "HTTP_content_codings.def"
 #undef DEFINE_ME
   };

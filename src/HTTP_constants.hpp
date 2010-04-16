@@ -33,7 +33,7 @@ namespace HTTP_constants
 
   enum content_coding
     {
-#define DEFINE_ME(name, ignore) name,
+#define DEFINE_ME(name) name,
 #include "HTTP_content_codings.def"
 #undef DEFINE_ME
     };
@@ -62,7 +62,6 @@ namespace HTTP_constants
   extern char const *header_strs[];
   extern size_t const num_content_codings;
   extern char const *content_coding_strs[];
-  extern bool const content_coding_is_implemented[];
 };
 
 #endif // HTTP_CONSTANTS_HPP

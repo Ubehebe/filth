@@ -6,7 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "compression.hpp"
+#include "gzip.hpp"
 #include "HTTP_constants.hpp"
 #include "HTTP_Origin_Server.hpp"
 #include "logging.h"
@@ -99,7 +99,7 @@ namespace HTTP_Origin_Server
     uncompressed -= statbuf.st_size;
 
     uint8_t *compressed;
-    size_t compressedsz = compression::compressBound(statbuf.st_size);
+    size_t compressedsz = gzip::compressBound(statbuf.st_size);
 
     try {
       compressed = new uint8_t[compressedsz];
@@ -108,7 +108,7 @@ namespace HTTP_Origin_Server
       return ENOMEM;
     }
     
-    if (compression::compress(reinterpret_cast<void *>(compressed),
+    if (gzip::compress(reinterpret_cast<void *>(compressed),
 			      compressedsz,
 			      reinterpret_cast<void const *>(uncompressed), statbuf.st_size)) {
       result = new HTTP_CacheEntry(statbuf.st_size,
@@ -117,7 +117,7 @@ namespace HTTP_Origin_Server
 				   ::time(NULL),
 				   statbuf.st_mtime,
 				   compressed,
-				   HTTP_constants::deflate);
+				   HTTP_constants::gzip);
       ans = 0;
     } else {
       delete compressed;
@@ -164,7 +164,7 @@ namespace HTTP_Origin_Server
 
     uint8_t *compressed;
     size_t srcsz = strlen(tmps);
-    size_t compressedsz = compression::compressBound(srcsz);
+    size_t compressedsz = gzip::compressBound(srcsz);
 
     try {
       compressed = new uint8_t[compressedsz];
@@ -174,7 +174,7 @@ namespace HTTP_Origin_Server
 
     time_t now = ::time(NULL);
     
-    if (compression::compress(reinterpret_cast<void *>(compressed),
+    if (gzip::compress(reinterpret_cast<void *>(compressed),
 			      compressedsz,
 			      reinterpret_cast<void const *>(tmps), srcsz)) {
       result = new HTTP_CacheEntry(srcsz,
@@ -183,7 +183,7 @@ namespace HTTP_Origin_Server
 				   now,
 				   now,
 				   compressed,
-				   HTTP_constants::deflate);
+				   HTTP_constants::gzip);
       ans = 0;
     } else {
       delete compressed;

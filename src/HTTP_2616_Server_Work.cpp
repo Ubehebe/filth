@@ -9,8 +9,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "compression.hpp"
 #include "config.h" // For PACKAGE_NAME
+#include "gzip.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Origin_Server.hpp"
 #include "HTTP_Parse_Err.hpp"
@@ -288,10 +288,9 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
      * According to 3.5, the content codings are case insensitive. */
     
     string &tmp = util::tolower(req_hdrs[Accept_Encoding]);
-    if (tmp.find("deflate") != tmp.npos)
-      cl_accept_enc = HTTP_constants::deflate;
-    else if (tmp.find("identity") != tmp.npos)
-      cl_accept_enc = HTTP_constants::identity;
+    if (tmp.find("gzip") != tmp.npos)
+      cl_accept_enc = HTTP_constants::gzip;
+    // We are not gonna support clients who can't do gzip. Sorry.
     else throw HTTP_Parse_Err(Not_Acceptable);
   }
 
