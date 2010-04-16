@@ -61,6 +61,8 @@ private:
    * these is true we need to remember to delete it ourselves. */
   bool resp_is_cached;
   HTTP_CacheEntry *c;
+  uint8_t *uncompressed;
+
 
   struct cc
   {
@@ -80,7 +82,7 @@ private:
     inline void clear() { flags = 0; }
   };
   cc cl_cache_control;
-  HTTP_constants::content_coding cl_accept_enc;
+  HTTP_constants::content_coding cl_accept_enc, cl_content_enc;
   size_t cl_max_fwds;
 };
 

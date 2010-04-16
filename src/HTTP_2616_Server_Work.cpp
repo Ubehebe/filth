@@ -13,7 +13,7 @@
 #include "gzip.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_Origin_Server.hpp"
-#include "HTTP_Parse_Err.hpp"
+#include "HTTP_oops.hpp"
 #include "HTTP_2616_Server_Work.hpp"
 #include "HTTP_2616_Worker.hpp"
 #include "HTTP_Client_Work_Unix.hpp"
@@ -28,8 +28,8 @@ using namespace HTTP_constants;
 HTTP_Cache *HTTP_2616_Server_Work::cache = NULL;
 
 HTTP_2616_Server_Work::HTTP_2616_Server_Work(int fd, Work::mode m)
-  : HTTP_Server_Work(fd), cl_accept_enc(HTTP_constants::identity),
-    c(NULL), resp_is_cached(false)
+  : HTTP_Server_Work(fd), c(NULL), uncompressed(NULL), resp_is_cached(false),
+    cl_accept_enc(HTTP_constants::identity), cl_content_enc(HTTP_constants::identity)
 {
 }
 
@@ -57,13 +57,60 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
    * a proxy that can dynamically switch to being a tunnel". I have no idea
    * what that means and I'm not going to support it. */
   if (meth == CONNECT)
-    throw HTTP_Parse_Err(Method_Not_Allowed);
+    throw HTTP_oops(Method_Not_Allowed);
 
-  // Start here!
-  else if (meth == POST || meth == PUT || meth == DELETE)
-    ;
-
+  /* Deal with the "put"-style methods.
+   * 
+   * 13.11, titled "Write-Through Mandatory": "All methods that
+   * might be expected to cause modifications to the origin server's resources
+   * MUST be written through to the origin server. This currently includes all
+   * methods except for GET and HEAD. A cache MUST NOT reply to such a
+   * request from a client before having transmitted the request to the inbound
+   * server, AND [my emphasis] having received a response from the inbound
+   * server.
+   *
+   * "The alternative (known as "write-back" or "copy-back" caching) is not
+   * allowed in HTTP/1.1, due to the difficulty of providing consistent updates
+   * and the problems arising from server, cache, or network failure prior to
+   * write-back."
+   *
+   * Well, that certainly makes things easier for the implementer. =)
+   *
+   * Note that if we're here, the request body (if any) has encoding either
+   * gzip or identity. */
+  else if (meth == POST || meth == PUT) {
+    char const *mode = (meth == POST) ? "a" : "w";
+    int err = HTTP_Origin_Server::put(path, req_body, cl_content_enc, mode);
+    switch (err) {
+    case 0:
+      cache->advise_evict(path);
+      throw HTTP_oops(OK);
+    case ENOENT: throw HTTP_oops(Not_Found);
+    case ENOMEM: throw HTTP_oops(Internal_Server_Error);
+    case ENOTSUP: throw HTTP_oops(Internal_Server_Error);
+    case EACCES: throw HTTP_oops(Forbidden);
+    case EISDIR: throw HTTP_oops(Forbidden); // You can't put directories!
+    case ETXTBSY: throw HTTP_oops(Internal_Server_Error);
+    default: throw HTTP_oops(Internal_Server_Error);
+    }
+  }
+  else if (meth == DELETE) {
+    int err = HTTP_Origin_Server::unlink(path);
+    switch (err) {
+    case 0:
+      cache->advise_evict(path);
+      throw HTTP_oops(OK);
+    case EACCES: throw HTTP_oops(Forbidden);
+    case EISDIR: throw HTTP_oops(Forbidden);
+    case ENOENT: throw HTTP_oops(Not_Found);
+    case EPERM: throw HTTP_oops(Forbidden);
+    default: throw HTTP_oops(Internal_Server_Error);
+    }
+  }
+    
   int err;
+
+  // Deal with the "get"-style methods.
 
   /* First ask the cache if we have a ready response, taking into account
    * the client's caching preferences. */
@@ -75,7 +122,7 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
    * that's failure. According to 14.9.3, the correct status is, for some
    * reason, 504 Gateway Timeout. */
   else if (cl_cache_control.isset(cc::only_if_cached)) {
-    throw HTTP_Parse_Err(Gateway_Timeout);
+    throw HTTP_oops(Gateway_Timeout);
   }
 
   /* Ask the origin server. */
@@ -97,10 +144,13 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
     resp_is_cached = cache_put(path, c, c->szincache);
   }
   else if (err == ENOENT) {
-    throw HTTP_Parse_Err(Not_Found);
+    throw HTTP_oops(Not_Found);
   }
   else if (err == EACCES) {
-    throw HTTP_Parse_Err(Forbidden);
+    throw HTTP_oops(Forbidden);
+  }
+  else if (err == ETXTBSY) {
+    throw HTTP_oops(Conflict);
   }
   /* TODO: it's bad design for the server to actually be constructing HTML.
    * Use another process, connected via a Unix domain socket. */
@@ -123,12 +173,12 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
   else if (err == ESPIPE) {
     int unixsock;
     if ((unixsock = socket(AF_UNIX, SOCK_STREAM, 0))==-1)
-      throw HTTP_Parse_Err(Internal_Server_Error);
+      throw HTTP_oops(Internal_Server_Error);
     int flags;
     if ((flags = fcntl(unixsock, F_GETFL))==-1)
-      throw HTTP_Parse_Err(Internal_Server_Error);
+      throw HTTP_oops(Internal_Server_Error);
     if (fcntl(unixsock, F_SETFL, flags|O_NONBLOCK)==-1)
-      throw HTTP_Parse_Err(Internal_Server_Error);
+      throw HTTP_oops(Internal_Server_Error);
     struct sockaddr_un sa;
     memset((void *)&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
@@ -137,7 +187,7 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
       if (errno == EINTR) // slow system call!
 	continue;
       else
-	throw HTTP_Parse_Err(Internal_Server_Error);
+	throw HTTP_oops(Internal_Server_Error);
     }
     try {
       HTTP_Client_Work_Unix *dynamic_resource
@@ -148,13 +198,13 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
       curworker->sch->schedule(dynamic_resource);
       return;
     } catch (bad_alloc) {
-      throw HTTP_Parse_Err(Internal_Server_Error);
+      throw HTTP_oops(Internal_Server_Error);
     }
   }
   // General-purpose error.
   else {
     _LOG_DEBUG("%s", strerror(err));
-    throw HTTP_Parse_Err(Internal_Server_Error);
+    throw HTTP_oops(Internal_Server_Error);
   }
 
   // If we're here, c contains some kind of response.
@@ -163,11 +213,27 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
     body = NULL;
     bodysz = 0;
   }
-  else {
+  else if (cl_accept_enc == HTTP_constants::gzip) {
     body = c->getbuf();
     bodysz = const_cast<size_t &>(c->szincache);
   }
-    hdrstream << *c; // Pushes the status line, then all the headers
+  else if (cl_accept_enc == HTTP_constants::identity) {
+    bodysz = c->szondisk;
+    if ((uncompressed = (uint8_t *) malloc(bodysz * sizeof(uint8_t)))==NULL)
+      throw HTTP_oops(Internal_Server_Error);
+    if (!gzip::uncompress(reinterpret_cast<void *>(uncompressed), bodysz, c->getbuf(),
+			  c->szincache)) {
+      free(uncompressed);
+      uncompressed = NULL;
+      body = NULL;
+      bodysz = 0;
+      throw HTTP_oops(Internal_Server_Error);
+    } else {
+      *c << HTTP_CacheEntry::as_identity;
+      body = uncompressed;
+    }
+  }
+  hdrstream << *c; // Pushes the status line, then all the headers
 }
 
 /* Tries to make sense of RFC 2616, secs. 13 and 14.9. It's probably not
@@ -188,18 +254,23 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   string age;
 
   /* As far as I understand, the only cache directive that can disqualify
-   * a fresh or valid cache entry (other than no-cache) is min-fresh. */
+   * a fresh or valid cache entry (other than no-cache) is min-fresh. max-age?*/
   if ((fresh || HTTP_Origin_Server::validate(path,c)) 
-      && !cl_cache_control.isset(cc::use_min_fresh))
+      && !cl_cache_control.isset(cc::use_min_fresh)
+      && !cl_cache_control.isset(cc::use_max_age)) {
+    _LOG_DEBUG();
     goto cache_ok;
+  }
 
   /* 14.9.3: min-fresh "Indicates that the client is willing to accept a
    * response whose freshness lifetime is no less than its current age
    * plus the specified time in seconds". */
   if (cl_cache_control.isset(cc::use_min_fresh)) {
     if (c->freshness_lifetime() >=
-	c->current_age() + cl_cache_control.min_fresh)
+	c->current_age() + cl_cache_control.min_fresh) {
+      _LOG_DEBUG();
       goto cache_ok;
+    }
     else
       goto cache_no;
   }
@@ -220,11 +291,13 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
 	  if (cl_cache_control.isset(cc::use_max_stale)) {
 	    if (c->current_age() - c->freshness_lifetime()
 		<= cl_cache_control.max_stale) {
+	      _LOG_DEBUG();
 	      goto cache_ok;
 	    } else {
 	      goto cache_no;
 	    }
 	  } else {
+	    _LOG_DEBUG();
 	    goto cache_ok;
 	  }
 	} else {
@@ -247,6 +320,7 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   }
 
  cache_ok:
+  _LOG_DEBUG();
   /* 13.2.3: "When a response is generated from a cache entry, the cache
    * MUST include a single Age header field in the response with a value
    * equal to the cache entry's current_age." */
@@ -293,10 +367,13 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
      * According to 3.5, the content codings are case insensitive. */
     
     string &tmp = util::tolower(req_hdrs[Accept_Encoding]);
-    if (tmp.find("gzip") != tmp.npos)
+    if (tmp.find(content_coding_strs[HTTP_constants::gzip]) != tmp.npos)
       cl_accept_enc = HTTP_constants::gzip;
-    // We are not gonna support clients who can't do gzip. Sorry.
-    else throw HTTP_Parse_Err(Not_Acceptable);
+    else if (tmp.find(content_coding_strs[HTTP_constants::identity])
+	     != tmp.npos)
+      cl_accept_enc = HTTP_constants::identity;
+    else
+      throw HTTP_oops(Not_Acceptable);
   }
 
   if (!req_hdrs[Cache_Control].empty()) {
@@ -357,6 +434,24 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
       deleteme = true;
   }
 
+  if (!req_hdrs[Content_Encoding].empty()) {
+    string &tmp = util::tolower(req_hdrs[Content_Encoding]);
+    /* 14.11: "If the content-coding of an entity in a request message is not
+     * acceptable to the origin server, the server SHOULD respond with a status
+     * code of 415 (Unsupported Media Type)." */
+    if (tmp.find(content_coding_strs[HTTP_constants::gzip]) != tmp.npos)
+      cl_content_enc = HTTP_constants::gzip;
+    else if (tmp.find(content_coding_strs[HTTP_constants::identity])
+	     != tmp.npos)
+      cl_content_enc = HTTP_constants::identity;
+    else
+      throw HTTP_oops(Unsupported_Media_Type);
+  }
+
+  /* Note that HTTP_Server_Work has already dealt with the Content-Length
+   * header and set inbody_sz. That is the only header that influences
+   * parsing itself. */
+
   if (!req_hdrs[Expect].empty()) {
     /* 14.20: Expect = "Expect" ":" 1#expectation
      * expectation = "100-continue" | expectation-extension
@@ -371,9 +466,9 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
      * 
      * The behavior of 100-continue is governed by 8.2.3. */
     if (strcasecmp("100-continue", req_hdrs[Expect].c_str())==0)
-      throw HTTP_Parse_Err(Continue);
+      throw HTTP_oops(Continue);
     else
-      throw HTTP_Parse_Err(Expectation_Failed);
+      throw HTTP_oops(Expectation_Failed);
   }
   if (!req_hdrs[Max_Forwards].empty()) {
     stringstream tmp(req_hdrs[Max_Forwards]);
@@ -385,14 +480,19 @@ void HTTP_2616_Server_Work::reset()
 {
   if (resp_is_cached)
     cache->unget(path);
-  else
+  else if (c != NULL)
     delete c;
 
+  if (uncompressed != NULL) {
+    free(uncompressed);
+  }
+
+  uncompressed = NULL;
   path.clear();
   query.clear();
   cl_cache_control.clear();
   c = NULL;
-  // What about cl_accept_enc and cl_max_fwds, meth, etc.
+  // What about cl_max_fwds, meth, etc.
 }
 
 bool HTTP_2616_Server_Work::cache_put(string &path, HTTP_CacheEntry *c, size_t sz)

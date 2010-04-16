@@ -38,7 +38,6 @@ void HTTP_Server_Work::operator()(Worker *w)
      * the server side (e.g. wait for a CGI program to return), we would want
      * the write to be scheduled only when all the resources are ready. */
     if (!inhdrs_done) {
-      _LOG_DEBUG("%s", inbuf.str().c_str());
       if (inhdrs_done = (inbuf >> inhdrs)) {
 	// We need this to read the rest of the request.
 	if (!inhdrs[Content_Length].empty()) {
@@ -66,7 +65,7 @@ void HTTP_Server_Work::operator()(Worker *w)
       try {
 	prepare_response(inhdrs, inbody, outbuf, outbody, outbody_sz);
       }
-      catch (HTTP_Parse_Err e) {
+      catch (HTTP_oops e) {
 	outbuf.str("");
 	outbuf.clear();
 	on_parse_err(e.stat, outbuf);
@@ -150,7 +149,6 @@ void HTTP_Server_Work::operator()(Worker *w)
 void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
 				  string &query)
 {
-  _LOG_DEBUG("%s", reqln.c_str());
   stringstream tmp(reqln);
   tmp >> meth;
   string uri;
@@ -159,7 +157,7 @@ void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
   string version;
   tmp >> version;
   if (version != HTTP_Version)
-    throw HTTP_Parse_Err(HTTP_Version_Not_Supported);
+    throw HTTP_oops(HTTP_Version_Not_Supported);
 }
 
 void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
@@ -174,7 +172,7 @@ void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
 
   // Malformed or dangerous URI.
   if (uri[0] != '/' || uri.find("..") != uri.npos)
-    throw HTTP_Parse_Err(Bad_Request);
+    throw HTTP_oops(Bad_Request);
 
   // Break the URI into a path and a query.
   string::size_type qpos;
@@ -211,7 +209,7 @@ string &HTTP_Server_Work::uri_hex_escape(string &uri)
   while ((start = uri.find('%', start)) != uri.npos) {
     // Every % needs two additional chars.
     if (start + 2 >= uri.length())
-      throw HTTP_Parse_Err(Bad_Request);
+      throw HTTP_oops(Bad_Request);
     hexbuf << uri[start+1] << uri[start+2];
     hexbuf >> hex >> c;
     uri.replace(start, 3, 1, (char) c);

@@ -44,7 +44,7 @@ public:
    * \param f output format. The default, gzip, is usually what you want.
    * \param level zlib compression level
    * \return pointer to newly allocated compressed buffer (NULL on failure) */
-  static void *compress(void const *src, size_t srcsz, size_t &dstsz,
+  static void *compress(void *src, size_t srcsz, size_t &dstsz,
 			format f=GZIP, int level=Z_DEFAULT_COMPRESSION);
   /** \brief Wrapper to zlib's uncompress.
    * \param dst destination buffer
@@ -58,6 +58,8 @@ public:
    */
   static bool uncompress(void *dst, size_t &dstsz, void const *src,
 			 size_t srcsz, format f=GZIP);
+  static void *uncompress(size_t &resultsz, void const *src, size_t srcsz,
+			  format f=GZIP, int start=2, int stop=5);
 private:
   /* zlib's compressBound function gives you the upper bound for compressed
    * streams in zlib format, but the headers for the gzip format are a little

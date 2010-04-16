@@ -16,7 +16,7 @@ HTTP_CacheEntry::HTTP_CacheEntry(size_t szondisk,
     response_time(response_time), last_modified(last_modified), _buf(_buf),
     use_expires(false), use_max_age(false), max_age_value(0), enc(enc),
     date_value(response_time), age_value(0), expires_value(0),
-    omit_body(false)
+    omit_body(false), asif_uncompressed(false)
 {
 }
 
@@ -59,6 +59,8 @@ HTTP_CacheEntry &HTTP_CacheEntry::operator<<(HTTP_CacheEntry::manip m)
   case as_HEAD:
     omit_body = true;
     break;
+  case as_identity:
+    asif_uncompressed = true;
   default:
     break;
   }
@@ -74,13 +76,20 @@ uint8_t const *HTTP_CacheEntry::getbuf()
 ostream &operator<<(ostream &o, HTTP_CacheEntry &c)
 {
   c.metadata.rdlock();
-  o << HTTP_Version << ' ' << c.stat << CRLF
-    << Content_Length << ((c.omit_body) ? 0 : c.szincache) << CRLF
-    << Content_Encoding << c.enc << CRLF
+  o << HTTP_Version << ' ' << c.stat << CRLF;
+  if (c.omit_body)
+    o << Content_Length << 0 << CRLF;
+  else if (c.asif_uncompressed)
+    o << Content_Length << c.szondisk << CRLF;
+  else
+    o << Content_Length << c.szincache << CRLF;
+
+  o << Content_Encoding
+    << ((c.asif_uncompressed) ? HTTP_constants::identity : c.enc) << CRLF
     << Server << PACKAGE_NAME << CRLF;
   for (HTTP_CacheEntry::hdrmap_type::iterator it = c.hdrs.begin(); it != c.hdrs.end(); ++it)
     o << static_cast<header>(it->first) << it->second << CRLF;
-  c.omit_body = false;
+  c.omit_body = c.asif_uncompressed = false;
   c.metadata.unlock();
   return o << CRLF; // The empty line separating headers and body
 }

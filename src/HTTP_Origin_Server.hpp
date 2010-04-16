@@ -18,9 +18,11 @@
 namespace HTTP_Origin_Server
 {
   int request(std::string &path, HTTP_CacheEntry *&result);
-  int put(std::string &path, std::string &contents);
-  bool validate(std::string &path, HTTP_CacheEntry *tocheck);
-  int dirtoHTML(std::string &path, HTTP_CacheEntry *&result);
+  int put(std::string const &path, std::string const &contents,
+	  HTTP_constants::content_coding const &enc, char const *mode);
+  int unlink(std::string const &path);
+  bool validate(std::string const &path, HTTP_CacheEntry *tocheck);
+  int dirtoHTML(std::string const &path, HTTP_CacheEntry *&result);
 };
 
 #endif // HTTP_ORIGIN_SERVER_HPP

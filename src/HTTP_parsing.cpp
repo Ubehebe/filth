@@ -1,7 +1,7 @@
 #include <sstream>
 
 #include "HTTP_constants.hpp"
-#include "HTTP_Parse_Err.hpp"
+#include "HTTP_oops.hpp"
 #include "HTTP_parsing.hpp"
 #include "logging.h"
 
@@ -35,7 +35,7 @@ bool operator>>(istream &input, structured_hdrs_type &hdrs)
 	tmp >> h;
 	int hi = static_cast<int>(h);
 	hdrs[hi] = line;
-      } catch (HTTP_Parse_Err e) {} // Just ignore unrecognized headers
+      } catch (HTTP_oops e) { } // silently ignore headers we don't understand
     }
   }
   input.clear();

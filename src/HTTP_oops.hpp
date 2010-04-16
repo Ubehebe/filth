@@ -1,16 +1,16 @@
-#ifndef HTTP_PARSE_ERR_HPP
-#define HTTP_PARSE_ERR_HPP
+#ifndef HTTP_OOPS_HPP
+#define HTTP_OOPS_HPP
 
 #include "HTTP_constants.hpp"
 #include "ServerErrs.hpp"
 
-struct HTTP_Parse_Err : ServerErr
+struct HTTP_oops : ServerErr
 {
   HTTP_constants::status stat;
-  HTTP_Parse_Err(HTTP_constants::status stat)
+  HTTP_oops(HTTP_constants::status stat)
     : ServerErr(HTTP_constants::status_strs[stat]), stat(stat) {}
 };
 
 
-#endif // HTTP_PARSE_ERR_HPP
+#endif // HTTP_OOPS_HPP
 
