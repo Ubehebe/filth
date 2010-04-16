@@ -76,7 +76,8 @@ namespace HTTP_Origin_Server
      * don't do compression yet because we might need to first operate
      * on the uncompressed file, e.g. compute a digest. */
     while (toread) {
-      if ((nread = ::read(fd, reinterpret_cast<void *>(uncompressed), toread)) > 0) {
+      if ((nread = ::read(fd, reinterpret_cast<void *>(uncompressed), toread))
+	  > 0) {
 	toread -= nread;
 	uncompressed += nread;
       }
