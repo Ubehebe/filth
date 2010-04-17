@@ -4,7 +4,7 @@ bin_PROGRAMS=filth cgi-test-app
 LOG ?= _LOG_FATAL
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 
-BASE=gzip.cpp Locks.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
+BASE=gzip.cpp Locks.cpp root_safety.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
 	Worker.cpp Time_nr.cpp util.cpp
 filth_SOURCES=$(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
 	HTTP_Client_Work_Unix.cpp \

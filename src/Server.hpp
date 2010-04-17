@@ -25,6 +25,7 @@
 #include "LockFreeQueue.hpp"
 #include "Locks.hpp"
 #include "logging.h"
+#include "root_safety.hpp"
 #include "Scheduler.hpp"
 #include "sigmasks.hpp"
 #include "ThreadPool.hpp"
@@ -49,7 +50,8 @@ public:
 	 int sigdl_ext=-1,
 	 int tcp_keepalive_intvl=-1,
 	 int tcp_keepalive_probes=-1,
-	 int tcp_keepalive_time=-1);
+	 int tcp_keepalive_time=-1,
+	 uid_t untrusted=9999);
   /* These are hooks into beginning and end of the server's serve() loop. 
    * The idea is that the server should tear down and rebuild all its resources
    * for each loop, because a loop corresponds to a call to ThreadPool's
@@ -105,6 +107,8 @@ private:
   int sigdl_int, sigdl_ext;
   bool _doserve;
   sigset_t haltsigs;
+  uid_t untrusted;
+  static const uid_t DANGER_root = 0;
   static Server *theserver;
 protected:
   Scheduler *sch; // Not a great idea; accessor instead?
@@ -127,14 +131,15 @@ Server<_Work, _Worker>::Server(
 	       int sigdl_ext,
 	       int tcp_keepalive_intvl,
 	       int tcp_keepalive_probes,
-	       int tcp_keepalive_time)
+	       int tcp_keepalive_time,
+	       uid_t untrusted)
   : domain(domain), bindto(bindto), preallocMB(preallocMB),
     nworkers(nworkers), listenq(listenq), sigdl_int(sigdl_int),
     sigdl_ext(sigdl_ext), ifnam(ifnam),
     tcp_keepalive_intvl(tcp_keepalive_intvl),
     tcp_keepalive_probes(tcp_keepalive_probes),
     tcp_keepalive_time(tcp_keepalive_time),
-    _doserve(true)
+    _doserve(true), untrusted(untrusted)
 {
   // For signal handlers that have to be static.
   theserver = this;
@@ -263,7 +268,6 @@ void Server<_Work, _Worker>::socket_bind_listen()
     exit(1);
     }
   _LOG_DEBUG("listen fd is %d", listenfd);
-
 }
 
 template<class _Work, class _Worker>
@@ -290,6 +294,8 @@ void Server<_Work, _Worker>::serve()
 
   while (_doserve) {
     socket_bind_listen();
+    root_safety::root_giveup(untrusted);
+    root_safety::untrusted_sanity_checks();
     _Worker::jobq = jobq = new LockFreeQueue<Work *>();
     findwork = new FindWork_prealloc<_Work>(preallocMB * (1<<20));
     sch = new Scheduler(*jobq, listenfd, findwork);
@@ -319,6 +325,7 @@ void Server<_Work, _Worker>::serve()
     delete sch;
     delete jobq;
     onshutdown();
+    root_safety::root_getback();
   }
 }
 
