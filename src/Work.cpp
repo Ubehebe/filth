@@ -4,14 +4,21 @@
 #include "logging.h"
 #include "Work.hpp"
 
-Work::Work(int fd, mode m, bool deleteme)
+int Work::listenfd = -1;
+
+Work::Work(int fd, mode m, bool deleteme, bool islisten)
   : fd(fd), m(m), deleteme(deleteme)
 {
 }
 
+void Work::setlistenfd(int listenfd)
+{
+  Work::listenfd = listenfd;
+}
+
 Work::~Work()
 {
-  if (close(fd)==-1)
+  if (fd != listenfd && close(fd)==-1)
     _LOG_INFO("close %d: %m", fd);
 }
 

@@ -9,10 +9,11 @@ function get_put_counter()
 
   req.onreadystatechange = function (dummy) {
     if (req.status == 200) {
-      var inc = (1 * req.responseText + 1) + "";
-      while (inc.length < maxlen)
-	inc = "0" + inc;
-      document.getElementById("counter").innerHTML = inc;
+      var inc = 1 * req.responseText + 1;
+      var inc_str = inc + "";
+      while (inc_str.length < maxlen)
+	inc_str = "0" + inc_str;
+      document.getElementById("counter").innerHTML = "→" + inc_str;
       var resp = new XMLHttpRequest();
       resp.open('PUT', 'counter', true);
       resp.setRequestHeader('Content-Length', inc.toString().length);
@@ -41,5 +42,5 @@ function inc_uptime()
   var maxlen = 11;
   while (upstr.length < maxlen)
     upstr = "0" + upstr;
-  document.getElementById("uptime").innerHTML = upstr;
+  document.getElementById("uptime").innerHTML = "↑" + upstr;
 }

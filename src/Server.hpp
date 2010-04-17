@@ -262,7 +262,7 @@ void Server<_Work, _Worker>::socket_bind_listen()
     _LOG_FATAL("fcntl (F_SETFL): %m");
     exit(1);
   }
-  
+
   if (listen(listenfd, listenq)==-1) {
     _LOG_FATAL("listen: %m");
     exit(1);
@@ -284,6 +284,9 @@ Server<_Work, _Worker>::~Server()
     }
     free(sockdir); // because it was a strdup, basically
   }
+
+  if (close(listenfd)==-1)
+    _LOG_INFO("close listenfd (%d): %m", listenfd);
 }
 
 // The main loop.
@@ -292,10 +295,12 @@ void Server<_Work, _Worker>::serve()
 {
   sigmasks::sigmask_caller(sigmasks::BLOCK_ALL);
 
-  while (_doserve) {
     socket_bind_listen();
+    Work::setlistenfd(listenfd);
     root_safety::root_giveup(untrusted);
     root_safety::untrusted_sanity_checks();
+
+  while (_doserve) {
     _Worker::jobq = jobq = new LockFreeQueue<Work *>();
     findwork = new FindWork_prealloc<_Work>(preallocMB * (1<<20));
     sch = new Scheduler(*jobq, listenfd, findwork);
@@ -325,7 +330,6 @@ void Server<_Work, _Worker>::serve()
     delete sch;
     delete jobq;
     onshutdown();
-    root_safety::root_getback();
   }
 }
 
@@ -446,12 +450,6 @@ void Server<_Work, _Worker>::setup_AF_LOCAL()
     
   // We have already checked (in the constructor) that bindto isn't truncated.
   strncpy(sa.sun_path, bindto, sizeof(sa.sun_path)-1);
-
-  /* We might be doing a soft reboot of the server, and the previous socket
-   * might still be bound in the filesystem, so get rid of it. This won't
-   * accidentally unlink a file that happens to have the same name as
-   * the desired socket; the server constructor checks for that. */
-  unlink(sa.sun_path);
 
   // This will fail if the path exists, which is what we want.
   if (bind(listenfd, (struct sockaddr *) &sa, sizeof(sa))==-1) {

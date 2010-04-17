@@ -20,12 +20,13 @@ public:
   enum mode { read, write } m;
   int fd; //!< File descriptor of socket, file, etc.
   bool deleteme; //!< Whether the worker should delete this piece of work.
-  Work(int fd, mode m, bool deleteme=false);
+  Work(int fd, mode m, bool deleteme=false, bool islisten=false);
   /** \brief The only function seen by the worker.
    * \param w the current worker, used to pass worker-specific state to the
    * piece of work. */
   virtual void operator()(Worker *w) = 0;
   virtual ~Work();
+  static void setlistenfd(int listenfd);
 protected:
   /** \brief Read from the socket until we would block.
    * \param inbuf where to store the input
@@ -57,7 +58,18 @@ protected:
    * else */
   int wruntil(uint8_t const *&outbuf, size_t &towrite);
 
+
+
 private:
+  /* Never close the listening socket, even though its associated data might
+   * be erased. The reason is because once closed, if there are pending
+   * connections the socket will enter the dreaded TIME_WAIT state,
+   * and attempts to bind to the same address will fail for several minutes.
+   * For applications that can use ephemeral ports this can be overcome
+   * with the SO_REUSEADDR socket option, but this does not work for
+   * applications that always have to bind to a well-known port: the re-bind
+   * will fail even with SO_REUSEADDR turned on. */
+  static int listenfd;
   Work(Work const&);
   Work &operator=(Work const&);
 };
