@@ -1,7 +1,7 @@
 #include <string.h>
 
 #include "HTTP_constants.hpp"
-#include "HTTP_Parse_Err.hpp"
+#include "HTTP_oops.hpp"
 #include "logging.h"
 
 using namespace std;
@@ -98,7 +98,7 @@ namespace HTTP_constants
 	return i;
       }
     }
-    throw HTTP_Parse_Err(Bad_Request);
+    throw HTTP_oops(Bad_Request);
   }
 
   ostream &operator<<(ostream &o, method &m)
@@ -109,22 +109,27 @@ namespace HTTP_constants
   istream &operator>>(istream &i, header &h)
   {
     string tmp;
-    i >> tmp;
+    i.clear();
+    // N.B. we're not using >> because there could be whitespace before the : 
+    getline(i, tmp, ':');
+    if (!i.good()) {
+      i.clear();
+      throw HTTP_oops(Bad_Request);
+    }
+    i.clear();
 
     // Dirty trick to replace hyphens by underscores.
     string::size_type hyphen = -1;
     while ((hyphen = tmp.find('-', hyphen+1)) != tmp.npos)
       tmp[hyphen] = '_';
-
-    tmp.erase(tmp.end()-1); // Because of the colon.
-
+    
     for (int j=0; j<num_header; ++j) {
-      if (tmp == header_strs[j]) {
+      if (tmp.find(header_strs[j]) != tmp.npos) {
 	h = static_cast<header>(j);
 	return i;
       }
     }
-    throw HTTP_Parse_Err(Bad_Request);
+    throw HTTP_oops(Bad_Request);
   }
 
   /* Value, not reference. Otherwise things like o << Content_Length
@@ -139,11 +144,6 @@ namespace HTTP_constants
     }
     // Tack on the colon and space.
     return o << ": ";
-  }
-
-  istream &operator>>(istream &i, content_coding &c)
-  {
-    
   }
 
   ostream &operator<<(ostream &o, content_coding c)

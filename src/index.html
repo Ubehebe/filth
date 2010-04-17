@@ -1,35 +1,18 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
   <head>
-    <title>hello, world</title>
-    <link rel="stylesheet" type="text/css" href="test.css"/>
-    <script src="test.js"></script>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>filth: modern http</title>
+    <script type="text/javascript" src="counter_uptime.js"></script>
   </head>
-  <body>
-    <div id="thepage">
-      <div class="tl">h</div>
-      <div class="tl">t</div>
-      <div class="tl">l</div>
-      <div class="tl">i</div>
-      <div class="tl">f</div>
-      <div class="stl" style="float: left;">modern</div>
-      <div id="navbox">
-	<div class="nav" onclick="window.open('/doxygen/html/index.html');">d</div>
-	<div class="nav" onclick="window.open('/doxygen/html/index.html');">o</div>
-	<div class="nav" onclick="window.open('/doxygen/html/index.html');">c</div>
-	<div class="nav" onclick="window.open('/.git');">g</div>
-	<div class="nav" onclick="window.open('/.git');">i</div>
-	<div class="nav" onclick="window.open('/.git');">t</div>
-	<div class="nav" onclick="victimize();">w</div>
-	<div class="nav" onclick="victimize();">t</div>
-	<div class="nav" onclick="victimize();">f</div>
-      </div>
-      <div class="stl" style="float: right;">http</div>
-      <div id="invis">
-	<p>filth is an extensible C++ framework for building high-performance clients and servers. In particular, those that speak the <a href="http://en.wikipedia.org/wiki/Http">Hypertext Transfer Protocol</a>. In particular, servers, caches, and proxies conforming to the <a href="http://www.ietf.org/rfc/rfc2616.txt">HTTP/1.1 standard</a>.</p>
-	<p>filth was written by <a href="http://www.facebook.com/brendan.linn">Brendan Linn</a> in the spring of 2010 for fun. It's available under the terms of the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public License</a>.</p>
-	<p style="text-align: center">You are using filth right now.</p>
-      </div>
-      <div>
+  <body onload="get_put_counter(); get_uptime();">
+    <div id="title">filth</div>
+    <div id="subtitle">modern http</div>
+    <div id="counter"></div>
+    <div id="uptime"></div>
+    <div id="about">
+      <p>filth is an extensible C++ framework for building high-performance clients and servers. In particular, those that speak the <a href="http://en.wikipedia.org/wiki/Http">Hypertext Transfer Protocol</a>. In particular, servers, caches, and proxies conforming to the <a href="http://www.ietf.org/rfc/rfc2616.txt">HTTP/1.1 standard</a>.</p>
+      <p>filth was written by <a href="http://www.facebook.com/brendan.linn">Brendan Linn</a> in the spring of 2010 for fun. It's available under the terms of the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public License</a>.</p>
+      <p>You are using filth right now.</p>
+    </div>
   </body>
 </html>
-

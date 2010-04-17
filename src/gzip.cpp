@@ -1,12 +1,20 @@
+#include <iostream> // just for bad_alloc
+
 #include "gzip.hpp"
 
-size_t gzip::compressBound(size_t srcsz) { return ::compressBound(srcsz); }
+size_t gzip::compressBound(size_t srcsz, gzip::format f)
+{ 
+  size_t ans = ::compressBound(srcsz);
+  if (f == gzip::GZIP)
+    ans += gzip_hdr_extra;
+  return ans;
+}
 
 bool gzip::compress(void *dst, size_t &dstsz, void const *src, size_t srcsz,
 		    gzip::format f, int level)
 {
   return (f == gzip::GZIP) 
-    ? (README_compress2(reinterpret_cast<Bytef *>(dst),
+    ? (README_compress2(reinterpret_cast<Bytef  *>(dst),
 			reinterpret_cast<uLongf *>(&dstsz),
 			reinterpret_cast<Bytef const *>(src), srcsz, level) == Z_OK)
     : (::compress2(reinterpret_cast<Bytef *>(dst),
@@ -15,7 +23,7 @@ bool gzip::compress(void *dst, size_t &dstsz, void const *src, size_t srcsz,
 
 }
 
-void *gzip::compress(void const *src, size_t srcsz, size_t &dstsz,
+void *gzip::compress(void *src, size_t srcsz, size_t &dstsz,
 		     gzip::format f, int level)
 {
   dstsz = ::compressBound(srcsz);
@@ -27,6 +35,27 @@ void *gzip::compress(void const *src, size_t srcsz, size_t &dstsz,
     dstsz = 0;
     return NULL;
   }
+}
+
+void *gzip::uncompress(size_t &resultsz, void const *src, size_t srcsz, format f,
+		       int start, int stop)
+{
+  char *tmp;
+  for (int multiplier = start; multiplier < stop; ++multiplier) {
+    resultsz = multiplier * srcsz;
+    try {
+      tmp = new char[resultsz];
+    } catch (std::bad_alloc) {
+      resultsz = 0;
+      return NULL;
+    }
+    if (uncompress(reinterpret_cast<void *>(tmp), resultsz, src, srcsz, f))
+      break;
+    delete tmp;
+    tmp = NULL;
+    resultsz = 0;
+  }
+  return reinterpret_cast<void *>(tmp);
 }
 
 bool gzip::uncompress(void *dst, size_t &dstsz, void const *src, size_t srcsz,

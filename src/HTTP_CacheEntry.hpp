@@ -23,7 +23,7 @@ std::ostream &operator<<(std::ostream &o, HTTP_CacheEntry &c);
 class HTTP_CacheEntry
 {
 public:
-  enum manip { as_HEAD };
+  enum manip { as_HEAD, as_identity };
   HTTP_CacheEntry(size_t szondisk,
 		  size_t szincache,
 		  time_t request_time,
@@ -67,7 +67,7 @@ private:
   time_t response_time; // When the cache received the response
 
   HTTP_constants::status stat; // Generates status line
-  bool omit_body;
+  bool omit_body, asif_uncompressed;
 
   // These are all given in RFC 2616, secs. 13.2.3-4.
   time_t now() { return ::time(NULL); }

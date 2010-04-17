@@ -1,10 +1,22 @@
 #include <sstream>
 
+#include "HTTP_parsing.hpp"
 #include "HTTP_Server_Work.hpp"
 #include "logging.h"
 
 using namespace HTTP_constants;
+using namespace HTTP_parsing;
 using namespace std;
+
+size_t HTTP_Server_Work::max_req_uri = -1;
+size_t HTTP_Server_Work::max_req_body = -1;
+
+void HTTP_Server_Work::setmaxes(size_t const &max_req_uri,
+				size_t const &max_req_body)
+{
+  HTTP_Server_Work::max_req_uri = max_req_uri;
+  HTTP_Server_Work::max_req_body = max_req_body;
+}
 
 HTTP_Server_Work::HTTP_Server_Work(int fd)
   : HTTP_Work(fd, Work::read), nosch(false), curworker(NULL),
@@ -23,10 +35,6 @@ void HTTP_Server_Work::operator()(Worker *w)
  pipeline_continue:
   int err;
   switch(m) {
-    /* BUGBUGBUGBUG
-     * When we finish parsing the request headers but there's still stuff left
-     * in inbuf, we never see it. Copy in the relevant parts from
-     * HTTP_Client_Work. */
   case Work::read:
     err = (!inhdrs_done)
       ? rduntil(inbuf, cbuf, cbufsz) // Read headers
@@ -45,6 +53,15 @@ void HTTP_Server_Work::operator()(Worker *w)
 	  header h;
 	  tmp >> h; // Get rid of the actual "Content-Length: "
 	  tmp >> inbody_sz;
+	  if (inbody_sz > 0) {
+	    if (max_req_body != -1 && inbody_sz > max_req_body)
+	      throw HTTP_oops(Request_Entity_Too_Large);
+	    inbuf.read(reinterpret_cast<char *>(cbuf), inbody_sz);
+	    size_t nread = inbuf.gcount();
+	    cbuf[nread] = '\0';
+	    inbody_sz -= nread;
+	    inbody.append(reinterpret_cast<char *>(cbuf));
+	  }
 	}
 	if (inbody_sz == 0)
 	  goto dropdown;
@@ -58,7 +75,7 @@ void HTTP_Server_Work::operator()(Worker *w)
       try {
 	prepare_response(inhdrs, inbody, outbuf, outbody, outbody_sz);
       }
-      catch (HTTP_Parse_Err e) {
+      catch (HTTP_oops e) {
 	outbuf.str("");
 	outbuf.clear();
 	on_parse_err(e.stat, outbuf);
@@ -150,12 +167,15 @@ void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
   string version;
   tmp >> version;
   if (version != HTTP_Version)
-    throw HTTP_Parse_Err(HTTP_Version_Not_Supported);
+    throw HTTP_oops(HTTP_Version_Not_Supported);
 }
 
 void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
 {
   // TODO: throws bad request for proxy-type resources. Support?
+
+  if (max_req_uri != -1 && uri.length() > max_req_uri)
+    throw HTTP_oops(Request_URI_Too_Long);
 
   // The asterisk is a special URI used with OPTIONS requests (RFC 2616, 9.2)
   if (uri == "*") {
@@ -165,7 +185,7 @@ void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
 
   // Malformed or dangerous URI.
   if (uri[0] != '/' || uri.find("..") != uri.npos)
-    throw HTTP_Parse_Err(Bad_Request);
+    throw HTTP_oops(Bad_Request);
 
   // Break the URI into a path and a query.
   string::size_type qpos;
@@ -202,7 +222,7 @@ string &HTTP_Server_Work::uri_hex_escape(string &uri)
   while ((start = uri.find('%', start)) != uri.npos) {
     // Every % needs two additional chars.
     if (start + 2 >= uri.length())
-      throw HTTP_Parse_Err(Bad_Request);
+      throw HTTP_oops(Bad_Request);
     hexbuf << uri[start+1] << uri[start+2];
     hexbuf >> hex >> c;
     uri.replace(start, 3, 1, (char) c);
