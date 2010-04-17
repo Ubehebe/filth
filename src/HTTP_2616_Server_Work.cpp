@@ -258,7 +258,6 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   if ((fresh || HTTP_Origin_Server::validate(path,c)) 
       && !cl_cache_control.isset(cc::use_min_fresh)
       && !cl_cache_control.isset(cc::use_max_age)) {
-    _LOG_DEBUG();
     goto cache_ok;
   }
 
@@ -268,7 +267,6 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   if (cl_cache_control.isset(cc::use_min_fresh)) {
     if (c->freshness_lifetime() >=
 	c->current_age() + cl_cache_control.min_fresh) {
-      _LOG_DEBUG();
       goto cache_ok;
     }
     else
@@ -320,7 +318,6 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   }
 
  cache_ok:
-  _LOG_DEBUG();
   /* 13.2.3: "When a response is generated from a cache entry, the cache
    * MUST include a single Age header field in the response with a value
    * equal to the cache entry's current_age." */

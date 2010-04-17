@@ -8,7 +8,6 @@
 #include "HTTP_Client_Work.hpp"
 #include "HTTP_constants.hpp"
 #include "HTTP_oops.hpp"
-#include "HTTP_parsing.hpp"
 #include "HTTP_Work.hpp"
 #include "Worker.hpp"
 
@@ -22,6 +21,7 @@ public:
 
   HTTP_Server_Work(int fd);
   virtual ~HTTP_Server_Work();
+  static void setmaxes(size_t const &max_req_uri, size_t const &max_req_body);
   virtual void async_setresponse(HTTP_Client_Work *assoc,
 				 structured_hdrs_type const &resphdrs,
 				 std::string const &respbody);
@@ -51,6 +51,8 @@ protected:
   Worker *curworker;
 
   uint8_t *backup_body; // yikes
+
+  static size_t max_req_uri, max_req_body;
 
   // Convenience functions to be called from browse_req and prepare_response.
   void parsereqln(std::string &reqln, HTTP_constants::method &meth,
