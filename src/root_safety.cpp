@@ -7,10 +7,14 @@
 #include "logging.h"
 #include "root_safety.hpp"
 
-void root_safety::root_giveup(uid_t untrusted)
+void root_safety::root_giveup(uid_t untrusted_uid, gid_t untrusted_gid)
 {
-  if (seteuid(untrusted)==-1) {
-    _LOG_FATAL("seteuid %d: %m", untrusted);
+  if (setegid(untrusted_gid)==-1) {
+    _LOG_FATAL("setegid %d: %m", untrusted_gid);
+    exit(1);
+  }
+  if (seteuid(untrusted_uid)==-1) {
+    _LOG_FATAL("seteuid %d: %m", untrusted_uid);
     exit(1);
   }
 }

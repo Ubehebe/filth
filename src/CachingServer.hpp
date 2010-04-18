@@ -23,7 +23,9 @@ public:
 		int sigdl_ext=-1,
 		int tcp_keepalive_intvl=-1,
 		int tcp_keepalive_probes=-1,
-		int tcp_keepalive_time=-1);
+		int tcp_keepalive_time=-1,
+		uid_t untrusted_uid=9999,
+		gid_t untrusted_gid=9999);
   ~CachingServer() {}
   static void flush(int ignore=-1);
 private:
@@ -64,7 +66,9 @@ CachingServer<_Work, _Worker, _CacheEntry>::CachingServer(
 							  int sigdl_ext,
 							  int tcp_keepalive_intvl,
 							  int tcp_keepalive_probes,
-							  int tcp_keepalive_time)
+							  int tcp_keepalive_time,
+							  uid_t untrusted_uid,
+							  gid_t untrusted_gid)
   : Server<_Work, _Worker>(
 			   domain,
 			   mount,
@@ -78,7 +82,9 @@ CachingServer<_Work, _Worker, _CacheEntry>::CachingServer(
 			   sigdl_ext,
 			   tcp_keepalive_intvl,
 			   tcp_keepalive_probes,
-			   tcp_keepalive_time),
+			   tcp_keepalive_time,
+			   untrusted_uid,
+			   untrusted_gid),
     sigflush(sigflush), cacheszMB(cacheszMB)
 {
   theserver = this;

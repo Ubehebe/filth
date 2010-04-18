@@ -42,7 +42,9 @@ int main(int argc, char **argv)
        c.sigconv(c.svals[HTTP_cmdline::sigdl_ext]),
        c.ivals[HTTP_cmdline::tcp_keepalive_intvl],
        c.ivals[HTTP_cmdline::tcp_keepalive_probes],
-       c.ivals[HTTP_cmdline::tcp_keepalive_time]
+       c.ivals[HTTP_cmdline::tcp_keepalive_time],
+       c.ivals[HTTP_cmdline::untrusted_uid],
+       c.ivals[HTTP_cmdline::untrusted_gid]
        ).serve();
   }
   catch (ResourceErr e) {

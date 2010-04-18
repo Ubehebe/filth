@@ -4,7 +4,7 @@
 class root_safety
 {
 public:
-  static void root_giveup(uid_t untrusted);
+  static void root_giveup(uid_t untrusted_uid, gid_t untrusted_gid);
   static void root_getback();
   static void untrusted_sanity_checks();
 private:

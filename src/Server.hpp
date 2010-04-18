@@ -51,7 +51,8 @@ public:
 	 int tcp_keepalive_intvl=-1,
 	 int tcp_keepalive_probes=-1,
 	 int tcp_keepalive_time=-1,
-	 uid_t untrusted=9999);
+	 uid_t untrusted_uid=9999,
+	 gid_t untrusted_gid=9999);
   /* These are hooks into beginning and end of the server's serve() loop. 
    * The idea is that the server should tear down and rebuild all its resources
    * for each loop, because a loop corresponds to a call to ThreadPool's
@@ -107,7 +108,8 @@ private:
   int sigdl_int, sigdl_ext;
   bool _doserve;
   sigset_t haltsigs;
-  uid_t untrusted;
+  uid_t untrusted_uid;
+  gid_t untrusted_gid;
   static const uid_t DANGER_root = 0;
   static Server *theserver;
 protected:
@@ -132,14 +134,15 @@ Server<_Work, _Worker>::Server(
 	       int tcp_keepalive_intvl,
 	       int tcp_keepalive_probes,
 	       int tcp_keepalive_time,
-	       uid_t untrusted)
+	       uid_t untrusted_uid,
+	       gid_t untrusted_gid)
   : domain(domain), bindto(bindto), preallocMB(preallocMB),
     nworkers(nworkers), listenq(listenq), sigdl_int(sigdl_int),
     sigdl_ext(sigdl_ext), ifnam(ifnam),
     tcp_keepalive_intvl(tcp_keepalive_intvl),
     tcp_keepalive_probes(tcp_keepalive_probes),
     tcp_keepalive_time(tcp_keepalive_time),
-    _doserve(true), untrusted(untrusted)
+    _doserve(true), untrusted_uid(untrusted_uid), untrusted_gid(untrusted_gid)
 {
   // For signal handlers that have to be static.
   theserver = this;
@@ -297,7 +300,7 @@ void Server<_Work, _Worker>::serve()
 
     socket_bind_listen();
     Work::setlistenfd(listenfd);
-    root_safety::root_giveup(untrusted);
+    root_safety::root_giveup(untrusted_uid, untrusted_gid);
     root_safety::untrusted_sanity_checks();
 
   while (_doserve) {
