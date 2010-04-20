@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -28,14 +29,24 @@ namespace HTTP_Origin_Server
   // Ya best make sure this is secure!
   int unlink(string const &path)
   {
-    return unlink(path.c_str());
+    return (unlink(path.c_str())==-1) ? errno : 0;
   }
 
-  int put(string const &path, string const &contents,
+  int putorpost(string const &path, string const &contents,
 	  content_coding const &enc, char const *mode)
   {
+    struct stat buf;
+    // We are not gonna allow clients to put or post files that don't already exist.
+    if (stat(path.c_str(), &buf)==-1)
+      return errno;
+    /* In order to write to a socket we have to connect to it first, and that
+     * calls for another piece of work. */
+    else if (S_ISSOCK(buf.st_mode))
+      return ESPIPE;
+    else if (!S_ISREG(buf.st_mode))
+      return EACCES;
+
     size_t towrite = contents.length();
-    _LOG_DEBUG("towrite %d", towrite);
     char *tmp = NULL;
     size_t uncompressed_sz;
     int ans;
@@ -55,15 +66,6 @@ namespace HTTP_Origin_Server
     }
 
     FILE *fp;
-    
-    // We are not gonna allow clients to put files that don't already exist.
-    if ((fp = fopen(path.c_str(), "r"))==NULL && errno == ENOENT) {
-      if (enc != HTTP_constants::identity)
-	delete[] tmp;
-      return ENOENT;
-    } else {
-      fclose(fp);
-    }
 
   put_tryagain:
 
@@ -77,7 +79,7 @@ namespace HTTP_Origin_Server
       if (enc != HTTP_constants::identity)
 	delete[] tmp;
       fclose(fp);
-      return ETXTBSY;
+      return EACCES;
     }
 
     size_t nwritten;
@@ -116,14 +118,16 @@ namespace HTTP_Origin_Server
       return errno;
     }
     else if (S_ISDIR(statbuf.st_mode)) {
+      result = NULL;
       return EISDIR;
     }
-    /* Note that ESPIPE covers both "socket" and "pipe". Will we eventually
-     * need to discriminate between them? Is there any use for half-duplex
-     * pipes when we can use full-duplex Unix domain sockets? */
-    else if (S_ISSOCK(statbuf.st_mode) || S_ISFIFO(statbuf.st_mode)) {
+    else if (S_ISSOCK(statbuf.st_mode)) {
       result = NULL;
       return ESPIPE;
+    }
+    else if (!S_ISREG(statbuf.st_mode)) {
+      result = NULL;
+      return EACCES;
     }
     else if ((fp = fopen(path.c_str(), "r"))==NULL) {
       result = NULL;
@@ -132,7 +136,7 @@ namespace HTTP_Origin_Server
     else if (ftrylockfile(fp)!=0) {
       fclose(fp);
       result = NULL;
-      return ETXTBSY; // "text file busy"
+      return EACCES;
     }
 
     uint8_t *uncompressed;
@@ -148,6 +152,7 @@ namespace HTTP_Origin_Server
     if (uncompressed == NULL) {
       funlockfile(fp);
       fclose(fp);
+      result = NULL;
       return ENOMEM;
     }
 
@@ -184,7 +189,7 @@ namespace HTTP_Origin_Server
       compressed = new uint8_t[compressedsz];
     } catch (bad_alloc) {
       free(uncompressed);
-      _LOG_DEBUG();
+      result = NULL;
       return ENOMEM;
     }
     
@@ -201,6 +206,7 @@ namespace HTTP_Origin_Server
       ans = 0;
     } else {
       delete compressed;
+      result = NULL;
       ans = ENOMEM;
     }
     free(uncompressed);
@@ -267,6 +273,7 @@ namespace HTTP_Origin_Server
       ans = 0;
     } else {
       delete compressed;
+      result = NULL;
       ans = ENOMEM;
     }
     return ans;

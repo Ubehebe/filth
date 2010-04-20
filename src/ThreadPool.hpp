@@ -16,12 +16,12 @@
 template<class T> class ThreadPool : public Callback
 {
 public:
-  /** \param f how to make instances of class T (this constructor manages its
-   * own instances)
+  /** \param f how to make instances of class T (this constructor constructs
+   * and destroys its own instances)
    * \param todo what each thread executes
    * \param nthreads number of threads to create
-   * \param sigkill signal to trigger UNSAFE_emerg_yank()
-   */
+   * \param sigkill signal to trigger UNSAFE_emerg_yank(). Default of -1 means
+   * UNSAFE_emerg_yank will not happen. */
   ThreadPool(Factory<T> &f, void (T::*todo)(), int nthreads, int sigkill=-1);
   /** \note The destructor waits for all of the threads in the pool to finish.
    * This is handy because you can enclose a thread pool in curly braces

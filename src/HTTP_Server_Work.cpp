@@ -78,7 +78,7 @@ void HTTP_Server_Work::operator()(Worker *w)
       catch (HTTP_oops e) {
 	outbuf.str("");
 	outbuf.clear();
-	on_parse_err(e.stat, outbuf);
+	on_oops(e.stat, outbuf);
 	outbody = reinterpret_cast<uint8_t const *>(status_strs[e.stat]);
 	outbody_sz = strlen(status_strs[e.stat]);
 	outbuf << Content_Length << outbody_sz << CRLF << CRLF;
@@ -156,8 +156,8 @@ void HTTP_Server_Work::operator()(Worker *w)
 }
 
 // RFC 2616 sec. 5.1: Request-Line = Method SP Request-URI SP HTTP-Version CRLF
-void HTTP_Server_Work::parsereqln(string &reqln, method &meth, string &path,
-				  string &query)
+void HTTP_Server_Work::parsereqln(string const &reqln, method &meth,
+				  string &path, string &query)
 {
   stringstream tmp(reqln);
   tmp >> meth;
@@ -230,7 +230,7 @@ string &HTTP_Server_Work::uri_hex_escape(string &uri)
   return uri;
 }
 
-void HTTP_Server_Work::on_parse_err(status &s, ostream &hdrstream)
+void HTTP_Server_Work::on_oops(status const &s, ostream &hdrstream)
 {
   stat = s;
   hdrstream << HTTP_Version << ' ' << stat << CRLF

@@ -4,7 +4,7 @@
 #include "Work.hpp"
 
 /** \brief Make or find a piece of work.
- * Somewhat like a Factory for pieces of work, but instead of always
+ * \remarks Somewhat like a Factory for pieces of work, but instead of always
  * returning a new piece of work, we could keep an internal map, returning
  * a pointer to a suitable old piece of work if it already exists. */
 class FindWork
@@ -20,7 +20,7 @@ public:
   /** \brief Register a piece of work that did not come from here initially.
    * \return true if registration was successful, false else (for example,
    * we already had a piece of work with that file descriptor)
-   * \note Here is the rationale for this function. Servers typically deal with
+   * \remarks Here is the rationale for this function. Servers typically deal with
    * one kind of "piece of work" but occasionally have to deal with another;
    * for example, an HTTP server occasionally has to act as a client to another
    * server. In this case the server would separately create an object
@@ -29,7 +29,7 @@ public:
   virtual bool register_alien(Work *alien) = 0;
   /** \brief Remove piece of work from internal map.
    * \param fd File descriptor of open connection
-   * \note The intent is for "finished" pieces of work to unregister themselves
+   * \remarks The intent is for "finished" pieces of work to unregister themselves
    * with the FindWork object, then delete themselves. */
   virtual void unregister(int fd) = 0;
   virtual ~FindWork() {}

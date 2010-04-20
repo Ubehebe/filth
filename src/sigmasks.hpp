@@ -8,7 +8,9 @@
  * of the calling thread. */
 namespace sigmasks
 {
+  /** \brief Aliases for commonly used signal masks. */
   enum builtin { BLOCK_ALL, BLOCK_NONE };
+  /** \param b BLOCK_ALL or BLOCK_NONE */
   void sigmask_caller(builtin b);
   /** \param how one of SIG_SETMASK, SIG_BLOCK, SIG_UNBLOCK (see
    * pthread_sigmask documentation)

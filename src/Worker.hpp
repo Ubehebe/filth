@@ -8,6 +8,7 @@
 class Scheduler;
 class FindWork;
 
+/** \brief An object that repeatedly gets work and performs it. */
 class Worker
 {
 public:

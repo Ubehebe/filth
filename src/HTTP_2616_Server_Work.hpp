@@ -18,16 +18,19 @@
 #include "Scheduler.hpp"
 #include "Time_nr.hpp"
 
-/* HTTP_Server_Work is a minimal class for work that typically gets handled
- * by servers that speak HTTP; this class is "big" in that its behavior tries to
- * hew to RFC 2616. */
+/** \brief Contains most of the protocol-specific logic of RFC 2616.
+ * \todo lots
+ */
 class HTTP_2616_Server_Work
   : public HTTP_Server_Work, public Preallocated<HTTP_2616_Server_Work>
 {
 public:
+  /** \param fd open connection
+   * \param m should be Work::read */
   HTTP_2616_Server_Work(int fd, Work::mode m=Work::read);
   ~HTTP_2616_Server_Work();
-  // The caching server should set this.
+  /** \brief The caching server should set this.
+   * \param cache pointer to the cache. */
   static void setcache(Cache<std::string, HTTP_CacheEntry *> *cache);
   void async_setresponse(HTTP_Client_Work *assoc,
 			 structured_hdrs_type const &resphdrs,
@@ -42,7 +45,7 @@ private:
 			std::ostream &hdrstream,
 			uint8_t const *&body,
 			size_t &bodysz);
-  void on_parse_err(HTTP_constants::status &s, std::ostream &hdrstream);
+  void on_oops(HTTP_constants::status const &s, std::ostream &hdrstream);
   void reset();
 
   HTTP_2616_Server_Work(HTTP_2616_Server_Work const&);

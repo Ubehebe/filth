@@ -11,7 +11,7 @@
 #include "FindWork.hpp"
 
 /** \brief The beating heart of a server.
- * When a connection is first established, it goes into the scheduler
+ * \remarks When a connection is first established, it goes into the scheduler
  * until it becomes readable (if it's an incoming, i.e. server-type, connection)
  * or writable (if it's an outgoing, i.e. client-type, connection). It is then
  * put into the job queue. A worker performs the indicated quantum of
@@ -28,6 +28,7 @@ class Scheduler
 public:
   /** \param q where to enqueue pieces of work ready to be worked on
    * \param listenfd the listening socket, which should already be listening
+   * \param fwork how to find/create a piece of work
    * \param pollsz just a hint to the kernel (not a firm limit) about how many
    * connections it should be able to poll at once
    * \param maxevents maximum number of events that will be returned
@@ -44,7 +45,7 @@ public:
    * out of the scheduler each time it becomes ready.
    * \warning Your program will probably crash if you try to schedule() a
    * piece of work that is not actually brand-new. Use reschedule() instead.
-   * \warning using oneshot = false undermines the invariant
+   * \warning Using oneshot = false undermines the invariant
    * that makes reasoning about the scheduler possible: namely, that a piece
    * of work is only in one "place" at a time. If you use oneshot = false, the
    * following could happen: connection X becomes writable;
@@ -54,12 +55,12 @@ public:
    * that is never really going to be taken out--like the listening socket. */
   void schedule(Work *w, bool oneshot=true);
   /** \brief Re-watch an existing piece of work.
-   * \param existing piece of work
+   * \param w existing piece of work
    * \param oneshot if true (default), the piece of work is automatically taken
    * out of the scheduler each time it becomes ready.
    * \warning Your program will probably crash if you try to reschedule() a
    * piece of work that is actually brand-new. Use schedule() instead.
-   * \warning using oneshot = false undermines the invariant
+   * \warning Using oneshot = false undermines the invariant
    * that makes reasoning about the scheduler possible: namely, that a piece
    * of work is only in one "place" at a time. If you use oneshot = false, the
    * following could happen: connection X becomes writable;
@@ -71,7 +72,7 @@ public:
   /** \brief Register a signal handler.
    * \note the signature of handler is constrained by sigaction. */
   void push_sighandler(int signo, void (*handler)(int));
-  bool dowork;
+  bool dowork; //!< Setting to false causes the main loop to fall through
   /** \brief Register a callback tied to a specific file descriptor.
    * For example, a cache module can register an fd with the scheduler
    * that becomes readable whenever a file in the cache changes on disk.

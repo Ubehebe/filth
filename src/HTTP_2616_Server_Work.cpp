@@ -79,18 +79,18 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
    * Note that if we're here, the request body (if any) has encoding either
    * gzip or identity. */
   else if (meth == POST || meth == PUT) {
-    char const *mode = (meth == POST) ? "a" : "w";
-    int err = HTTP_Origin_Server::put(path, req_body, cl_content_enc, mode);
+    int err = HTTP_Origin_Server::putorpost(path, req_body, cl_content_enc,
+					    (meth == POST) ? "a" : "w");
     switch (err) {
     case 0:
       cache->advise_evict(path);
-      throw HTTP_oops(OK);
+      throw HTTP_oops(OK); // To skip the "get"-style handling below
+    case ESPIPE: goto handle_request_domain_socket;
     case ENOENT: throw HTTP_oops(Not_Found);
     case ENOMEM: throw HTTP_oops(Internal_Server_Error);
     case ENOTSUP: throw HTTP_oops(Internal_Server_Error);
     case EACCES: throw HTTP_oops(Forbidden);
     case EISDIR: throw HTTP_oops(Forbidden); // You can't put directories!
-    case ETXTBSY: throw HTTP_oops(Internal_Server_Error);
     default: throw HTTP_oops(Internal_Server_Error);
     }
   }
@@ -149,9 +149,6 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
   else if (err == EACCES) {
     throw HTTP_oops(Forbidden);
   }
-  else if (err == ETXTBSY) {
-    throw HTTP_oops(Conflict);
-  }
   /* TODO: it's bad design for the server to actually be constructing HTML.
    * Use another process, connected via a Unix domain socket. */
   else if (err == EISDIR && HTTP_Origin_Server::dirtoHTML(path, c)==0) {
@@ -168,9 +165,8 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
 
     resp_is_cached = false; // Don't cache directory pages!
   }
-  /* The origin server returns ESPIPE if it stats the file and discovers it's
-   * either a pipe or a socket. We have no use for pipes, though. */
   else if (err == ESPIPE) {
+  handle_request_domain_socket:
     int unixsock;
     if ((unixsock = socket(AF_UNIX, SOCK_STREAM, 0))==-1)
       throw HTTP_oops(Internal_Server_Error);
@@ -337,7 +333,7 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
   return false;
 }
 
-void HTTP_2616_Server_Work::on_parse_err(status &s, ostream &hdrstream)
+void HTTP_2616_Server_Work::on_oops(status const &s, ostream &hdrstream)
 {
   Time_nr &date = dynamic_cast<HTTP_2616_Worker *>(curworker)->date;
   

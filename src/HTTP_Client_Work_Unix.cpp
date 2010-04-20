@@ -6,7 +6,7 @@ using namespace std;
 
 HTTP_Client_Work_Unix::HTTP_Client_Work_Unix(int fd,
 					     HTTP_2616_Server_Work &realclient,
-					     structured_hdrs_type &reqhdrs,
+					     structured_hdrs_type const &reqhdrs,
 					     string const &req_body)
   : HTTP_Client_Work(fd, reqhdrs, req_body), realclient(realclient)
 {

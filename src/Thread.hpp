@@ -18,7 +18,7 @@
 
 /** \brief Wrapper around posix threads to do the most common thing:
  * set up a thread to execute a nullary member function.
- * The constructors provide most of the common thread options, with two
+ * \remarks The constructors provide most of the common thread options, with two
  * exceptions. One is cancelation cleanup handling (pthread_cleanup_push/pop).
  * The reason is that glibc has a long-running bug that makes these functions
  * unreliable. See http://sourceware.org/bugzilla/show_bug.cgi?id=4123.

@@ -14,6 +14,7 @@ class Scheduler; // fwd declaration for ptr
 template<class _Work> class FindWork_prealloc : public FindWork
 {
 public:
+  /** \param prealloc_bytes bytes to preallocate for _Work objects */
   FindWork_prealloc(size_t prealloc_bytes);
   ~FindWork_prealloc();
   Work *operator()(int fd, Work::mode m);

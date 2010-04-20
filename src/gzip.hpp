@@ -5,23 +5,21 @@
 #include <zlib.h>
 
 /** \brief A thin wrapper on top of zlib for doing in-memory (de)compression.
- * This is a class instead of a namespace just in order to hide some stuff;
- * you can't actually make an instance of it.
+ * \note This is a class instead of a namespace just in order to hide some
+ * stuff; you can't actually make an instance of it.
  * \note The zlib documentation says it is thread-safe.
- * \note Usage of the terms "zlib", "gzip", and "deflate" can be confusing.
+ * \remarks Usage of the terms "zlib", "gzip", and "deflate" can be confusing.
  * All of them can refer to formats of byte streams, while only the latter two
  * are valid HTTP/1.1 content-encoding headers. "zlib" is also the name of the
  * library and "deflate" is also the name of the algorithm used by the library.
- * The zlib FAQ (zlib.net/zlib_faq.html) is unequivocal: "Bottom line: use the
- * gzip format for HTTP 1.1 encoding." That is why it is the default in this
- * class. */
+ * The zlib FAQ (zlib.net/zlib_faq.html) is unequivocal:
+ * "Bottom line: use the gzip format for HTTP 1.1 encoding." That is why it is
+ * the default in this class. */
 class gzip
 {
 public:
-  enum format {
-    GZIP, //!< "gzip" byte stream format
-    ZLIB //!< "zlib" byte stream format
-  };
+  /** \brief Byte stream formats. */
+  enum format { GZIP, ZLIB };
   /** \brief Wrapper for zlib's compressBound.
    * Used before compression to get an upper bound on the amount of
    * space we need to allocate to store the compressed bytestream. */
@@ -58,6 +56,23 @@ public:
    */
   static bool uncompress(void *dst, size_t &dstsz, void const *src,
 			 size_t srcsz, format f=GZIP);
+  /** \brief Wrapper for zlib's uncompress, but tries to handle allocation.
+   * In some situations we know how large the uncompressed stream should
+   * be in advance, but when we don't, we use this function. It just tries
+   * to uncompress n bytes into start*n bytes, (start+1)*n bytes, ..., stop*n
+   * bytes, and if the last one fails, it returns NULL.
+   * \todo If we knew more about the DEFLATE algorithm we could probably
+   * provide a better heuristic.
+   * \param resultsz contains the size of the uncompressed buffer on success;
+   * contains 0 otherwise
+   * \param src source buffer
+   * \param srcsz size of source buffer
+   * \param f expected input format. The default, gzip, is usually what you
+   * are dealing with.
+   * \param start start multiple (should probably be 2)
+   * \param stop stop multiple
+   * \return pointer to newly-allocated decompressed buffer on success, NULL
+   * on failure */
   static void *uncompress(size_t &resultsz, void const *src, size_t srcsz,
 			  format f=GZIP, int start=2, int stop=5);
 private:

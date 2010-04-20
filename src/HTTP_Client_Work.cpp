@@ -10,7 +10,7 @@ using namespace std;
 using namespace HTTP_constants;
 using namespace HTTP_parsing;
 
-HTTP_Client_Work::HTTP_Client_Work(int fd, structured_hdrs_type &reqhdrs,
+HTTP_Client_Work::HTTP_Client_Work(int fd, structured_hdrs_type const &reqhdrs,
 				   string const &req_body)
   : HTTP_Work(fd, Work::write)
 {

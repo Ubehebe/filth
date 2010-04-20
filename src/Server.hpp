@@ -32,11 +32,47 @@
 #include "Work.hpp"
 #include "Worker.hpp"
 
+/** \brief A generic server.
+ * \note Rather than expose the main loop to derived classes, we 
+ * allow derived classes to override onstartup() and onshutdown(),
+ * which are called at the beginning and end of the main loop to allow
+ * derived classes to do any necessary setup or cleanup. The idea is that
+ * the server should tear down and rebuild all of its resources every time
+ * through the loop. (An important exception is the listening socket,
+ * which if closed would enter the TIME_WAIT state, preventing an immediate
+ * rebind.) */
 template<class _Work, class _Worker> class Server
 {
 public:
-  /* For network sockets, bindto should be a string of a port number,
-   * like "80". For local sockets, bindto should be a filesystem path. */
+  /** \param domain AF_INET, AF_INET6 or AF_LOCAL
+   * \param mount Directory in the file system to use as the server's root
+   * directory: it should be impossible to see anything outside this
+   * \param bindto for AF_INET or AF_INET6, a human-readable string 
+   * representing a port number, e.g. "80". For AF_LOCAL, a filesystem path.
+   * \param nworkers number of worker threads
+   * \param listenq TCP listen queue size (does this have any effect for
+   * AF_LOCAL? Don't know.)
+   * \param preallocMB size in MB to preallocate for _Work objects
+   * \param ifnam human-readable string of interface to use, e.g.
+   * "eth0" (not for AF_LOCAL)
+   * \param haltsigs signals that should cause the server to do an orderly
+   * shutdown. If NULL, the default signals are SIGINT and SIGTERM.
+   * \param sigdl_int signal to be used internally by the emergency thread
+   * de-deadlock mechanism. Default of -1 means the emergency thread
+   * de-deadlock mechanism is disabled.
+   * \param sigdl_ext signal to be used to trigger the emergency de-deadlock
+   * mechanism. Default of -1 means the emergency de-deadlock mechanism
+   * is disabled.
+   * \param tcp_keepalive_intvl see man 7 tcp. Default of -1 means don't
+   * do anything special.
+   * \param tcp_keepalive_probes see man 7 tcp. Default of -1 means don't
+   * do anything special.
+   * \param tcp_keepalive_time see man 7 tcp. Default of -1 means don't
+   * do anything special.
+   * \param untrusted_uid untrusted user id to execute as, once we are done
+   * with the (possibly privileged) bind
+   * \param untrusted_gid untrusted group id to execute as, once we are done
+   * with the (possibly privileged) bind */
   Server(
 	 int domain,
 	 char const *mount,
@@ -53,18 +89,26 @@ public:
 	 int tcp_keepalive_time=-1,
 	 uid_t untrusted_uid=9999,
 	 gid_t untrusted_gid=9999);
-  /* These are hooks into beginning and end of the server's serve() loop. 
-   * The idea is that the server should tear down and rebuild all its resources
-   * for each loop, because a loop corresponds to a call to ThreadPool's
-   * UNSAFE_emerg_yank routine, which can leave data in really bad shape.
-   * Classes derived from Server that add new resources (e.g. a cache)
-   * should use these callbacks to tear down and rebuild those resources. */
+  /** \brief Derived classes should override this in order to set up the
+   * resources they add to the server. */
   virtual void onstartup() {}
+  /** \brief Derived classes should override this in order to tear down the
+   * resources they add to the server. */
   virtual void onshutdown() {}
   virtual ~Server();
+  /** \brief The main loop. Typical usage is \code Server(...).serve(); \endcode */
   void serve();
+  /** \brief \code doserve(false); \endcode causes the server to fall through
+   * the main loop once it completes.
+   * \param doserve whether to continue serving */
   void doserve(bool doserve) { _doserve = doserve; }
+  /** \brief Attempt to bring the server down in an orderly fashion.
+   * \param ignore dummy variable, required by the type of the function pointer
+   * in sigaction */
   static void halt(int ignore=-1);
+  /** \brief yikes!
+   * \param ignore dummy variable, required by the type of the function pointer
+   * in sigaction */
   static void UNSAFE_emerg_yank_wrapper(int ignore=-1);
 
 private:
@@ -113,7 +157,7 @@ private:
   static const uid_t DANGER_root = 0;
   static Server *theserver;
 protected:
-  Scheduler *sch; // Not a great idea; accessor instead?
+  Scheduler *sch; //!< Protected because derived classes might need access
 };
 
 template<class _Work, class _Worker>
@@ -301,7 +345,6 @@ void Server<_Work, _Worker>::serve()
     socket_bind_listen();
     Work::setlistenfd(listenfd);
     root_safety::root_giveup(untrusted_uid, untrusted_gid);
-    root_safety::untrusted_sanity_checks();
 
   while (_doserve) {
     _Worker::jobq = jobq = new LockFreeQueue<Work *>();

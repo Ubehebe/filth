@@ -11,6 +11,8 @@ using namespace HTTP_constants;
 namespace HTTP_parsing
 {
 
+  /** \brief When to stop parsing a line and report an error.
+   * Default value of -1 means this is disabled. */
   static size_t max_line_len = -1;
 
   void setmaxes(size_t const &max_line_len)

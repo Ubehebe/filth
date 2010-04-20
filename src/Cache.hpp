@@ -1,6 +1,7 @@
 #ifndef CACHE_HPP
 #define CACHE_HPP
 
+#include <iostream> // for bad_alloc
 #include <list>
 #include <unordered_map>
 #include <unordered_set>
@@ -8,6 +9,11 @@
 #include "Locks.hpp"
 #include "logging.h"
 
+/** \brief A generic cache that does its own reference counting.
+ * \remarks The main guarantee is that between a successful call to get()
+ * and the corresponding call to unget(), the requested entry is not
+ * going to go away.
+ * \todo There may be issues with reader-writer lock starvation I don't grasp. */
 template<class Handle, class Stuff, bool Stuff_is_ptr=true> class Cache
 {
   // Wrapper to hold reference counts and sizes.
@@ -34,15 +40,31 @@ template<class Handle, class Stuff, bool Stuff_is_ptr=true> class Cache
   size_t cur, max;
 
   bool evict();
-  bool evict(Handle &h);
+  bool evict(Handle const &h);
 
 public:
-  bool put(Handle &h, Stuff &s, size_t sz);
-  bool get(Handle &h, Stuff &s);
-  void unget(Handle &h);
+  /** \brief Put something into the cache.
+   * \param h handle under which to store it
+   * \param s stuff to store
+   * \param sz size of stuff
+   * \return true if we were able to store the entry, false else (e.g. there
+   * was already an entry under that handle, or not enough space) */
+  bool put(Handle const &h, Stuff &s, size_t sz);
+  /** \brief Get something from the cache.
+   * \param h handle to look up
+   * \param s upon success, a reference to the cache entry
+   * \return true if we found it, false else */
+  bool get(Handle const &h, Stuff &s);
+  /** \brief Tell the cache we are done with an entry.
+   * \param h handle of entry we're done with */
+  void unget(Handle const &h);
+  /** \brief flush the cache. */
   void flush();
-  // Clients can advise an eviction but not force it.
-  void advise_evict(Handle &h);
+  /** \brief Users of the cahce can advise an eviction but not force it.
+   * \param h handle to advise eviction of */
+  void advise_evict(Handle const &h);
+  /** \param sz maximum size of cache, in bytes. The actual size of the cache
+   * could be a bit larger due to bookkeeping. */
   Cache(size_t sz);
   ~Cache();
 };
@@ -60,7 +82,7 @@ Cache<Handle, Stuff, Stuff_is_ptr>::~Cache()
 }
 
 template<class Handle, class Stuff, bool Stuff_is_ptr>
-bool Cache<Handle, Stuff, Stuff_is_ptr>::get(Handle &h, Stuff &s)
+bool Cache<Handle, Stuff, Stuff_is_ptr>::get(Handle const &h, Stuff &s)
 {
   bool ans;
   typename cache_type::iterator it;
@@ -74,7 +96,7 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::get(Handle &h, Stuff &s)
 }
 
 template<class Handle, class Stuff, bool Stuff_is_ptr>
-void Cache<Handle, Stuff, Stuff_is_ptr>::unget(Handle &h)
+void Cache<Handle, Stuff, Stuff_is_ptr>::unget(Handle const &h)
 {
   typename cache_type::iterator it;
   bool doenq, doevict;
@@ -95,7 +117,7 @@ void Cache<Handle, Stuff, Stuff_is_ptr>::unget(Handle &h)
 }
 
 template<class Handle, class Stuff, bool Stuff_is_ptr>
-bool Cache<Handle, Stuff, Stuff_is_ptr>::put(Handle &h, Stuff &s, size_t sz)
+bool Cache<Handle, Stuff, Stuff_is_ptr>::put(Handle const &h, Stuff &s, size_t sz)
 {
   if (sz > max)
     return false;
@@ -116,8 +138,15 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::put(Handle &h, Stuff &s, size_t sz)
       return false;
   }
 
-  _Stuff *_s = new _Stuff(s, sz);
+  _Stuff *_s;
 
+  try {
+  _s = new _Stuff(s, sz);
+  } catch (std::bad_alloc) {
+    __sync_sub_and_fetch(&cur, sz);
+    return false;
+  }
+  
   cachelock.wrlock();
   already = (cache.find(h) != cache.end());
   if (!already)
@@ -160,7 +189,7 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::evict()
 }
 
 template<class Handle, class Stuff, bool Stuff_is_ptr>
-bool Cache<Handle, Stuff, Stuff_is_ptr>::evict(Handle &h)
+bool Cache<Handle, Stuff, Stuff_is_ptr>::evict(Handle const &h)
 {
   typename cache_type::iterator it;
   bool evicted = false;
@@ -180,7 +209,7 @@ bool Cache<Handle, Stuff, Stuff_is_ptr>::evict(Handle &h)
 }
 
 template<class Handle, class Stuff, bool Stuff_is_ptr>
-void Cache<Handle, Stuff, Stuff_is_ptr>::advise_evict(Handle &h)
+void Cache<Handle, Stuff, Stuff_is_ptr>::advise_evict(Handle const &h)
 {
   typename cache_type::iterator it;
   cachelock.rdlock();

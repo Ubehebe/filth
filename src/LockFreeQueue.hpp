@@ -6,22 +6,20 @@
 #include "ConcurrentQueue.hpp"
 #include "Locks.hpp"
 
-/* This is a modified version of the lock-free queue given in 
- * chapter 10 in "The Art of Multiprocessor Programming".
- * In particular, I have added a semaphore in order to implement
- * sleeping in wait_deq (their version gave only a nowait_deq),
- * and I delete the dequeued node in wait_deq and nowait_deq
- * (their version uses Java). I believe that the first change
- * doesn't affect correctness, because we maintain the invariant
- * that the value of the semaphore equals the size of the queue.
- * The second change, however, makes the queue susceptible to the
- * ABA problem: if a node is dequeued and freed, and then is
- * recycled from the heap and put back at the same location
- * on the queue, from the perspective of a thread trying to
- * do an atomic test-and-set it appears that nothing has changed.
- * So, this queue is not actually correct. We could steal the
- * low one or two bits from each pointer to create a simple
- * timestamp, but this would only make the ABA problem rarer,
+/** \brief Incorrect (but rarely so) concurrent queue.
+ * \remarks This is a modified version of the lock-free queue given in chapter
+ * 10 of "The Art of Multiprocessor Programming". In particular, I have added a
+ * semaphore in order to implement sleeping in wait_deq (their version gave only
+ * a nowait_deq), and I delete the dequeued node in wait_deq and nowait_deq
+ * (their version uses Java). I believe that the first change doesn't affect
+ * correctness, because we maintain the invariant that the value of the
+ * semaphore equals the size of the queue. The second change, however, makes
+ * the queue susceptible to the ABA problem: if a node is dequeued and freed,
+ * and then is recycled from the heap and put back at the same location
+ * on the queue, from the perspective of a thread trying to do an atomic
+ * test-and-set it appears that nothing has changed. So, this queue is not
+ * actually correct. We could steal the low one or two bits from each pointer
+ * to create a simple timestamp, but this would only make the ABA problem rarer,
  * not eliminate it. So, caveat emptor. You are welcome to use
  * one of the correct, locked queues. */
 template<class T> class LockFreeQueue : public ConcurrentQueue<T>

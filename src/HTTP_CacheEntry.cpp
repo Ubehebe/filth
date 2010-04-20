@@ -30,7 +30,7 @@ bool HTTP_CacheEntry::response_is_fresh()
   return freshness_lifetime() > current_age();
 }
 
-HTTP_CacheEntry &HTTP_CacheEntry::operator<<(pair<header, string &> p)
+HTTP_CacheEntry &HTTP_CacheEntry::operator<<(std::pair<header, string &> p)
 {
     metadata.wrlock();
     hdrs[static_cast<int>(p.first)] = p.second; // copies p.second
@@ -38,7 +38,7 @@ HTTP_CacheEntry &HTTP_CacheEntry::operator<<(pair<header, string &> p)
     return *this;
 }
 
-HTTP_CacheEntry &HTTP_CacheEntry::operator<<(pair<header, char const *> p)
+HTTP_CacheEntry &HTTP_CacheEntry::operator<<(std::pair<header, char const *> p)
 {
   metadata.wrlock();
   hdrs[static_cast<int>(p.first)] = p.second; // copies p.second

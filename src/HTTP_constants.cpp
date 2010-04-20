@@ -6,11 +6,6 @@
 
 using namespace std;
 
-/* TODO: All the operator>>'s, and certainly all
- * the operator<<'s, work the same way, with some
- * minor details. Is there a way to templatize them
- * while still preserving the neat .def file structure? */
-
 namespace HTTP_constants
 {
   char const *HTTP_Version = "HTTP/1.1";
@@ -75,7 +70,6 @@ namespace HTTP_constants
 #undef DEFINE_ME
   };
 
-  // Output is like "404 Not Found".
   ostream& operator<<(ostream &o, status &s)
   {
     o << status_vals[s] << ' ';
@@ -132,8 +126,6 @@ namespace HTTP_constants
     throw HTTP_oops(Bad_Request);
   }
 
-  /* Value, not reference. Otherwise things like o << Content_Length
-   * would be interpreted as putting an integer into the stream! */
   ostream &operator<<(ostream &o, header h)
   {
     // Dirty trick to replace underscores by hyphens

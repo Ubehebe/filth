@@ -22,11 +22,11 @@ public:
   /** \brief Get a new object from the internal store; if that fails, try to get
    * memory from the OS.
    * \param sz size of the Derived class. Normally not used directly;
-   * \code Derived *d = new Derived(...);\endcode does the right thing. */
+   * \code Derived *d = new Derived(...); \endcode does the right thing. */
   void *operator new(size_t sz);
   /** \brief Return the object to the internal store.
    * \param stuff the object to be deleted. Normally not used directly;
-   * \code Derived *d = new Derived(...); ... delete d;\endcode does the right
+   * \code Derived *d = new Derived(...); ... delete d; \endcode does the right
    * thing.
    * \note The object "returned" to the internal store need not have come from
    * the internal store. */

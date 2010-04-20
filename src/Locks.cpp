@@ -67,8 +67,12 @@ CondVar::~CondVar()
     _LOG_INFO("pthread_cond_destroy: %m");
 }
 
-RWLock::RWLock()
+RWLock::RWLock(int pref)
 {
+  if ((errno = pthread_rwlockattr_init(&_at))!=0)
+    _LOG_INFO("pthread_rwlockattr_init: %m");
+  if ((errno = pthread_rwlockattr_setkind_np(&_at, pref))!=0)
+    _LOG_INFO("pthread_rwlockattr_setkind_np: %m");
   if ((errno = pthread_rwlock_init(&_l, NULL))!=0)
     _LOG_INFO("pthread_rwlock_init: %m");
 }

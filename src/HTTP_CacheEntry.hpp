@@ -20,10 +20,25 @@ namespace HTTP_Origin_Server
 
 std::ostream &operator<<(std::ostream &o, HTTP_CacheEntry &c);
 
+
+/** \brief Wrapper for storing an HTTP response in a cache.
+ * \todo Lots of random crud in here; clean up.
+ * \todo hdrmap_type is a waste; replace with structured_hdrs_type */
 class HTTP_CacheEntry
 {
 public:
-  enum manip { as_HEAD, as_identity };
+  /** \brief Manipulators to change output for this time only. */
+  enum manip {
+    as_HEAD, //!< Suppress response body output
+    as_identity //!< Uncompress response body output
+  };
+  /** \param szondisk size on disk, bytes
+   * \param szincache size in cache, bytes
+   * \param request_time when the cache made this request
+   * \param response_time when this response arrived in cache
+   * \param last_modified Last-Modified header, kept in integer form
+   * \param _buf pointer to response body
+   * \param c response body encoding, either identity or gzip */
   HTTP_CacheEntry(size_t szondisk,
 		  size_t szincache,
 		  time_t request_time,
@@ -32,22 +47,37 @@ public:
 		  uint8_t *_buf,
 		  HTTP_constants::content_coding c);
   ~HTTP_CacheEntry();
-
+  /** \brief Fresh or not, as defined by HTTP standard. */
   bool response_is_fresh();
-  HTTP_constants::content_coding const enc;
-  size_t const szondisk, szincache;
-  time_t last_modified; // Last-Modified header
+  HTTP_constants::content_coding const enc; //!< response body encoding
+  size_t const szondisk; //!< size on disk, bytes
+  size_t const szincache; //!< size in cache, bytes
+  time_t last_modified; //!< Last-Modified header, kept in integer form
+  /** \brief Push a header into the cache entry.
+   * \param p header/string pair
+   * \return reference to the cache entry */
   HTTP_CacheEntry &operator<<(std::pair<HTTP_constants::header,
 			      std::string &> p);
+  /** \brief Push a header into the cache entry.
+   * \param p header/char * pair
+   * \return reference to the cache entry */
   HTTP_CacheEntry &operator<<(std::pair<HTTP_constants::header,
 			      char const *> p);
+  /** \brief Push a status line (represented by just the status) into the cache
+   * entry.
+   * \param stat HTTP status
+   * \return reference to the cache entry */
   HTTP_CacheEntry &operator<<(HTTP_constants::status &stat);
+  /** \brief Accept a manipulator controlling output for just this time.
+   * \param m manipulator
+   * \return reference to the cache entry */
   HTTP_CacheEntry &operator<<(manip m);
-
+  /** \brief Get a pointer to the response buffer. */
   uint8_t const *getbuf();
-  bool use_max_age, use_expires;
-  time_t max_age_value; // max-age directive of Cache-Control header
-  time_t expires_value; // Expires header
+  bool use_max_age; //!< Cache-Control option.
+  bool use_expires; //!< Cache-Control option.
+  time_t max_age_value; //!< max-age directive of Cache-Control header
+  time_t expires_value; //!< Expires header
 private:
   // friend so it can write _buf.
   friend int HTTP_Origin_Server::request(std::string &, HTTP_CacheEntry *&);
@@ -63,7 +93,7 @@ private:
   time_t date_value; // Date header
   time_t age_value; // Age header
   
-  time_t request_time; // When the cache made this request
+  time_t request_time; 
   time_t response_time; // When the cache received the response
 
   HTTP_constants::status stat; // Generates status line
@@ -84,7 +114,9 @@ private:
   time_t resident_time() { return now() - response_time; }
   // These guys are public because certain Cache-Control directives need them.
 public:
+  /** \brief Current age, as defined by the HTTP standard */
   time_t current_age() { return corrected_initial_age() + resident_time(); }
+  /** \brief Freshness lifetime, as defined by the HTTP standard */
   time_t freshness_lifetime()
   {
     return (use_max_age) ? max_age_value : expires_value - date_value;

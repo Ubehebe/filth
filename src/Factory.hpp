@@ -5,6 +5,7 @@
 template<class T> class Factory
 {
 public:
+  /** \brief just call the default constructor. */
   T *operator()() { return new T(); }
 };
 

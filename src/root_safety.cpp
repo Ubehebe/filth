@@ -17,6 +17,7 @@ void root_safety::root_giveup(uid_t untrusted_uid, gid_t untrusted_gid)
     _LOG_FATAL("seteuid %d: %m", untrusted_uid);
     exit(1);
   }
+  untrusted_sanity_checks();
 }
 
 void root_safety::root_getback()

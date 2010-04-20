@@ -7,8 +7,8 @@
 // Forward declarations for pointers
 class Worker;
 
-/** \brief Base class for a "unit of work" in a client or server.
- * A "unit of work" is some reading or writing that needs to be done
+/** \brief A "unit of work" in a client or server.
+ * \remarks A "unit of work" is some reading or writing that needs to be done
  * at an open file descriptor. A worker gets a unit of work and executes it
  * via the operator(). By the time the worker is done executing the piece
  * of work, it has either been rescheduled for another read/write,
@@ -17,15 +17,24 @@ class Worker;
 class Work
 {
 public:
+  /** \brief Should we read or write? */
   enum mode { read, write } m;
   int fd; //!< File descriptor of socket, file, etc.
   bool deleteme; //!< Whether the worker should delete this piece of work.
+  /** \param fd open connection
+   * \param m should the first action be a read or a write?
+   * \param deleteme should the worker delete me (and close my connection)
+   * when I'm done?
+   * \param islisten if I am the listening socket, I should never be closed */
   Work(int fd, mode m, bool deleteme=false, bool islisten=false);
   /** \brief The only function seen by the worker.
    * \param w the current worker, used to pass worker-specific state to the
    * piece of work. */
   virtual void operator()(Worker *w) = 0;
   virtual ~Work();
+  /** \brief Let all work objects know who the listening socket is, so they don't
+   * close it.
+   * \param listenfd the listening socket */
   static void setlistenfd(int listenfd);
 protected:
   /** \brief Read from the socket until we would block.

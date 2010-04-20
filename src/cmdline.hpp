@@ -7,7 +7,7 @@
 #include <string.h>
 
 /** \brief Define and parse command-line options.
- * \note This class is a little awkward since we want to define command-line
+ * \remarks This class is a little awkward since we want to define command-line
  * options in a .def file included by the preprocessor. For example, in foo.def
  * we put
  * \code
