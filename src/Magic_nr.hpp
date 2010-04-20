@@ -16,6 +16,8 @@
 class Magic_nr
 {
   magic_t m;
+  static size_t const bufsz = 20;
+  char buf[bufsz];
 public:
   /** \brief Wrapper for magic_open and magic_load. */
   Magic_nr(int flags=MAGIC_MIME_TYPE, char const *database=NULL)
@@ -34,7 +36,17 @@ public:
   /** \brief Wrapper for magic_file. */
   char const *operator()(char const *filename)
   {
-    return magic_file(m, filename);
+    // Oh my goodness! This is turning out to be more consistent than libmagic.
+    char const *suffix = strrchr(filename, '.');
+    snprintf(buf, bufsz, "text/%s", (suffix == NULL) ? "plain" : suffix+1);
+    _LOG_DEBUG("%s", buf);
+    return buf;
+    
+    
+    /*    char const *provisional = magic_file(m, filename);
+    _LOG_DEBUG("%s: %s", filename, provisional);
+    return (strncmp(provisional, "text/x-c", strlen("text/x-c"))==0)
+    ? "text/css" : provisional; */
   }
   /** \brief Wrapper for magic_setflags. */
   void setflags(int flags)

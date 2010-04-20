@@ -18,8 +18,12 @@ void Work::setlistenfd(int listenfd)
 
 Work::~Work()
 {
-  if (fd != listenfd && close(fd)==-1)
-    _LOG_INFO("close %d: %m", fd);
+  if (fd != listenfd) {
+    if (close(fd)==-1)
+      _LOG_INFO("close %d: %m", fd);
+    else
+      _LOG_DEBUG("close %d", fd);
+  }
 }
 
 int Work::rduntil(std::ostream &inbuf, uint8_t *rdbuf, size_t rdbufsz)

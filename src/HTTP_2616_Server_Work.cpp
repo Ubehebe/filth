@@ -356,9 +356,11 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
     size_t comma;
     /* Because the MIME lookups aren't perfect, if the client has a strong
      * idea about the MIME type of the resource it should be getting, just
-     * play along. */
-    if ((comma = req_hdrs[Accept].find(',')) != string::npos)
+     * play along.
+    if ((comma = req_hdrs[Accept].find(',')) != string::npos) {
       cl_MIME_type = req_hdrs[Accept].substr(0, comma);
+      _LOG_DEBUG("client MIME recommendation %s", cl_MIME_type.c_str());
+      }*/
   }
 
   if (!req_hdrs[Accept_Encoding].empty()) {
