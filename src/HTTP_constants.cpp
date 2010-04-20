@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <string.h>
 
 #include "HTTP_constants.hpp"
@@ -70,7 +71,7 @@ namespace HTTP_constants
 #undef DEFINE_ME
   };
 
-  ostream& operator<<(ostream &o, status &s)
+  ostream& operator<<(ostream &o, status const &s)
   {
     o << status_vals[s] << ' ';
     char const *tmp = status_strs[s];
@@ -95,7 +96,7 @@ namespace HTTP_constants
     throw HTTP_oops(Bad_Request);
   }
 
-  ostream &operator<<(ostream &o, method &m)
+  ostream &operator<<(ostream &o, method const &m)
   {
     return o << method_strs[m];
   }
@@ -116,9 +117,20 @@ namespace HTTP_constants
     string::size_type hyphen = -1;
     while ((hyphen = tmp.find('-', hyphen+1)) != tmp.npos)
       tmp[hyphen] = '_';
+
+    string::size_type start = 0, end = tmp.length()-1;
+    while (isspace(tmp[start]))
+      ++start;
+    while (isspace(tmp[end]))
+      --end;
+
+    tmp = tmp.substr(start, end-start+1);
+    _LOG_DEBUG("%s", tmp.c_str());
     
     for (int j=0; j<num_header; ++j) {
-      if (tmp.find(header_strs[j]) != tmp.npos) {
+      /* We cannot do a substring comparison since some headers are prefixes
+       * of others, e.g. Accept and Accept-Encoding. */
+      if (tmp == header_strs[j]) {
 	h = static_cast<header>(j);
 	return i;
       }

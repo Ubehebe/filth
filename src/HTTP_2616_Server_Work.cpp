@@ -360,8 +360,11 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
      * According to 3.5, the content codings are case insensitive. */
     
     string &tmp = util::tolower(req_hdrs[Accept_Encoding]);
-    if (tmp.find(content_coding_strs[HTTP_constants::gzip]) != tmp.npos)
+    _LOG_DEBUG("%s", tmp.c_str());
+    if (tmp.find(content_coding_strs[HTTP_constants::gzip]) != tmp.npos) {
+      _LOG_DEBUG();
       cl_accept_enc = HTTP_constants::gzip;
+    }
     else if (tmp.find(content_coding_strs[HTTP_constants::identity])
 	     != tmp.npos)
       cl_accept_enc = HTTP_constants::identity;

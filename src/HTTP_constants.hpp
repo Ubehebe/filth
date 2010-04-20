@@ -48,7 +48,7 @@ namespace HTTP_constants
    * \param s Not_Found, Internal_Server_Error, etc.
    * \return reference to stream
    * \note We don't need an operator>> for statuses (yet!) */
-  std::ostream &operator<<(std::ostream &o, status &s);
+  std::ostream &operator<<(std::ostream &o, status const &s);
   /** \brief Parse a method.
    * \param i input stream
    * \param m on success, contains method
@@ -59,7 +59,7 @@ namespace HTTP_constants
    * \param o output stream
    * \param m method to push
    * \return reference to stream */
-  std::ostream &operator<<(std::ostream &o, method &m);
+  std::ostream &operator<<(std::ostream &o, method const &m);
   /** \brief Parse a header name.
    * \param i input stream
    * \param h on success, contains header type

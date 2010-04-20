@@ -1,6 +1,7 @@
 #include <iostream> // just for bad_alloc
 
 #include "gzip.hpp"
+#include "logging.h"
 
 size_t gzip::compressBound(size_t srcsz, gzip::format f)
 { 
@@ -98,7 +99,7 @@ int gzip::README_compress2 (Bytef *dest, uLongf *destLen,
   //   err = deflateInit(&stream, level);
   err = deflateInit2(&stream, level, Z_DEFLATED, 24, 8, Z_DEFAULT_STRATEGY);
   if (err != Z_OK) return err;
-  
+
   err = deflate(&stream, Z_FINISH);
   if (err != Z_STREAM_END) {
     deflateEnd(&stream);

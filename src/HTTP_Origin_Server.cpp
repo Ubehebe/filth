@@ -153,6 +153,7 @@ namespace HTTP_Origin_Server
       funlockfile(fp);
       fclose(fp);
       result = NULL;
+      _LOG_DEBUG();
       return ENOMEM;
     }
 
@@ -190,6 +191,7 @@ namespace HTTP_Origin_Server
     } catch (bad_alloc) {
       free(uncompressed);
       result = NULL;
+      _LOG_DEBUG();
       return ENOMEM;
     }
     
@@ -207,6 +209,7 @@ namespace HTTP_Origin_Server
     } else {
       delete compressed;
       result = NULL;
+      _LOG_DEBUG();
       ans = ENOMEM;
     }
     free(uncompressed);

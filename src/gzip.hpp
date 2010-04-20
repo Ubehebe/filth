@@ -78,12 +78,10 @@ public:
 private:
   /* zlib's compressBound function gives you the upper bound for compressed
    * streams in zlib format, but the headers for the gzip format are a little
-   * bigger. How much bigger? ...Uh...according to Wikipedia, 10 bytes for the
-   * header, 8 bytes for the footer, and some "optional extra headers such as
-   * the file name". I sure hope this is sufficient! I tested it on 1-byte-long files
-   * (where an error would be most likely to show up, since "compressing"
-   * actually increases the file size) and it seemed to work. */
-  static size_t const gzip_hdr_extra = 18;
+   * bigger. How much bigger? I do not know, and it seems to vary by file size.
+   * If you are getting Internal_Server_Errors where the compression is failing,
+   * try adjusting this upward. */
+  static size_t const gzip_hdr_extra = 1<<10;
   gzip();
   static int README_compress2 (Bytef *dest, uLongf *destLen, const Bytef *source,
 			       uLong sourceLen, int level);
