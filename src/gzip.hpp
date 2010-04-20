@@ -78,10 +78,9 @@ public:
 private:
   /* zlib's compressBound function gives you the upper bound for compressed
    * streams in zlib format, but the headers for the gzip format are a little
-   * bigger. How much bigger? I do not know, and it seems to vary by file size.
-   * If you are getting Internal_Server_Errors where the compression is failing,
-   * try adjusting this upward. */
-  static size_t const gzip_hdr_extra = 1<<10;
+   * bigger. How much bigger? I do not know. The below value has been tested
+   * for files of up to 100MB. */
+  static size_t const gzip_hdr_extra = 1<<8;
   gzip();
   static int README_compress2 (Bytef *dest, uLongf *destLen, const Bytef *source,
 			       uLong sourceLen, int level);
