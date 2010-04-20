@@ -9,7 +9,10 @@
 /** \brief Thin wrapper around libmagic.
  * \warning The libmagic documentation I have seen does not mention whether
  * it is thread-safe, so I am assuming it is not ("_nr" means "non-reentrant").
- * Besides, it probably makes sense for each worker to have one of these. */
+ * Besides, it probably makes sense for each worker to have one of these.
+ * \warning libmagic is not infallible! I have seen it give "text/x-c" for a CSS
+ * file, for example. If the client knows the kind of file it wants, perhaps
+ * it's best to trust the client. */
 class Magic_nr
 {
   magic_t m;

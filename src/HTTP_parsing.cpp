@@ -26,6 +26,7 @@ namespace HTTP_parsing
 
     // Get a line until there are no more lines, or we hit the empty line.
     while (getline(input, line, '\r') && line.length() > 0) {
+      _LOG_DEBUG("%s", line.c_str());
       if (max_line_len != -1 && line.length() > max_line_len)
 	throw HTTP_oops(Bad_Request);
       /* If the line isn't properly terminated, save it and report that we

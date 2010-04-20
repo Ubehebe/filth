@@ -130,7 +130,11 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
     /* Any header that requires thread-safe state to construct (like
      * the MIME lookup) gets pushed here. */
     *c << stat;
-    *c << make_pair(Content_Type, MIME(path.c_str()));
+    /* Because the MIME lookups aren't perfect, if the client has a strong
+     * idea about the MIME type of the resource it should be getting, just
+     * play along. */
+    *c << make_pair(Content_Type,  (cl_MIME_type.empty()) 
+		    ? MIME(path.c_str()) : cl_MIME_type.c_str());
     *c << make_pair(Date, date.print());
     *c << make_pair(Last_Modified, date.print(c->last_modified));
     c->use_expires = true;
@@ -199,7 +203,6 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
   }
   // General-purpose error.
   else {
-    _LOG_DEBUG("%s", strerror(err));
     throw HTTP_oops(Internal_Server_Error);
   }
 
@@ -285,13 +288,11 @@ bool HTTP_2616_Server_Work::cache_get(string &path, HTTP_CacheEntry *&c)
 	  if (cl_cache_control.isset(cc::use_max_stale)) {
 	    if (c->current_age() - c->freshness_lifetime()
 		<= cl_cache_control.max_stale) {
-	      _LOG_DEBUG();
 	      goto cache_ok;
 	    } else {
 	      goto cache_no;
 	    }
 	  } else {
-	    _LOG_DEBUG();
 	    goto cache_ok;
 	  }
 	} else {
@@ -351,6 +352,15 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
   if (path == "/")
     path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
 
+  if (!req_hdrs[Accept].empty()) {
+    size_t comma;
+    /* Because the MIME lookups aren't perfect, if the client has a strong
+     * idea about the MIME type of the resource it should be getting, just
+     * play along. */
+    if ((comma = req_hdrs[Accept].find(',')) != string::npos)
+      cl_MIME_type = req_hdrs[Accept].substr(0, comma);
+  }
+
   if (!req_hdrs[Accept_Encoding].empty()) {
     /* 14.3: "If an Accept-Encoding field is present in a request, and if the
      * server cannot send a response which is acceptable to the Accept-Encoding
@@ -360,9 +370,7 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
      * According to 3.5, the content codings are case insensitive. */
     
     string &tmp = util::tolower(req_hdrs[Accept_Encoding]);
-    _LOG_DEBUG("%s", tmp.c_str());
     if (tmp.find(content_coding_strs[HTTP_constants::gzip]) != tmp.npos) {
-      _LOG_DEBUG();
       cl_accept_enc = HTTP_constants::gzip;
     }
     else if (tmp.find(content_coding_strs[HTTP_constants::identity])
