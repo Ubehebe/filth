@@ -1,13 +1,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "logging.h"
+#include "CachingServer.hpp"
 #include "HTTP_2616_Server_Work.hpp"
 #include "HTTP_2616_Worker.hpp"
 #include "HTTP_CacheEntry.hpp"
 #include "HTTP_cmdline.hpp"
 #include "HTTP_parsing.hpp"
-#include "CachingServer.hpp"
+#include "logging.h"
+#include "mime_types.hpp"
 
 using HTTP_cmdline::c;
 
@@ -23,6 +24,7 @@ int main(int argc, char **argv)
   atexit(logatexit);
   _LOG_INFO("starting");
   HTTP_cmdline::cmdlinesetup(argc, argv);
+  mime_types::lookup.init(c.svals[HTTP_cmdline::mimedb]);
   HTTP_Server_Work::setmaxes(c.ivals[HTTP_cmdline::max_req_uri],
 			     c.ivals[HTTP_cmdline::max_req_body] * (1<<20));
   HTTP_parsing::setmaxes(c.ivals[HTTP_cmdline::max_req_hdr]);

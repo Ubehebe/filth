@@ -130,7 +130,7 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
     /* Any header that requires thread-safe state to construct (like
      * the MIME lookup) gets pushed here. */
     *c << stat;
-    *c << make_pair(Content_Type, mime_types::m(path));
+    *c << make_pair(Content_Type, mime_types::lookup(path));
     *c << make_pair(Date, date.print());
     *c << make_pair(Last_Modified, date.print(c->last_modified));
     c->use_expires = true;

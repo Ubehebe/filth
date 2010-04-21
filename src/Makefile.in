@@ -161,7 +161,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
+AM_CPPFLAGS = -D $(LOG)
 BASE = gzip.cpp Locks.cpp root_safety.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
 	Worker.cpp Time_nr.cpp util.cpp mime_types.cpp
 

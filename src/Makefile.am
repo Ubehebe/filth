@@ -2,7 +2,7 @@ bin_PROGRAMS=filth
 
 # Just so we can say e.g. "make LOG=_LOG_DEBUG" on the command line.
 LOG ?= _LOG_FATAL
-AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
+AM_CPPFLAGS = -D $(LOG)
 
 BASE=gzip.cpp Locks.cpp root_safety.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
 	Worker.cpp Time_nr.cpp util.cpp mime_types.cpp

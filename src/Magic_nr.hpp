@@ -10,9 +10,12 @@
  * \warning The libmagic documentation I have seen does not mention whether
  * it is thread-safe, so I am assuming it is not ("_nr" means "non-reentrant").
  * Besides, it probably makes sense for each worker to have one of these.
- * \warning libmagic is not infallible! I have seen it give "text/x-c" for a CSS
- * file, for example. If the client knows the kind of file it wants, perhaps
- * it's best to trust the client. */
+ * \warning I am not using this class right now, because I have discovered that
+ * libmagic is not all that reliable. I have seen it give CSS files a MIME type of
+ * text/x-c, for example, which causes some browsers not to load the style
+ * sheet, a major problem. Servers are probably better off with the mime_types
+ * namespace, which takes a different approach, assigning MIME types based
+ * on filename suffixes, and only using this class as a fallback, if at all. */
 class Magic_nr
 {
   magic_t m;

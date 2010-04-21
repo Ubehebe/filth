@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string>
 #include <string.h>
-#include <iostream>
 
 #include "logging.h"
 #include "mime_types.hpp"
@@ -12,10 +11,16 @@ using namespace std;
 
 namespace mime_types
 {
-  char const *_mime_types::fallback = "application/octet-stream";
-  _mime_types::_mime_types()
+  unordered_map<string, string> _mime_types::types;
+  void _mime_types::init(char const *mimedb, char const *fallback_type)
   {
-    fstream f("/etc/mime.types", fstream::in);
+    this->fallback_type = fallback_type;
+    ifstream f(mimedb, ifstream::in);
+    if (f.fail()) {
+      _LOG_DEBUG("could not open MIME database %s for reading, exiting",
+		 mimedb);
+      exit(1);
+    }
     string line;
     while (getline(f, line)) {
       if (line.length() == 0 || line[0] == '#')
@@ -34,12 +39,9 @@ namespace mime_types
   {
     size_t dot;
     if ((dot = filename.rfind('.'))==string::npos)
-      return fallback;
+      return fallback_type;
     unordered_map<string, string>::iterator it;
-    if ((it = types.find(filename.substr(dot+1)))==types.end()) {
-      _LOG_DEBUG("not found, returning %s", fallback);
-      return fallback;
-    }
-    return it->second.c_str();
+    return ((it = types.find(filename.substr(dot+1)))==types.end())
+      ? fallback_type : it->second.c_str();
   }
 };
