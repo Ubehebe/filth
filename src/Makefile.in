@@ -47,7 +47,8 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = gzip.$(OBJEXT) Locks.$(OBJEXT) root_safety.$(OBJEXT) \
 	Scheduler.$(OBJEXT) sigmasks.$(OBJEXT) Work.$(OBJEXT) \
-	Worker.$(OBJEXT) Time_nr.$(OBJEXT) util.$(OBJEXT)
+	Worker.$(OBJEXT) Time_nr.$(OBJEXT) util.$(OBJEXT) \
+	mime_types.$(OBJEXT)
 am_filth_OBJECTS = $(am__objects_1) HTTP_CacheEntry.$(OBJEXT) \
 	HTTP_Client_Work.$(OBJEXT) HTTP_Client_Work_Unix.$(OBJEXT) \
 	HTTP_cmdline.$(OBJEXT) HTTP_constants.$(OBJEXT) \
@@ -162,7 +163,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = -D $(LOG) -D _COLLECT_STATS
 BASE = gzip.cpp Locks.cpp root_safety.cpp Scheduler.cpp sigmasks.cpp Work.cpp \
-	Worker.cpp Time_nr.cpp util.cpp
+	Worker.cpp Time_nr.cpp util.cpp mime_types.cpp
 
 filth_SOURCES = $(BASE) HTTP_CacheEntry.cpp HTTP_Client_Work.cpp \
 	HTTP_Client_Work_Unix.cpp \
@@ -269,6 +270,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Work.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Worker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gzip.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mime_types.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/root_safety.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sigmasks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@

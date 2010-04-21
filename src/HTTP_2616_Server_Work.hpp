@@ -86,7 +86,6 @@ private:
   };
   cc cl_cache_control;
   HTTP_constants::content_coding cl_accept_enc, cl_content_enc;
-  std::string cl_MIME_type;
   size_t cl_max_fwds;
 };
 

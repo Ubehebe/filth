@@ -19,6 +19,7 @@
 #include "HTTP_Client_Work_Unix.hpp"
 #include "HTTP_typedefs.hpp"
 #include "logging.h"
+#include "mime_types.hpp"
 #include "ServerErrs.hpp"
 #include "util.hpp"
 
@@ -48,7 +49,6 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
 					    size_t &bodysz)
 {
   // We know the worker is an HTTP_2616_Worker. Grab its state.
-  Magic_nr &MIME = dynamic_cast<HTTP_2616_Worker *>(curworker)->MIME;
   Time_nr &date = dynamic_cast<HTTP_2616_Worker *>(curworker)->date;
 
   browse_req(req_hdrs, req_body);
@@ -130,11 +130,7 @@ void HTTP_2616_Server_Work::prepare_response(structured_hdrs_type &req_hdrs,
     /* Any header that requires thread-safe state to construct (like
      * the MIME lookup) gets pushed here. */
     *c << stat;
-    /* Because the MIME lookups aren't perfect, if the client has a strong
-     * idea about the MIME type of the resource it should be getting, just
-     * play along. */
-    *c << make_pair(Content_Type,  (cl_MIME_type.empty()) 
-		    ? MIME(path.c_str()) : cl_MIME_type.c_str());
+    *c << make_pair(Content_Type, mime_types::m(path));
     *c << make_pair(Date, date.print());
     *c << make_pair(Last_Modified, date.print(c->last_modified));
     c->use_expires = true;
@@ -351,17 +347,6 @@ void HTTP_2616_Server_Work::browse_req(structured_hdrs_type &req_hdrs,
   
   if (path == "/")
     path = HTTP_cmdline::c.svals[HTTP_cmdline::default_resource];
-
-  if (!req_hdrs[Accept].empty()) {
-    size_t comma;
-    /* Because the MIME lookups aren't perfect, if the client has a strong
-     * idea about the MIME type of the resource it should be getting, just
-     * play along.
-    if ((comma = req_hdrs[Accept].find(',')) != string::npos) {
-      cl_MIME_type = req_hdrs[Accept].substr(0, comma);
-      _LOG_DEBUG("client MIME recommendation %s", cl_MIME_type.c_str());
-      }*/
-  }
 
   if (!req_hdrs[Accept_Encoding].empty()) {
     /* 14.3: "If an Accept-Encoding field is present in a request, and if the
