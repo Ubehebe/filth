@@ -12,6 +12,7 @@ using namespace std;
 namespace mime_types
 {
   unordered_map<string, string> _mime_types::types;
+  char const *_mime_types::fallback_type;
   void _mime_types::init(char const *mimedb, char const *fallback_type)
   {
     this->fallback_type = fallback_type;

@@ -173,6 +173,7 @@ void HTTP_Server_Work::parsereqln(string const &reqln, method &meth,
 void HTTP_Server_Work::parseuri(string &uri, string &path, string &query)
 {
   // TODO: throws bad request for proxy-type resources. Support?
+  _LOG_DEBUG("%s", uri.c_str());
 
   if (max_req_uri != -1 && uri.length() > max_req_uri)
     throw HTTP_oops(Request_URI_Too_Long);

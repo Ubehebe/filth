@@ -13,7 +13,7 @@ namespace mime_types
   class _mime_types
   {
     static std::unordered_map<std::string, std::string> types;
-    char const *fallback_type;
+    static char const *fallback_type;
   public:
     /** \brief Parse the MIME database into a constant-time lookup table.
      * \param mimedb path to CUPS MIME database
