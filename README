@@ -1,0 +1,4 @@
+This is Filth, an experimental HTTP/1.1-compliant server I wrote in spring 2010.
+
+It's not recommended for production use; in fact, the build process is broken.
+The plan is to port it to Java to take advantage of the superior libraries.
